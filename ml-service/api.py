@@ -11,6 +11,8 @@ import numpy as np
 import joblib
 import os
 
+from database import get_db, PredictionRecord
+
 # --- App Setup ---
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
@@ -214,6 +216,40 @@ def predict():
                 'estimated_emi': round(float(data['LoanAmount']) / float(data['LoanTerm']), 2),
             }
         }
+
+        # Try saving to PostgreSQL database
+        db = get_db()
+        if db:
+            try:
+                db_record = PredictionRecord(
+                    age=data.get('Age'),
+                    income=data.get('Income'),
+                    loan_amount=data.get('LoanAmount'),
+                    credit_score=data.get('CreditScore'),
+                    months_employed=data.get('MonthsEmployed'),
+                    num_credit_lines=data.get('NumCreditLines'),
+                    interest_rate=data.get('InterestRate'),
+                    loan_term=data.get('LoanTerm'),
+                    dti_ratio=data.get('DTIRatio'),
+                    education=data.get('Education'),
+                    employment_type=data.get('EmploymentType'),
+                    marital_status=data.get('MaritalStatus'),
+                    has_mortgage=data.get('HasMortgage'),
+                    has_dependents=data.get('HasDependents'),
+                    loan_purpose=data.get('LoanPurpose'),
+                    has_cosigner=data.get('HasCoSigner'),
+                    prediction=prediction,
+                    default_probability=float(probability),
+                    risk_category=risk_category
+                )
+                db.add(db_record)
+                db.commit()
+                print("[DB] Prediction saved successfully.")
+            except Exception as db_e:
+                print(f"[DB ERROR] Failed to save prediction: {db_e}")
+                db.rollback()
+            finally:
+                db.close()
 
         return jsonify(response)
 

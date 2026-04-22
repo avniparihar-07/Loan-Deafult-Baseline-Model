@@ -235,7 +235,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           data: {
             labels: ['0', '0.2', '0.4', '0.6', '0.8', '1.0'],
             datasets: [
-              { label: 'LoanGuard LR', data: [0, 0.35, 0.62, 0.81, 0.92, 1.0], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.4 },
+              { label: 'GroundZero LR', data: [0, 0.35, 0.62, 0.81, 0.92, 1.0], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.4 },
               { label: 'Random', data: [0, 0.2, 0.4, 0.6, 0.8, 1.0], borderColor: '#E85475', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0 }
             ]
           },
@@ -974,7 +974,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 <div className="card fade-up">
                   <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Model ROC Curve (approximated)</div></div>
                   <div style={{display:'flex',justifyContent:'center',gap:'16px',fontSize:'11px',color:'var(--text3)',marginBottom:'10px'}}>
-                    <span style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{width:'10px',height:'10px',border:'2px solid var(--text)',background:'transparent'}}></span> LoanGuard LR (AUC=0.760)</span>
+                    <span style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{width:'10px',height:'10px',border:'2px solid var(--text)',background:'transparent'}}></span> GroundZero LR (AUC=0.760)</span>
                     <span style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{width:'10px',height:'10px',border:'2px dashed #E85475',background:'transparent'}}></span> Random (AUC=0.500)</span>
                   </div>
                   <div style={{height:'240px',position:'relative'}}><canvas id="cht-roc-curve"></canvas></div>

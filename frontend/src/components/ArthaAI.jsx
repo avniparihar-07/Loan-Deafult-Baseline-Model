@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 export default function ArthaAI({ isOpen, onClose }) {
   const [messages, setMessages] = useState([
-    { role: 'bot', text: 'Hello! I am Artha, your LoanGuard AI assistant. How can I help you today?' }
+    { role: 'bot', text: 'Hello! I am Artha, your GroundZero AI assistant. How can I help you today?' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);

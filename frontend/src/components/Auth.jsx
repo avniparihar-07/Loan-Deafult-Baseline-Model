@@ -17,9 +17,9 @@ export default function Auth({ onLogin, theme, toggleTheme }) {
             
             <div className="ah-z">
               <div className="brand">
-                <div className="brand-mark">L</div>
+                <div className="brand-mark">G</div>
                 <div>
-                  <div className="brand-name">Loan<em>Guard</em></div>
+                  <div className="brand-name">Ground<em>Zero</em></div>
                   <div className="brand-tag">Default Risk Intelligence</div>
                 </div>
               </div>
@@ -122,7 +122,7 @@ export default function Auth({ onLogin, theme, toggleTheme }) {
             </button>
 
             <div className="auth-link">
-              {isSignup ? 'Have an account?' : 'New to LoanGuard?'} 
+              {isSignup ? 'Have an account?' : 'New to GroundZero?'} 
               <a onClick={() => setIsSignup(!isSignup)}> {isSignup ? 'Sign in' : 'Create Account'}</a>
             </div>
           </div>

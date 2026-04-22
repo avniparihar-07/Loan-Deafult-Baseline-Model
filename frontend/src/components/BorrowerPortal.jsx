@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import ArthaAI from './ArthaAI';
 import { calcRisk, buildSched, fmt, fmtK } from '../model';
@@ -6,9 +6,9 @@ import { calcRisk, buildSched, fmt, fmtK } from '../model';
 export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [page, setPage] = useState('bpg-apply');
   const [formData, setFormData] = useState({
-    age: 35, credit: 650, income: 820000, loanAmt: 500000, dti: 0.35, lines: 3,
-    purpose: 'other', term: 24, rate: 12.99, empType: 'full', empl: 24,
-    edu: 'bach', marital: 'married', state: 'MH', extLoanAmt: 0, extEmi: 0,
+    age: '', credit: '', income: '', loanAmt: '', dti: '', lines: '',
+    purpose: 'other', term: 24, rate: '', empType: 'full', empl: '',
+    edu: 'bach', marital: 'married', state: '', extLoanAmt: '', extEmi: '',
     customPurpose: '', customTerm: '', extBank: '', extLoanType: 'personal'
   });
   const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
@@ -18,38 +18,77 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const update = (k, v) => setFormData(prev => ({ ...prev, [k]: v }));
   const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v }));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.loanAmt) { alert('Please enter a Loan Amount'); return; }
 
     const hasExtLoan = flags.extloan === 'Y';
     const extAmt = hasExtLoan ? formData.extLoanAmt : 0;
     const extEmi = hasExtLoan ? formData.extEmi : 0;
-    
+
     let adjustedD = { ...formData };
     if (hasExtLoan) {
       const monthlyInc = formData.income / 12 || 1;
       adjustedD.dti = Math.min(formData.dti + (extEmi / monthlyInc), 0.99);
       adjustedD.lines = formData.lines + 1;
     }
-    
-    const bF = { 
-      mort: (flags.mort === 'Y' || (hasExtLoan && formData.extLoanType === 'home')) ? 'Y' : 'N', 
-      dep: flags.dep, 
-      co: flags.co 
+
+    const eduMap = { hs: "High School", bach: "Bachelor's", mast: "Master's", phd: "PhD" };
+    const empMap = { full: "Full-time", part: "Part-time", self: "Self-employed", unemployed: "Unemployed" };
+    const maritalMap = { single: "Single", married: "Married", divorced: "Divorced" };
+    const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", other: "Other", custom: "Other" };
+
+    const payload = {
+      Age: adjustedD.age,
+      Income: adjustedD.income,
+      LoanAmount: adjustedD.loanAmt,
+      CreditScore: adjustedD.credit,
+      MonthsEmployed: adjustedD.empl,
+      NumCreditLines: adjustedD.lines,
+      InterestRate: adjustedD.rate,
+      LoanTerm: parseInt(adjustedD.term) || 24,
+      DTIRatio: adjustedD.dti,
+      Education: eduMap[adjustedD.edu] || "Bachelor's",
+      EmploymentType: empMap[adjustedD.empType] || "Full-time",
+      MaritalStatus: maritalMap[adjustedD.marital] || "Single",
+      HasMortgage: flags.mort === 'Y' ? "Yes" : "No",
+      HasDependents: flags.dep === 'Y' ? "Yes" : "No",
+      LoanPurpose: purposeMap[adjustedD.purpose] || "Other",
+      HasCoSigner: flags.co === 'Y' ? "Yes" : "No",
     };
 
-    const prob = calcRisk(adjustedD, bF);
-    const pct = Math.round(prob * 100);
-    const level = prob < 0.3 ? 'low' : prob < 0.6 ? 'med' : 'high';
-    
-    const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
-    const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
-    const riskDelta = hasExtLoan ? (pct - pctWithout) : 0;
+    try {
+      const res = await fetch('http://localhost:5000/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    const sched = buildSched(formData.loanAmt, formData.rate, formData.term);
-    
-    setResult({ pct, level, sched, prob, hasExtLoan, extAmt, extEmi, pctWithout, riskDelta, adjustedD });
-    setPage('bpg-status');
+      if (!res.ok) throw new Error('API error');
+      const apiResult = await res.json();
+
+      const prob = apiResult.default_probability;
+      const pct = Math.round(prob * 100);
+      const level = prob < 0.3 ? 'low' : prob < 0.6 ? 'med' : 'high';
+      const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
+      const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
+      const riskDelta = hasExtLoan ? (pct - pctWithout) : 0;
+      const sched = buildSched(formData.loanAmt, formData.rate, formData.term);
+
+      setResult({ pct, level, sched, prob, hasExtLoan, extAmt, extEmi, pctWithout, riskDelta, adjustedD });
+      setPage('bpg-status');
+    } catch (err) {
+      // Fallback to local model if API is unavailable
+      console.warn('[GroundZero] API unreachable, using local model fallback:', err);
+      const prob = calcRisk(adjustedD, { mort: flags.mort === 'Y' || (hasExtLoan && formData.extLoanType === 'home') ? 'Y' : 'N', dep: flags.dep, co: flags.co });
+      const pct = Math.round(prob * 100);
+      const level = prob < 0.3 ? 'low' : prob < 0.6 ? 'med' : 'high';
+      const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
+      const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
+      const riskDelta = hasExtLoan ? (pct - pctWithout) : 0;
+      const sched = buildSched(formData.loanAmt, formData.rate, formData.term);
+      setResult({ pct, level, sched, prob, hasExtLoan, extAmt, extEmi, pctWithout, riskDelta, adjustedD });
+      setPage('bpg-status');
+    }
   };
 
   const [liveData, setLiveData] = useState({ btc: null, eth: null, loading: true });
@@ -119,7 +158,47 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                   <div>
                     <div className="flab">State / Region</div>
                     <select className="fselect" value={formData.state} onChange={e => update('state', e.target.value)}>
-                      <option value="MH">Maharashtra</option><option value="DL">Delhi</option><option value="KA">Karnataka</option><option value="TN">Tamil Nadu</option><option value="GJ">Gujarat</option>
+                      <option value="">Select State / UT…</option>
+                      <optgroup label="States">
+                        <option value="AP">Andhra Pradesh</option>
+                        <option value="AR">Arunachal Pradesh</option>
+                        <option value="AS">Assam</option>
+                        <option value="BR">Bihar</option>
+                        <option value="CG">Chhattisgarh</option>
+                        <option value="GA">Goa</option>
+                        <option value="GJ">Gujarat</option>
+                        <option value="HR">Haryana</option>
+                        <option value="HP">Himachal Pradesh</option>
+                        <option value="JH">Jharkhand</option>
+                        <option value="KA">Karnataka</option>
+                        <option value="KL">Kerala</option>
+                        <option value="MP">Madhya Pradesh</option>
+                        <option value="MH">Maharashtra</option>
+                        <option value="MN">Manipur</option>
+                        <option value="ML">Meghalaya</option>
+                        <option value="MZ">Mizoram</option>
+                        <option value="NL">Nagaland</option>
+                        <option value="OD">Odisha</option>
+                        <option value="PB">Punjab</option>
+                        <option value="RJ">Rajasthan</option>
+                        <option value="SK">Sikkim</option>
+                        <option value="TN">Tamil Nadu</option>
+                        <option value="TS">Telangana</option>
+                        <option value="TR">Tripura</option>
+                        <option value="UP">Uttar Pradesh</option>
+                        <option value="UK">Uttarakhand</option>
+                        <option value="WB">West Bengal</option>
+                      </optgroup>
+                      <optgroup label="Union Territories">
+                        <option value="AN">Andaman &amp; Nicobar Islands</option>
+                        <option value="CH">Chandigarh</option>
+                        <option value="DN">Dadra &amp; Nagar Haveli and Daman &amp; Diu</option>
+                        <option value="DL">Delhi (NCT)</option>
+                        <option value="JK">Jammu &amp; Kashmir</option>
+                        <option value="LA">Ladakh</option>
+                        <option value="LD">Lakshadweep</option>
+                        <option value="PY">Puducherry</option>
+                      </optgroup>
                     </select>
                   </div>
                   <div>
@@ -226,16 +305,56 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         <input type="number" className="finput" value={formData.extEmi} onChange={e => update('extEmi', +e.target.value)} />
                       </div>
                       <div>
-                        <div className="flab">Bank Name</div>
-                        <select className="fselect" value={formData.extBank} onChange={e => update('extBank', e.target.value)}>
-                          <option value="">Select bank…</option><option>SBI</option><option>HDFC Bank</option><option>ICICI Bank</option><option>Other</option>
-                        </select>
+                        <div className="flab">Interest Rate (% p.a.)</div>
+                        <input type="number" step="0.01" className="finput" placeholder="e.g. 10.5" value={formData.extRate || ''} onChange={e => update('extRate', e.target.value)} />
                       </div>
                       <div>
-                        <div className="flab">Loan Type</div>
-                        <select className="fselect" value={formData.extLoanType} onChange={e => update('extLoanType', e.target.value)}>
-                          <option value="personal">Personal Loan</option><option value="home">Home Loan</option><option value="auto">Auto/Vehicle Loan</option><option value="business">Business Loan</option><option value="other">Other</option>
-                        </select>
+                        <div className="flab">Bank Name <span className="combo-tag">+ Custom</span></div>
+                        <div className="combo-field">
+                          <select className="combo-select" value={formData.extBank} onChange={e => update('extBank', e.target.value)}>
+                            <option value="">Select bank...</option>
+                            <option value="SBI">SBI</option>
+                            <option value="HDFC Bank">HDFC Bank</option>
+                            <option value="ICICI Bank">ICICI Bank</option>
+                            <option value="Axis Bank">Axis Bank</option>
+                            <option value="Kotak Mahindra Bank">Kotak Mahindra Bank</option>
+                            <option value="PNB">Punjab National Bank</option>
+                            <option value="Bank of Baroda">Bank of Baroda</option>
+                            <option value="Canara Bank">Canara Bank</option>
+                            <option value="Union Bank">Union Bank of India</option>
+                            <option value="IDFC First Bank">IDFC First Bank</option>
+                            <option value="IndusInd Bank">IndusInd Bank</option>
+                            <option value="Yes Bank">Yes Bank</option>
+                            <option value="custom">Enter manually...</option>
+                          </select>
+                          <input
+                            className={`combo-manual ${formData.extBank === 'custom' ? 'show' : ''}`}
+                            placeholder="Enter bank name..."
+                            value={formData.extBankCustom || ''}
+                            onChange={e => update('extBankCustom', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flab">Loan Purpose <span className="combo-tag">+ Custom</span></div>
+                        <div className="combo-field">
+                          <select className="combo-select" value={formData.extLoanType} onChange={e => update('extLoanType', e.target.value)}>
+                            <option value="personal">Personal Loan</option>
+                            <option value="home">Home Loan</option>
+                            <option value="auto">Auto/Vehicle Loan</option>
+                            <option value="education">Education Loan</option>
+                            <option value="business">Business Loan</option>
+                            <option value="gold">Gold Loan</option>
+                            <option value="other">Other</option>
+                            <option value="custom">Enter manually...</option>
+                          </select>
+                          <input
+                            className={`combo-manual ${formData.extLoanType === 'custom' ? 'show' : ''}`}
+                            placeholder="e.g. Agriculture Loan, LAP..."
+                            value={formData.extLoanTypeCustom || ''}
+                            onChange={e => update('extLoanTypeCustom', e.target.value)}
+                          />
+                        </div>
                       </div>
                       {(formData.extLoanAmt > 0 || formData.extEmi > 0) && (
                         <div style={{gridColumn:'1/-1',padding:'10px 14px',background:'rgba(201,151,60,0.08)',border:'1px solid rgba(201,151,60,0.18)',borderRadius:'9px',fontSize:'12px',color:'var(--text2)'}}>
@@ -271,7 +390,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                 <div>
                   <div className="bstatus-hero">
                     <div className="bsh-t">Application Submitted</div>
-                    <div className="bsh-s">Assessed by LoanGuard LR Model · ROC-AUC 0.760 · {new Date().toLocaleString()}</div>
+                    <div className="bsh-s">Assessed by GroundZero LR Model · ROC-AUC 0.760 · {new Date().toLocaleString()}</div>
                     <div className="bsh-chips">
                       <span className={`bpill ${result.level==='low'?'bp-teal':result.level==='med'?'bp-gold':'bp-rose'}`}>{result.level==='low'?'✅ Likely Approved':result.level==='med'?'⚠️ Under Review':'❌ High Risk'}</span>
                       <span className="bpill bp-sky">₹{fmt(formData.loanAmt)} · {formData.purpose === 'custom' ? formData.customPurpose : formData.purpose}</span>
