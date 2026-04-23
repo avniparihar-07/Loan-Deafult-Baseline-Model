@@ -6,3 +6,4 @@ numpy
 joblib
 SQLAlchemy
 psycopg2-binary
+gunicorn
