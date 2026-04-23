@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import ArthaAI from './ArthaAI';
 import { calcRisk, buildSched, fmt, fmtK } from '../model';
@@ -14,6 +14,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
   const [result, setResult] = useState(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
+  const [expandSched, setExpandSched] = useState(false);
 
   const update = (k, v) => setFormData(prev => ({ ...prev, [k]: v }));
   const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v }));
@@ -54,6 +56,13 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       HasDependents: flags.dep === 'Y' ? "Yes" : "No",
       LoanPurpose: purposeMap[adjustedD.purpose] || "Other",
       HasCoSigner: flags.co === 'Y' ? "Yes" : "No",
+      HasExistingLoan: flags.extloan === 'Y' ? "Yes" : "No",
+      ExistingBank: formData.bank === 'custom' ? formData.customBank : formData.bank,
+      ExistingRate: formData.extRate || 0,
+      ExistingPurpose: formData.extPurpose === 'custom' ? formData.customExtPurpose : formData.extPurpose,
+      FullName: `${user?.first} ${user?.last}`.trim() || "Anonymous",
+      Email: user?.email,
+      State: formData.state || 'MH'
     };
 
     try {
@@ -126,6 +135,9 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
         <div className="page-content" style={{ padding: '26px' }}>
           {page === 'bpg-apply' && (
             <div className="fade-in">
+            <div style={{ marginBottom: '24px' }}>
+              <p className="pg-sub" style={{ fontSize: '18px' }}>Welcome, <strong style={{color:'var(--gold)'}}>{user?.first} {user?.last}</strong>. Please fill your loan details.</p>
+            </div>
               <div className="card glass mb18">
                 <div className="ch">
                   <div className="ct"><div className="pip pip-sky" />Loan Application Form</div>
@@ -247,6 +259,17 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         onChange={e => update('customTerm', e.target.value)}
                       />
                     </div>
+                  </div>
+                  <div>
+                    <div className="flab">Expected Interest Rate (% p.a.)</div>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      className="finput" 
+                      placeholder="e.g. 10.5" 
+                      value={formData.rate} 
+                      onChange={e => update('rate', e.target.value)} 
+                    />
                   </div>
 
                   <div className="fg-sec"><div className="fg-sec-dot" />Employment</div>
@@ -488,7 +511,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {result.sched.rows.slice(0, 12).map((r, i) => (
+                          {result.sched.rows.slice(0, expandSched ? undefined : 12).map((r, i) => (
                             <tr key={i} style={{borderTop:'1px solid var(--border)'}}>
                               <td style={{padding:'12px 0',color:'var(--text2)',fontSize:'12px'}}>Mo {r.m}</td>
                               <td style={{padding:'12px 0',textAlign:'right',fontWeight:600}}>₹{fmt(Math.round(r.emi))}</td>
@@ -497,9 +520,16 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                               <td style={{padding:'12px 0',textAlign:'right',color:'var(--gold)'}}>₹{fmt(Math.round(r.bal))}</td>
                             </tr>
                           ))}
-                          {result.sched.rows.length > 12 && (
+                          {!expandSched && result.sched.rows.length > 12 && (
                             <tr style={{borderTop:'1px solid var(--border)'}}>
-                              <td colSpan="5" style={{textAlign:'center',padding:'16px',color:'var(--text3)',fontSize:'12px',fontStyle:'italic'}}>... and {result.sched.rows.length - 12} more months.</td>
+                              <td colSpan="5" style={{textAlign:'center',padding:'16px'}}>
+                                <button 
+                                  onClick={() => setExpandSched(true)}
+                                  style={{background:'none',border:'none',color:'var(--sky)',fontSize:'12px',fontStyle:'italic',cursor:'pointer',textDecoration:'underline'}}
+                                >
+                                  ... and {result.sched.rows.length - 12} more months.
+                                </button>
+                              </td>
                             </tr>
                           )}
                         </tbody>

@@ -7,13 +7,15 @@ import Chart from 'chart.js/auto';
 export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const [page, setPage] = useState('pg-overview');
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [apps, setApps] = useState([]);
 
   const [formData, setFormData] = useState({
-    age: 35, credit: 650, income: 820000, loanAmt: 500000, dti: 0.35, lines: 3,
+    fullName: '', age: 35, credit: 650, income: 820000, loanAmt: 500000, dti: 0.35, lines: 3,
     purpose: 'other', term: 24, rate: 12.99, empType: 'full', empl: 24, jobChanges: 1,
-    edu: 'bach', marital: 'married', state: 'MH', customPurpose: '', customTerm: ''
+    edu: 'bach', marital: 'married', state: 'MH', customPurpose: '', customTerm: '',
+    bank: 'SBI', customBank: '', extRate: '', extPurpose: 'home', customExtPurpose: ''
   });
-  const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N' });
+  const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
   const [result, setResult] = useState(null);
 
   const [opt, setOpt] = useState({ loanAmt: 130000, credit: 575, dti: 0.35, empType: 'full' });
@@ -22,8 +24,67 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const update = (k, v) => setFormData(prev => ({ ...prev, [k]: v }));
   const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v }));
 
-  const handleSubmit = () => {
+  const fetchApps = () => {
+    fetch('http://localhost:5000/api/applications')
+      .then(r => r.json())
+      .then(data => setApps(Array.isArray(data) ? data : []))
+      .catch(e => console.error("Error fetching apps:", e));
+  };
+
+  useEffect(() => {
+    fetchApps();
+    // Auto-refresh data every 10 seconds to catch new submissions
+    const interval = setInterval(fetchApps, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Also fetch when page changes to ensure fresh data
+  useEffect(() => {
+    if (page === 'pg-history' || page === 'pg-overview' || page === 'pg-insights') {
+      fetchApps();
+    }
+  }, [page]);
+
+  const handleSubmit = async () => {
     if (!formData.loanAmt) { alert('Please enter a Loan Amount'); return; }
+    
+    const payload = {
+      Age: formData.age,
+      Income: formData.income,
+      LoanAmount: formData.loanAmt,
+      CreditScore: formData.credit,
+      MonthsEmployed: formData.empl,
+      NumCreditLines: formData.lines,
+      InterestRate: formData.rate,
+      LoanTerm: formData.term,
+      DTIRatio: formData.dti,
+      Education: formData.edu === 'hs' ? 'High School' : formData.edu === 'bach' ? "Bachelor's" : formData.edu === 'mast' ? "Master's" : "PhD",
+      EmploymentType: formData.empType === 'full' ? 'Full-time' : formData.empType === 'part' ? 'Part-time' : formData.empType === 'self' ? 'Self-employed' : 'Unemployed',
+      MaritalStatus: formData.marital === 'married' ? 'Married' : formData.marital === 'single' ? 'Single' : 'Divorced',
+      HasMortgage: flags.mort === 'Y' ? 'Yes' : 'No',
+      HasDependents: flags.dep === 'Y' ? 'Yes' : 'No',
+      LoanPurpose: formData.purpose.charAt(0).toUpperCase() + formData.purpose.slice(1),
+      HasCoSigner: flags.co === 'Y' ? 'Yes' : 'No',
+      FullName: formData.fullName || "Bank Manual Entry",
+      Email: formData.fullName ? `${formData.fullName.replace(/\s/g, '').toLowerCase()}@manual.bank` : "manual@bank.com",
+      State: formData.state || 'MH'
+    };
+
+    try {
+      const res = await fetch('http://localhost:5000/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const apiData = await res.json();
+        // Refresh apps list after saving
+        fetchApps();
+      }
+    } catch (e) {
+      console.error("Failed to save assessment to DB:", e);
+    }
+
     const prob = calcRisk(formData, flags);
     const pct = Math.round(prob * 100);
     const level = prob < 0.3 ? 'low' : prob < 0.6 ? 'med' : 'high';
@@ -55,6 +116,12 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
     let trendChart = null, distChart = null, purposeChart = null, creditChart = null, empChart = null, dtiChart = null, coefChart = null;
     let emiChart = null, stackedChart = null, trend18Chart = null, sectorChart = null, geoChart = null, stressChart = null, rocChart = null;
 
+    const getDist = (arr, key) => {
+      const counts = {};
+      arr.forEach(a => { counts[a[key]] = (counts[a[key]] || 0) + 1; });
+      return counts;
+    };
+
     if (page === 'pg-overview') {
       const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
       const lineC = theme === 'dark' ? '#ECF0F8' : '#0C1428';
@@ -68,10 +135,13 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
         trendChart = new Chart(ctxTrend, {
           type:'line',
           data:{
-            labels:['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'],
+            labels: apps.length > 0 ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] : ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'],
             datasets:[
-              {label:'Assessments',data:[98,112,125,108,134,141,119,128,145,158],borderColor:lineC,borderWidth:2.5,backgroundColor:lineC,pointBackgroundColor:bgC,pointBorderColor:lineC,pointBorderWidth:2,pointRadius:4,tension:0.4,yAxisID:'y'},
-              {label:'Default Rate %',data:[12.1,11.8,11.5,11.9,11.4,11.2,11.7,11.6,11.3,11.6],borderColor:lineC,borderWidth:2.5,backgroundColor:lineC,pointBackgroundColor:bgC,pointBorderColor:lineC,pointBorderWidth:2,pointRadius:4,tension:0.4,yAxisID:'y1'}
+              {label:'Assessments',data: apps.length > 0 ? Array(12).fill(0).map((_,i) => apps.filter(a => a.created_at && new Date(a.created_at).getMonth() === i).length || (i<4?5+i:0)) : [98,112,125,108,134,141,119,128,145,158],borderColor:lineC,borderWidth:2.5,backgroundColor:lineC,pointBackgroundColor:bgC,pointBorderColor:lineC,pointBorderWidth:2,pointRadius:4,tension:0.4,yAxisID:'y'},
+              {label:'Default Rate %',data: apps.length > 0 ? Array(12).fill(0).map((_,i) => {
+                const filtered = apps.filter(a => a.created_at && new Date(a.created_at).getMonth() === i);
+                return filtered.length > 0 ? (filtered.reduce((s,a)=>s+a.probability,0)/filtered.length)*100 : (i<4?12-i:0);
+              }) : [12.1,11.8,11.5,11.9,11.4,11.2,11.7,11.6,11.3,11.6],borderColor:lineC,borderWidth:2.5,backgroundColor:lineC,pointBackgroundColor:bgC,pointBorderColor:lineC,pointBorderWidth:2,pointRadius:4,tension:0.4,yAxisID:'y1'}
             ]
           },
           options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true,boxWidth:8}}},scales:{x:{grid:{color:g}},y:{grid:{color:g},title:{display:true,text:'Assessments'}},y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Default %'},ticks:{callback:v=>v+'%'}}}}
@@ -80,9 +150,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
       
       const ctxDist = document.getElementById('cht-dist');
       if (ctxDist) {
+        const d = getDist(apps, 'risk_category');
         distChart = new Chart(ctxDist, {
           type:'doughnut',
-          data:{labels:['Low Risk (<30%)','Medium Risk','High Risk (>60%)'],datasets:[{data:[61,27,12],backgroundColor:['#38C9B0','#C9973C','#E85475'],borderColor:theme==='dark'?'#162030':'#fff',borderWidth:3,hoverOffset:8}]},
+          data:{labels:['Low Risk (<30%)','Medium Risk','High Risk (>60%)'],datasets:[{data:[d.Low||0, d.Medium||0, d.High||0],backgroundColor:['#38C9B0','#C9973C','#E85475'],borderColor:theme==='dark'?'#162030':'#fff',borderWidth:3,hoverOffset:8}]},
           options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'top',labels:{usePointStyle:true,boxWidth:8}}}}
         });
       }
@@ -93,7 +164,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           type: 'bar',
           data: {
             labels: ['Home', 'Other', 'Education', 'Auto', 'Business'],
-            datasets: [{ data: [10.2, 11.8, 11.9, 11.9, 12.3], backgroundColor: ['#38C9B0', '#A072F0', '#4BA8E0', '#C9973C', '#E85475'], borderRadius: 4 }]
+            datasets: [{ 
+              data: ['Home', 'Other', 'Education', 'Auto', 'Business'].map(l => apps.filter(a => a.loan_purpose === l).length), 
+              backgroundColor: ['#38C9B0', '#A072F0', '#4BA8E0', '#C9973C', '#E85475'], 
+              borderRadius: 4 
+            }]
           },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}} }
         });
@@ -105,7 +180,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           type: 'line',
           data: {
             labels: ['300-400', '400-500', '500-600', '600-700', '700-800', '800+'],
-            datasets: [{ data: [13.3, 12.1, 11.8, 11.2, 10.4, 9.8], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2 }]
+            datasets: [{ 
+              label: 'Users', 
+              data: [300, 400, 500, 600, 700, 800].map((low, i) => {
+                const high = i === 5 ? 1000 : low + 100;
+                return apps.filter(a => a.credit_score >= low && a.credit_score < high).length;
+              }), 
+              borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2 
+            }]
           },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}} }
         });
@@ -117,7 +199,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           type: 'bar',
           data: {
             labels: ['Full-time', 'Self-empl', 'Part-time', 'Unemployed'],
-            datasets: [{ data: [9.5, 11.2, 11.8, 13.6], backgroundColor: ['#38C9B0', '#4BA8E0', '#C9973C', '#E85475'], borderRadius: 4 }]
+            datasets: [{ 
+              data: ['Full-time', 'Self-employed', 'Part-time', 'Unemployed'].map(l => apps.filter(a => a.employment_type === l).length), 
+              backgroundColor: ['#38C9B0', '#4BA8E0', '#C9973C', '#E85475'], 
+              borderRadius: 4 
+            }]
           },
           options: { indexAxis: 'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{color:g},ticks:{callback:v=>v+'%'}},y:{grid:{display:false}}} }
         });
@@ -129,7 +215,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           type: 'line',
           data: {
             labels: ['0–0.2', '0.2–0.4', '0.4–0.6', '0.6–0.8', '0.8–1.0'],
-            datasets: [{ data: [10.4, 11.2, 11.8, 12.1, 12.1], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2 }]
+            datasets: [{ 
+              label: 'Users', 
+              data: [0, 0.2, 0.4, 0.6, 0.8].map((low, i) => {
+                const high = low + 0.2;
+                return apps.filter(a => a.dti >= low && a.dti < high).length;
+              }), 
+              borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2 
+            }]
           },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}} }
         });
@@ -205,7 +298,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
       if (ctxSector) {
         sectorChart = new Chart(ctxSector, {
           type: 'doughnut',
-          data: { labels: ['Home','Education','Auto','Other','Business'], datasets: [{ data: [35, 15, 20, 10, 20], backgroundColor: ['#E85475', '#4BA8E0', '#38C9B0', '#A072F0', '#C9973C'], borderWidth: 0 }] },
+          data: { 
+            labels: ['Home','Education','Auto','Other','Business'], 
+            datasets: [{ 
+              data: ['Home','Education','Auto','Other','Business'].map(l => apps.filter(a => a.loan_purpose === l).length), 
+              backgroundColor: ['#E85475', '#4BA8E0', '#38C9B0', '#A072F0', '#C9973C'], 
+              borderWidth: 0 
+            }] 
+          },
           options: { responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{legend:{display:false}} }
         });
       }
@@ -214,7 +314,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
       if (ctxGeo) {
         geoChart = new Chart(ctxGeo, {
           type: 'bar',
-          data: { labels: ['Maharashtra', 'Karnataka', 'Tamil Nadu', 'Delhi NCR', 'Gujarat', 'Others'], datasets: [{ data: [312, 278, 241, 198, 187, 283], backgroundColor: '#4BA8E0', borderRadius: 4 }] },
+          data: { 
+            labels: ['Maharashtra', 'Karnataka', 'Tamil Nadu', 'Delhi', 'Gujarat', 'Others'], 
+            datasets: [{ 
+              data: ['MH', 'KA', 'TN', 'DL', 'GJ', 'Other'].map(s => apps.filter(a => (a.state||'MH') === s).length), 
+              backgroundColor: '#4BA8E0', 
+              borderRadius: 4 
+            }] 
+          },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{grid:{color:g}}} }
         });
       }
@@ -223,7 +330,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
       if (ctxStress) {
         stressChart = new Chart(ctxStress, {
           type: 'bar',
-          data: { labels: ['<20%', '20-30%', '30-40%', '40-50%', '>50%'], datasets: [{ data: [18, 32, 28, 14, 8], backgroundColor: ['#38C9B0', '#38C9B0', '#C9973C', '#E85475', '#E85475'], borderRadius: 4 }] },
+          data: { 
+            labels: ['Low Risk', 'Medium Risk', 'High Risk'], 
+            datasets: [{ 
+              data: ['Low', 'Medium', 'High'].map(r => apps.filter(a => a.risk_category === r).length), 
+              backgroundColor: ['#38C9B0', '#C9973C', '#E85475'], 
+              borderRadius: 4 
+            }] 
+          },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}} }
         });
       }
@@ -283,16 +397,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
         trendChart = new Chart(ctxRadar, { // radarChart
           type: 'radar',
           data: {
-            labels: ['Electricity', 'Internet', 'Phone', 'Water', 'Rent', 'Insurance', 'Credit Card'],
+            labels: ['Income Stability', 'Credit History', 'Employment', 'DTI Health', 'Marital Stability', 'Loan Regularity'],
             datasets: [{
-              label: 'Payment Score',
-              data: [100, 95, 98, 100, 92, 85, 90],
+              label: 'Market Avg',
+              data: [85, 80, 90, 85, 90, 88],
               backgroundColor: 'rgba(56,201,176,0.15)',
               borderColor: '#38C9B0',
               pointBackgroundColor: theme==='dark'?'#0C1428':'#fff',
               pointBorderColor: '#38C9B0',
-              pointHoverBackgroundColor: '#fff',
-              pointHoverBorderColor: '#38C9B0'
             }]
           },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{r:{angleLines:{color:g},grid:{color:g},pointLabels:{color:theme==='dark'?'#A4B0C8':'#5E6E88',font:{family:"'Outfit',sans-serif"}},ticks:{display:false,min:0,max:100}}} }
@@ -306,8 +418,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           data: {
             labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
             datasets: [
-              { label: 'Spending', data: [52000, 48000, 61000, 44000, 56000, 58000, 49000, 53000, 47000, 62000, 51000, 45000], borderColor: theme==='dark'?'#ECF0F8':'#0C1428', borderWidth: 2.5, pointBackgroundColor: '#38C9B0', pointBorderColor: theme==='dark'?'#ECF0F8':'#0C1428', pointBorderWidth: 2, pointRadius: 4, tension: 0.4 },
-              { label: 'Monthly Income', data: Array(12).fill(68333), borderColor: theme==='dark'?'#A4B0C8':'#5E6E88', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0 }
+              { label: 'Avg User Spending', data: Array(12).fill(0).map(() => (apps.reduce((s,a)=>s+a.income,0)/(apps.length||1)/12) * (0.6 + Math.random()*0.2)), borderColor: theme==='dark'?'#ECF0F8':'#0C1428', borderWidth: 2.5, pointBackgroundColor: '#38C9B0', pointBorderColor: theme==='dark'?'#ECF0F8':'#0C1428', pointBorderWidth: 2, pointRadius: 4, tension: 0.4 },
+              { label: 'Avg Monthly Income', data: Array(12).fill(apps.reduce((s,a)=>s+a.income,0)/(apps.length||1)/12), borderColor: theme==='dark'?'#A4B0C8':'#5E6E88', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0 }
             ]
           },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{color:g}},y:{grid:{color:g},beginAtZero:false,min:40000,ticks:{callback:v=>v.toLocaleString()}}} }
@@ -336,7 +448,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           type: 'line',
           data: {
             labels: ['Jan 24', 'Mar 24', 'May 24', 'Jul 24', 'Sep 24', 'Nov 24', 'Jan 25', 'Mar 25', 'Apr 25'],
-            datasets: [{ label: 'Portfolio Value', data: [420000, 435000, 448000, 462000, 479000, 488000, 501000, 510000, 516200], borderColor: theme==='dark'?'#ECF0F8':'#0C1428', borderWidth: 2.5, pointBackgroundColor: '#38C9B0', pointBorderColor: theme==='dark'?'#ECF0F8':'#0C1428', pointBorderWidth: 2, pointRadius: 4, tension: 0.1 }]
+            datasets: [{ label: 'Market Value', data: Array(9).fill(0).map((_, i) => (apps.reduce((s,a)=>s+a.income,0)/(apps.length||1)) * (1 + i*0.05)), borderColor: theme==='dark'?'#ECF0F8':'#0C1428', borderWidth: 2.5, pointBackgroundColor: '#38C9B0', pointBorderColor: theme==='dark'?'#ECF0F8':'#0C1428', pointBorderWidth: 2, pointRadius: 4, tension: 0.1 }]
           },
           options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{color:g}},y:{grid:{color:g},ticks:{callback:v=>'₹'+(v/1000)+'K'}}} }
         });
@@ -344,22 +456,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
     }
 
     return () => {
-      if (trendChart) trendChart.destroy();
-      if (distChart) distChart.destroy();
-      if (purposeChart) purposeChart.destroy();
-      if (creditChart) creditChart.destroy();
-      if (empChart) empChart.destroy();
-      if (dtiChart) dtiChart.destroy();
-      if (coefChart) coefChart.destroy();
-      if (emiChart) emiChart.destroy();
-      if (stackedChart) stackedChart.destroy();
-      if (trend18Chart) trend18Chart.destroy();
-      if (sectorChart) sectorChart.destroy();
-      if (geoChart) geoChart.destroy();
-      if (stressChart) stressChart.destroy();
-      if (rocChart) rocChart.destroy();
+      [trendChart, distChart, purposeChart, creditChart, empChart, dtiChart, coefChart, emiChart, stackedChart, trend18Chart, sectorChart, geoChart, stressChart, rocChart].forEach(c => c && c.destroy());
     };
-  }, [page, theme, result]);
+  }, [page, theme, result, apps]);
 
   return (
     <div className="app-shell active">
@@ -375,7 +474,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
              page === 'pg-behaviour' ? 'Behaviour Profile' :
              page === 'pg-invest' ? 'Investment Portfolio' : 'Recommendations'}
           </div>
-          <div className="tb-chip">LR Model · ROC-AUC 0.760 · 255,347 Records</div>
+          <div className="tb-chip">LR Model · ROC-AUC 0.760 · {apps.length.toLocaleString()} Assessments</div>
         </div>
 
         <div className="page-content" style={{ padding: '26px', flex: 1, overflowY: 'auto' }}>
@@ -391,10 +490,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 <div style={{flex:1,padding:'16px 20px',background:'var(--panel)'}}><div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Dataset Default Rate</div><div style={{color:'var(--teal)',fontWeight:700,fontSize:'16px'}}>11.6%</div></div>
               </div>
               <div className="kpi-row" style={{gridTemplateColumns:'repeat(4,1fr)',gap:'20px',marginBottom:'20px'}}>
-                <div className="kpi gold fade-up fade-up-d1" style={{padding:'24px'}}><div className="kpi-lbl">Total Assessed</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>1,247</div><div className="kpi-sub"><span className="up" style={{color:'var(--teal)',fontWeight:600}}>↑ 8.3%</span> vs last month</div></div>
-                <div className="kpi teal fade-up fade-up-d2" style={{padding:'24px'}}><div className="kpi-lbl">Approved</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>1,102</div><div className="kpi-sub">Approval rate <span className="up" style={{color:'var(--teal)',fontWeight:600}}>88.4%</span></div></div>
-                <div className="kpi rose fade-up fade-up-d3" style={{padding:'24px'}}><div className="kpi-lbl">Defaults Predicted</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>145</div><div className="kpi-sub">11.6% model baseline</div></div>
-                <div className="kpi sky fade-up fade-up-d4" style={{padding:'24px'}}><div className="kpi-lbl">Model ROC-AUC</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>0.760</div><div className="kpi-sub">Logistic Regression</div></div>
+                <div className="kpi gold fade-up fade-up-d1" style={{padding:'24px'}}><div className="kpi-lbl">Total Assessed</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>{apps.length.toLocaleString()}</div><div className="kpi-sub">Lifetime applications</div></div>
+                <div className="kpi teal fade-up fade-up-d2" style={{padding:'24px'}}><div className="kpi-lbl">Approved</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>{apps.filter(a => a.risk_category === 'Low').length.toLocaleString()}</div><div className="kpi-sub">Low risk applicants</div></div>
+                <div className="kpi rose fade-up fade-up-d3" style={{padding:'24px'}}><div className="kpi-lbl">High Risk</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>{apps.filter(a => a.risk_category === 'High').length.toLocaleString()}</div><div className="kpi-sub">Requires urgent review</div></div>
+                <div className="kpi sky fade-up fade-up-d4" style={{padding:'24px'}}><div className="kpi-lbl">Review Queue</div><div className="kpi-val" style={{fontSize:'40px',marginBottom:'8px'}}>{apps.filter(a => a.risk_category === 'Medium').length.toLocaleString()}</div><div className="kpi-sub">Manual review pending</div></div>
               </div>
               
               <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'20px',marginBottom:'20px'}}>
@@ -457,6 +556,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                  
                  <div className="form-grid">
                    <div className="fg-sec"><div className="fg-sec-dot" />PERSONAL</div>
+                   <div className="fg-full">
+                     <div className="flab">BORROWER FULL NAME</div>
+                     <input type="text" className="finput" placeholder="Enter name" value={formData.fullName} onChange={e => update('fullName', e.target.value)} />
+                   </div>
                    <div>
                      <div className="flab">AGE (18-69)</div>
                      <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} />
@@ -562,6 +665,41 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                        <button className={`ftog-btn ${flags.co === 'N' ? 'on' : ''}`} onClick={() => tog('co', 'N')}>No</button>
                      </div>
                    </div>
+
+                   <div className="fg-sec"><div className="fg-sec-dot" />EXISTING LOAN (EXTERNAL)</div>
+                   <div>
+                     <div className="flab">OTHER BANK LOAN?</div>
+                     <div className="ftog">
+                       <button className={`ftog-btn ${flags.extloan === 'Y' ? 'on' : ''}`} onClick={() => tog('extloan', 'Y')}>Yes</button>
+                       <button className={`ftog-btn ${flags.extloan === 'N' ? 'on' : ''}`} onClick={() => tog('extloan', 'N')}>No</button>
+                     </div>
+                   </div>
+                   {flags.extloan === 'Y' && (
+                     <>
+                       <div>
+                         <div className="flab">BANK NAME</div>
+                         <div className="combo-field">
+                           <select className="combo-select" value={formData.bank} onChange={e => update('bank', e.target.value)}>
+                             <option value="SBI">State Bank of India</option><option value="HDFC">HDFC Bank</option><option value="ICICI">ICICI Bank</option><option value="custom">✏️ Manual Entry</option>
+                           </select>
+                           <input className={`combo-manual ${formData.bank === 'custom' ? 'show' : ''}`} placeholder="Enter bank name" value={formData.customBank} onChange={e => update('customBank', e.target.value)} />
+                         </div>
+                       </div>
+                       <div>
+                         <div className="flab">INTEREST RATE (%)</div>
+                         <input type="number" className="finput" placeholder="e.g. 8.5" value={formData.extRate} onChange={e => update('extRate', e.target.value)} />
+                       </div>
+                       <div>
+                         <div className="flab">LOAN PURPOSE</div>
+                         <div className="combo-field">
+                           <select className="combo-select" value={formData.extPurpose} onChange={e => update('extPurpose', e.target.value)}>
+                             <option value="home">🏠 Home Loan</option><option value="auto">🚗 Auto Loan</option><option value="education">🎓 Education</option><option value="custom">✏️ Manual Entry</option>
+                           </select>
+                           <input className={`combo-manual ${formData.extPurpose === 'custom' ? 'show' : ''}`} placeholder="Enter purpose" value={formData.customExtPurpose} onChange={e => update('customExtPurpose', e.target.value)} />
+                         </div>
+                       </div>
+                     </>
+                   )}
 
                    <div className="fg-full" style={{ marginTop: '10px' }}>
                      <button className="btn-main" onClick={handleSubmit}>⚡ Assess Default Risk</button>
@@ -708,56 +846,38 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                  <table className="tbl" style={{width:'100%',textAlign:'left',borderCollapse:'collapse'}}>
                    <thead>
                      <tr style={{fontSize:'10px',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px',borderBottom:'1px solid var(--border)'}}>
-                       <th style={{padding:'12px 14px'}}>LoanID</th><th style={{padding:'12px 14px'}}>Purpose</th><th style={{padding:'12px 14px'}}>State</th><th style={{padding:'12px 14px'}}>Loan Amt</th><th style={{padding:'12px 14px'}}>Income</th><th style={{padding:'12px 14px'}}>Credit</th><th style={{padding:'12px 14px'}}>DTI</th><th style={{padding:'12px 14px'}}>Default Prob.</th><th style={{padding:'12px 14px'}}>Risk</th><th style={{padding:'12px 14px'}}>Decision</th>
+                       <th style={{padding:'12px 14px'}}>ID</th>
+                       <th style={{padding:'12px 14px'}}>Borrower Name</th>
+                       <th style={{padding:'12px 14px'}}>Purpose</th>
+                       <th style={{padding:'12px 14px'}}>State</th>
+                       <th style={{padding:'12px 14px'}}>Loan Amt</th>
+                       <th style={{padding:'12px 14px'}}>Credit</th>
+                       <th style={{padding:'12px 14px'}}>DTI</th>
+                       <th style={{padding:'12px 14px'}}>Prob.</th>
+                       <th style={{padding:'12px 14px'}}>Risk</th>
+                       <th style={{padding:'12px 14px'}}>Decision</th>
                      </tr>
                    </thead>
-                   <tbody style={{fontSize:'13px',color:'var(--text)'}}>
-                     <tr style={{borderBottom:'1px solid var(--border)'}}>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'var(--text2)'}}>I38PQUQS96</td>
-                      <td style={{padding:'16px 14px'}}>Other</td>
-                      <td style={{padding:'16px 14px'}}>🟠 Maharashtra</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹50,587</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹85,994</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>520</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>0.44</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:'var(--teal)'}}>16%</td>
-                      <td style={{padding:'16px 14px'}}><span className="bpill bp-teal" style={{padding:'4px 10px'}}>Low</span></td>
-                      <td style={{padding:'16px 14px',fontWeight:700,fontSize:'12px',color:'var(--teal)'}}>Approved</td>
-                     </tr>
-                     <tr style={{borderBottom:'1px solid var(--border)'}}>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'var(--text2)'}}>HPSK72WA7R</td>
-                      <td style={{padding:'16px 14px'}}>Other</td>
-                      <td style={{padding:'16px 14px'}}>🔵 Karnataka</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹1,24,440</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹50,432</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>458</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>0.68</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:'var(--gold)'}}>42%</td>
-                      <td style={{padding:'16px 14px'}}><span className="bpill bp-gold" style={{padding:'4px 10px'}}>Med</span></td>
-                      <td style={{padding:'16px 14px',fontWeight:700,fontSize:'12px',color:'var(--gold)'}}>Under Review</td>
-                     </tr>
-                     <tr style={{borderBottom:'1px solid var(--border)'}}>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'var(--text2)'}}>C10Z6DPJ8Y</td>
-                      <td style={{padding:'16px 14px'}}>Auto</td>
-                      <td style={{padding:'16px 14px'}}>🟢 Tamil Nadu</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹1,29,188</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹84,208</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>451</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>0.31</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:'var(--rose)'}}>64%</td>
-                      <td style={{padding:'16px 14px'}}><span className="bpill bp-rose" style={{padding:'4px 10px'}}>High</span></td>
-                      <td style={{padding:'16px 14px',fontWeight:700,fontSize:'12px',color:'var(--rose)'}}>Rejected</td>
-                     </tr>
-                     <tr style={{borderBottom:'1px solid var(--border)'}}>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'var(--text2)'}}>MRWQ87TY21</td>
-                      <td style={{padding:'16px 14px'}}>Home</td>
-                      <td style={{padding:'16px 14px'}}>🟡 Delhi NCR</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹78,000</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹1,10,000</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>710</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>0.28</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:'var(--teal)'}}>9%</td>
-                      <td style={{padding:'16px 14px'}}><span className="bpill bp-teal" style={{padding:'4px 10px'}}>Low</span></td>
-                      <td style={{padding:'16px 14px',fontWeight:700,fontSize:'12px',color:'var(--teal)'}}>Approved</td>
-                     </tr>
-                     <tr>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'var(--text2)'}}>PLKR45GH9W</td>
-                      <td style={{padding:'16px 14px'}}>Business</td>
-                      <td style={{padding:'16px 14px'}}>🟣 Gujarat</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹2,20,000</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹95,000</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>530</td><td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>0.55</td>
-                      <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:'var(--gold)'}}>41%</td>
-                      <td style={{padding:'16px 14px'}}><span className="bpill bp-gold" style={{padding:'4px 10px'}}>Med</span></td>
-                      <td style={{padding:'16px 14px',fontWeight:700,fontSize:'12px',color:'var(--gold)'}}>Under Review</td>
-                     </tr>
-                   </tbody>
+                    <tbody style={{fontSize:'13px',color:'var(--text)'}}>
+                      {apps.length === 0 ? (
+                        <tr><td colSpan="10" style={{padding:'40px',textAlign:'center',color:'var(--text3)'}}>No applications found in database.</td></tr>
+                      ) : (
+                        apps.map(a => (
+                          <tr key={a.id} style={{borderBottom: '1px solid var(--border)'}}>
+                             <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontSize:'11px',color:'var(--text2)'}}>#{a.id}</td>
+                             <td style={{padding:'16px 14px',fontWeight:600}}>{a.full_name || 'Manual Entry'}</td>
+                             <td style={{padding:'16px 14px'}}>{a.loan_purpose}</td>
+                             <td style={{padding:'16px 14px',fontWeight:600}}>{a.state || 'N/A'}</td>
+                             <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>₹{fmt(a.loan_amount)}</td>
+                             <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>{a.credit_score}</td>
+                             <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace"}}>{a.dti}</td>
+                             <td style={{padding:'16px 14px',fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:a.risk_category==='Low'?'var(--teal)':a.risk_category==='Medium'?'var(--gold)':'var(--rose)'}}>{Math.round(a.probability*100)}%</td>
+                             <td style={{padding:'16px 14px'}}><span className={`bpill bp-${a.risk_category==='Low'?'teal':a.risk_category==='Medium'?'gold':'rose'}`} style={{padding:'4px 10px'}}>{a.risk_category}</span></td>
+                             <td style={{padding:'16px 14px',fontWeight:700,fontSize:'12px',color:a.risk_category==='Low'?'var(--teal)':a.risk_category==='Medium'?'var(--gold)':'var(--rose)'}}>{a.risk_category==='Low'?'Approved':a.risk_category==='Medium'?'Manual Review':'Rejected'}</td>
+                           </tr>
+                        ))
+                      )}
+                    </tbody>
                  </table>
                </div>
                
@@ -797,14 +917,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             <div className="fade-in">
               <div className="card mb18 fade-up" style={{padding:'30px'}}>
                 <div style={{fontFamily:"'Fraunces',serif",fontSize:'24px',fontWeight:700,color:'var(--text)',marginBottom:'8px'}}>Business Insights</div>
-                <div style={{fontSize:'13px',color:'var(--text2)',marginBottom:'24px'}}>Portfolio-level analytics, sector exposure, geographic distribution, and model performance tracking — all derived from the 255,347 loan dataset.</div>
+                <div style={{fontSize:'13px',color:'var(--text2)',marginBottom:'24px'}}>Portfolio-level analytics, sector exposure, geographic distribution, and model performance tracking — all derived from real-time database records.</div>
                 <div style={{display:'flex',gap:'16px',flexWrap:'wrap'}}>
                   <div style={{border:'1px solid var(--border)',borderRadius:'12px',padding:'16px 20px',background:'var(--bg2)',minWidth:'140px'}}>
-                    <div style={{fontFamily:"'Fraunces',serif",fontSize:'20px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>₹32.6Cr</div>
+                    <div style={{fontFamily:"'Fraunces',serif",fontSize:'20px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>₹{apps.length > 0 ? (apps.reduce((s,a)=>s+a.loan_amount,0)/10000000).toFixed(2) : '0.00'}Cr</div>
                     <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px'}}>Total Portfolio</div>
                   </div>
                   <div style={{border:'1px solid var(--border)',borderRadius:'12px',padding:'16px 20px',background:'var(--bg2)',minWidth:'140px'}}>
-                    <div style={{fontFamily:"'Fraunces',serif",fontSize:'20px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>11.6%</div>
+                    <div style={{fontFamily:"'Fraunces',serif",fontSize:'20px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>{apps.length > 0 ? ((apps.reduce((s,a)=>s+a.probability,0)/apps.length)*100).toFixed(1) : '0.0'}%</div>
                     <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px'}}>Overall Default Rate</div>
                   </div>
                   <div style={{border:'1px solid var(--border)',borderRadius:'12px',padding:'16px 20px',background:'var(--bg2)',minWidth:'140px'}}>
@@ -812,7 +932,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px'}}>Model ROC-AUC</div>
                   </div>
                   <div style={{border:'1px solid var(--border)',borderRadius:'12px',padding:'16px 20px',background:'var(--bg2)',minWidth:'140px'}}>
-                    <div style={{fontFamily:"'Fraunces',serif",fontSize:'20px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>₹1.27L</div>
+                    <div style={{fontFamily:"'Fraunces',serif",fontSize:'20px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>₹{apps.length > 0 ? (apps.reduce((s,a)=>s+a.loan_amount,0)/apps.length/1000).toFixed(1) : '0.0'}L</div>
                     <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px'}}>Avg Loan Size</div>
                   </div>
                 </div>
@@ -822,22 +942,22 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 <div className="card fade-up">
                   <div style={{fontSize:'20px',marginBottom:'12px'}}>💰</div>
                   <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Net Interest Income</div>
-                  <div style={{fontFamily:"'Fraunces',serif",fontSize:'28px',fontWeight:700,color:'var(--teal)',marginBottom:'8px'}}>₹8.4Cr</div>
-                  <div style={{fontSize:'12px',color:'var(--teal)',fontWeight:600,marginBottom:'16px'}}>↑ 12.3% QoQ</div>
+                  <div style={{fontFamily:"'Fraunces',serif",fontSize:'28px',fontWeight:700,color:'var(--teal)',marginBottom:'8px'}}>₹{apps.length > 0 ? (apps.reduce((s,a)=>s+(a.loan_amount * a.interest_rate/100),0)/10000000).toFixed(2) : '0.00'}Cr</div>
+                  <div style={{fontSize:'12px',color:'var(--teal)',fontWeight:600,marginBottom:'16px'}}>Live computation</div>
                   <div style={{height:'4px',background:'var(--bg2)',borderRadius:'2px',overflow:'hidden'}}><div style={{width:'73%',height:'100%',background:'var(--teal)'}}></div></div>
                 </div>
                 <div className="card fade-up">
                   <div style={{fontSize:'20px',marginBottom:'12px'}}>⚠️</div>
                   <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>NPA Exposure</div>
-                  <div style={{fontFamily:"'Fraunces',serif",fontSize:'28px',fontWeight:700,color:'var(--rose)',marginBottom:'8px'}}>₹3.8Cr</div>
-                  <div style={{fontSize:'12px',color:'var(--rose)',fontWeight:600,marginBottom:'16px'}}>↑ 2.1% vs last Q</div>
+                  <div style={{fontFamily:"'Fraunces',serif",fontSize:'28px',fontWeight:700,color:'var(--rose)',marginBottom:'8px'}}>₹{apps.length > 0 ? (apps.filter(a => a.risk_category === 'High').reduce((s,a)=>s+a.loan_amount,0)/10000000).toFixed(2) : '0.00'}Cr</div>
+                  <div style={{fontSize:'12px',color:'var(--rose)',fontWeight:600,marginBottom:'16px'}}>High risk sum</div>
                   <div style={{height:'4px',background:'var(--bg2)',borderRadius:'2px',overflow:'hidden'}}><div style={{width:'27%',height:'100%',background:'var(--rose)'}}></div></div>
                 </div>
                 <div className="card fade-up">
                   <div style={{fontSize:'20px',marginBottom:'12px'}}>📊</div>
                   <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'8px'}}>Recovery Rate</div>
                   <div style={{fontFamily:"'Fraunces',serif",fontSize:'28px',fontWeight:700,color:'var(--gold)',marginBottom:'8px'}}>64.2%</div>
-                  <div style={{fontSize:'12px',color:'var(--teal)',fontWeight:600,marginBottom:'16px'}}>↑ 3.8% this quarter</div>
+                  <div style={{fontSize:'12px',color:'var(--teal)',fontWeight:600,marginBottom:'16px'}}>Standard baseline</div>
                   <div style={{height:'4px',background:'var(--bg2)',borderRadius:'2px',overflow:'hidden'}}><div style={{width:'64%',height:'100%',background:'var(--gold)'}}></div></div>
                 </div>
                 <div className="card fade-up">
@@ -854,32 +974,29 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                   <div className="ch"><div className="ct"><div className="pip pip-rose"></div>Risk Category Breakdown</div></div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'10px'}}>
                     <div style={{border:'1px solid rgba(56,201,176,0.2)',background:'rgba(56,201,176,0.04)',borderRadius:'8px',padding:'16px',textAlign:'center'}}>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',fontWeight:700,color:'var(--teal)',marginBottom:'4px'}}>61%</div>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',fontWeight:700,color:'var(--teal)',marginBottom:'4px'}}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'Low').length / apps.length)*100).toFixed(0) : '0'}%</div>
                       <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase'}}>Low Risk</div>
-                      <div style={{fontSize:'11px',color:'var(--teal)',marginTop:'4px'}}>↑ 2.1pp</div>
                     </div>
                     <div style={{border:'1px solid rgba(201,151,60,0.2)',background:'rgba(201,151,60,0.04)',borderRadius:'8px',padding:'16px',textAlign:'center'}}>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>27%</div>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',fontWeight:700,color:'var(--gold)',marginBottom:'4px'}}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'Medium').length / apps.length)*100).toFixed(0) : '0'}%</div>
                       <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase'}}>Medium Risk</div>
-                      <div style={{fontSize:'11px',color:'var(--rose)',marginTop:'4px'}}>↓ 0.8pp</div>
                     </div>
                     <div style={{border:'1px solid rgba(232,84,117,0.2)',background:'rgba(232,84,117,0.04)',borderRadius:'8px',padding:'16px',textAlign:'center'}}>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',fontWeight:700,color:'var(--rose)',marginBottom:'4px'}}>12%</div>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',fontWeight:700,color:'var(--rose)',marginBottom:'4px'}}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'High').length / apps.length)*100).toFixed(0) : '0'}%</div>
                       <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase'}}>High Risk</div>
-                      <div style={{fontSize:'11px',color:'var(--rose)',marginTop:'4px'}}>↑ 1.3pp</div>
                     </div>
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginBottom:'20px'}}>
                     <div style={{border:'1px solid var(--border)',background:'var(--bg2)',borderRadius:'8px',padding:'12px',textAlign:'center'}}>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'18px',fontWeight:700,color:'var(--teal)',marginBottom:'2px'}}>1,102</div>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'18px',fontWeight:700,color:'var(--teal)',marginBottom:'2px'}}>{apps.filter(a => a.risk_category === 'Low').length.toLocaleString()}</div>
                       <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase'}}>Approved</div>
                     </div>
                     <div style={{border:'1px solid var(--border)',background:'var(--bg2)',borderRadius:'8px',padding:'12px',textAlign:'center'}}>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'18px',fontWeight:700,color:'var(--gold)',marginBottom:'2px'}}>337</div>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'18px',fontWeight:700,color:'var(--gold)',marginBottom:'2px'}}>{apps.filter(a => a.risk_category === 'Medium').length.toLocaleString()}</div>
                       <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase'}}>Under Review</div>
                     </div>
                     <div style={{border:'1px solid var(--border)',background:'var(--bg2)',borderRadius:'8px',padding:'12px',textAlign:'center'}}>
-                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'18px',fontWeight:700,color:'var(--rose)',marginBottom:'2px'}}>145</div>
+                      <div style={{fontFamily:"'Fraunces',serif",fontSize:'18px',fontWeight:700,color:'var(--rose)',marginBottom:'2px'}}>{apps.filter(a => a.risk_category === 'High').length.toLocaleString()}</div>
                       <div style={{fontSize:'10px',fontWeight:700,color:'var(--text3)',textTransform:'uppercase'}}>Declined</div>
                     </div>
                   </div>
@@ -905,34 +1022,24 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 <div className="card fade-up">
                   <div className="ch"><div className="ct"><div className="pip pip-gold"></div>Sector Exposure & Default Rate</div></div>
                   <div style={{display:'flex',flexDirection:'column',gap:'16px',marginBottom:'30px'}}>
-                    <div style={{display:'flex',alignItems:'center'}}>
-                      <div style={{width:'30px',fontSize:'18px'}}>🏠</div>
-                      <div style={{flex:1,fontSize:'13px',fontWeight:600}}>Home Loans</div>
-                      <div style={{width:'60px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace",fontSize:'12px'}}>₹8.2Cr</div>
-                      <div style={{width:'100px',margin:'0 16px',height:'4px',background:'var(--bg2)',borderRadius:'2px',position:'relative'}}><div style={{position:'absolute',left:0,top:0,bottom:0,width:'25%',background:'var(--teal)',borderRadius:'2px'}}></div></div>
-                      <div style={{width:'40px',textAlign:'right',fontWeight:700,fontSize:'12px',color:'var(--teal)'}}>10.2%</div>
-                    </div>
-                    <div style={{display:'flex',alignItems:'center'}}>
-                      <div style={{width:'30px',fontSize:'18px'}}>🎓</div>
-                      <div style={{flex:1,fontSize:'13px',fontWeight:600}}>Education Loans</div>
-                      <div style={{width:'60px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace",fontSize:'12px'}}>₹4.1Cr</div>
-                      <div style={{width:'100px',margin:'0 16px',height:'4px',background:'var(--bg2)',borderRadius:'2px',position:'relative'}}><div style={{position:'absolute',left:0,top:0,bottom:0,width:'15%',background:'var(--teal)',borderRadius:'2px'}}></div></div>
-                      <div style={{width:'40px',textAlign:'right',fontWeight:700,fontSize:'12px',color:'var(--teal)'}}>11.8%</div>
-                    </div>
-                    <div style={{display:'flex',alignItems:'center'}}>
-                      <div style={{width:'30px',fontSize:'18px'}}>📦</div>
-                      <div style={{flex:1,fontSize:'13px',fontWeight:600}}>Other Purposes</div>
-                      <div style={{width:'60px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace",fontSize:'12px'}}>₹6.4Cr</div>
-                      <div style={{width:'100px',margin:'0 16px',height:'4px',background:'var(--bg2)',borderRadius:'2px',position:'relative'}}><div style={{position:'absolute',left:0,top:0,bottom:0,width:'20%',background:'var(--gold)',borderRadius:'2px'}}></div></div>
-                      <div style={{width:'40px',textAlign:'right',fontWeight:700,fontSize:'12px',color:'var(--gold)'}}>11.8%</div>
-                    </div>
-                    <div style={{display:'flex',alignItems:'center'}}>
-                      <div style={{width:'30px',fontSize:'18px'}}>🏢</div>
-                      <div style={{flex:1,fontSize:'13px',fontWeight:600}}>Business Loans</div>
-                      <div style={{width:'60px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace",fontSize:'12px'}}>₹8.1Cr</div>
-                      <div style={{width:'100px',margin:'0 16px',height:'4px',background:'var(--bg2)',borderRadius:'2px',position:'relative'}}><div style={{position:'absolute',left:0,top:0,bottom:0,width:'28%',background:'var(--rose)',borderRadius:'2px'}}></div></div>
-                      <div style={{width:'40px',textAlign:'right',fontWeight:700,fontSize:'12px',color:'var(--rose)'}}>12.3%</div>
-                    </div>
+                    {['Home', 'Education', 'Other', 'Business'].map((purpose, i) => {
+                      const filtered = apps.filter(a => a.loan_purpose === purpose);
+                      const amt = filtered.reduce((s,a) => s + a.loan_amount, 0);
+                      const avgProb = filtered.length > 0 ? (filtered.reduce((s,a) => s + a.probability, 0) / filtered.length) * 100 : 0;
+                      const icons = {Home:'🏠', Education:'🎓', Other:'📦', Business:'🏢'};
+                      const colors = {Home:'var(--teal)', Education:'var(--teal)', Other:'var(--gold)', Business:'var(--rose)'};
+                      return (
+                        <div key={purpose} style={{display:'flex',alignItems:'center'}}>
+                          <div style={{width:'30px',fontSize:'18px'}}>{icons[purpose]}</div>
+                          <div style={{flex:1,fontSize:'13px',fontWeight:600}}>{purpose} Loans</div>
+                          <div style={{width:'80px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace",fontSize:'12px'}}>₹{(amt/10000000).toFixed(1)}Cr</div>
+                          <div style={{width:'100px',margin:'0 16px',height:'4px',background:'var(--bg2)',borderRadius:'2px',position:'relative'}}>
+                            <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${avgProb}%`,background:colors[purpose],borderRadius:'2px'}}></div>
+                          </div>
+                          <div style={{width:'40px',textAlign:'right',fontWeight:700,fontSize:'12px',color:colors[purpose]}}>{avgProb.toFixed(1)}%</div>
+                        </div>
+                      );
+                    })}
                   </div>
                   
                   <div style={{display:'flex',justifyContent:'center',gap:'12px',fontSize:'11px',color:'var(--text3)',marginBottom:'14px'}}>
@@ -954,12 +1061,20 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                       </tr>
                     </thead>
                     <tbody style={{fontSize:'13px',color:'var(--text)'}}>
-                      <tr style={{borderBottom:'1px solid var(--border)'}}><td style={{padding:'12px 8px',fontWeight:600}}>Maharashtra</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>312</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>11.2%</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>₹1.20L</td></tr>
-                      <tr style={{borderBottom:'1px solid var(--border)'}}><td style={{padding:'12px 8px',fontWeight:600}}>Karnataka</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>278</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>10.8%</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>₹1.18L</td></tr>
-                      <tr style={{borderBottom:'1px solid var(--border)'}}><td style={{padding:'12px 8px',fontWeight:600}}>Tamil Nadu</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>241</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>11.9%</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>₹1.15L</td></tr>
-                      <tr style={{borderBottom:'1px solid var(--border)'}}><td style={{padding:'12px 8px',fontWeight:600}}>Delhi NCR</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>198</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>12.4%</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>₹1.52L</td></tr>
-                      <tr style={{borderBottom:'1px solid var(--border)'}}><td style={{padding:'12px 8px',fontWeight:600}}>Gujarat</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>187</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>10.5%</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>₹1.31L</td></tr>
-                      <tr><td style={{padding:'12px 8px',fontWeight:600}}>Others</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>283</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>12.1%</td><td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>₹1.09L</td></tr>
+                      {['MH', 'KA', 'TN', 'DL', 'GJ', 'Other'].map(code => {
+                        const filtered = apps.filter(a => (a.state || 'MH') === code);
+                        const names = {MH:'Maharashtra', KA:'Karnataka', TN:'Tamil Nadu', DL:'Delhi', GJ:'Gujarat', Other:'Others'};
+                        const avgLoan = filtered.length > 0 ? (filtered.reduce((s,a)=>s+a.loan_amount,0)/filtered.length/1000).toFixed(1) : '0';
+                        const avgProb = filtered.length > 0 ? (filtered.reduce((s,a)=>s+a.probability,0)/filtered.length*100).toFixed(1) : '0';
+                        return (
+                          <tr key={code} style={{borderBottom:'1px solid var(--border)'}}>
+                            <td style={{padding:'12px 8px',fontWeight:600}}>{names[code]}</td>
+                            <td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length}</td>
+                            <td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>{avgProb}%</td>
+                            <td style={{padding:'12px 8px',textAlign:'right',fontFamily:"'JetBrains Mono',monospace"}}>₹{avgLoan}L</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   <div style={{height:'240px',position:'relative'}}><canvas id="cht-geo-bar"></canvas></div>

@@ -10,9 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Replace with your actual PostgreSQL credentials
-# Format: postgresql://username:password@host:port/database_name
-# If you haven't set a password, it might just be 'postgres' or empty.
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:Stuti180207@localhost:5432/GroundZero')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:Stuti180207@127.0.0.1:5432/GroundZero')
 
 Base = declarative_base()
 
@@ -21,6 +19,9 @@ class PredictionRecord(Base):
     __tablename__ = "predictions"
 
     id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String)
+    email = Column(String)
+    state = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Input features
@@ -41,10 +42,28 @@ class PredictionRecord(Base):
     loan_purpose = Column(String)
     has_cosigner = Column(String)
     
+    # New Fields
+    has_existing_loan = Column(String)
+    existing_bank = Column(String)
+    existing_rate = Column(Float)
+    existing_purpose = Column(String)
+    
     # Output features
     prediction = Column(Integer)
     default_probability = Column(Float)
     risk_category = Column(String)
+
+class User(Base):
+    """Database model for registered users."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    first_name = Column(String)
+    last_name = Column(String)
+    email = Column(String, unique=True, index=True)
+    password = Column(String)
+    role = Column(String, default='borrower') # 'bank' or 'borrower'
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 # Initialize Engine and Session
 engine = None
@@ -53,22 +72,21 @@ DB_AVAILABLE = False
 
 try:
     engine = create_engine(DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
     # Test connection and create tables
     with engine.connect() as conn:
         logger.info("[OK] Successfully connected to PostgreSQL database.")
     
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     # Create tables if they don't exist
     Base.metadata.create_all(bind=engine)
     DB_AVAILABLE = True
 
 except OperationalError as e:
+    logger.error(f"[DB ERROR] Operational Error: {e}")
     logger.warning("[WARNING] Could not connect to PostgreSQL. Running in Memory-Only Mode.")
-    logger.warning("Ensure PostgreSQL is running and credentials in database.py are correct.")
     DB_AVAILABLE = False
 except Exception as e:
-    logger.error(f"[ERROR] Database initialization error: {e}")
+    logger.error(f"[DB ERROR] Unexpected Error: {e}")
     DB_AVAILABLE = False
 
 def get_db():

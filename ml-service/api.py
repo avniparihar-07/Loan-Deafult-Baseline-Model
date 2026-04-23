@@ -10,8 +10,9 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
+from datetime import datetime
 
-from database import get_db, PredictionRecord
+from database import get_db, PredictionRecord, User
 
 # --- App Setup ---
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
@@ -155,6 +156,55 @@ def health_check():
     })
 
 
+# --- Auth Routes ---
+@app.route('/api/signup', methods=['POST'])
+def signup():
+    data = request.json
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+    
+    try:
+        # Check if user exists
+        existing = db.query(User).filter(User.email == data.get('email')).first()
+        if existing: return jsonify({'error': 'User already exists'}), 400
+        
+        new_user = User(
+            first_name=data.get('first_name'),
+            last_name=data.get('last_name'),
+            email=data.get('email'),
+            password=data.get('password'), # In production, hash this!
+            role=data.get('role', 'borrower')
+        )
+        db.add(new_user)
+        db.commit()
+        return jsonify({'message': 'Account created successfully'})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+    
+    try:
+        user = db.query(User).filter(User.email == data.get('email')).first()
+        if not user: return jsonify({'error': 'Account not found. Please create one.'}), 404
+        if user.password != data.get('password'): return jsonify({'error': 'Invalid password'}), 401
+        
+        return jsonify({
+            'first': user.first_name,
+            'last': user.last_name,
+            'email': user.email,
+            'type': user.role
+        })
+    finally:
+        db.close()
+
+
 @app.route('/api/predict', methods=['POST'])
 def predict():
     """Single loan default prediction."""
@@ -221,32 +271,56 @@ def predict():
         db = get_db()
         if db:
             try:
+                full_name = data.get('FullName', 'Anonymous').strip()
+                email = data.get('Email', 'anonymous@example.com').strip()
+                print(f"\n--- DB DEBUG ---")
+                print(f"Incoming: Name='{full_name}', Email='{email}'")
+                
+                # Check ALL existing records for debugging
+                all_records = db.query(PredictionRecord).all()
+                print(f"Current Records in DB: {len(all_records)}")
+                for r in all_records:
+                    print(f"  - ID: {r.id}, Email: '{r.email}', Name: '{r.full_name}'")
+
+                # Always create a new record for every prediction to maintain a history
+                print(f"Creating new record for {email}...")
                 db_record = PredictionRecord(
-                    age=data.get('Age'),
-                    income=data.get('Income'),
-                    loan_amount=data.get('LoanAmount'),
-                    credit_score=data.get('CreditScore'),
-                    months_employed=data.get('MonthsEmployed'),
-                    num_credit_lines=data.get('NumCreditLines'),
-                    interest_rate=data.get('InterestRate'),
-                    loan_term=data.get('LoanTerm'),
-                    dti_ratio=data.get('DTIRatio'),
-                    education=data.get('Education'),
-                    employment_type=data.get('EmploymentType'),
-                    marital_status=data.get('MaritalStatus'),
-                    has_mortgage=data.get('HasMortgage'),
-                    has_dependents=data.get('HasDependents'),
-                    loan_purpose=data.get('LoanPurpose'),
-                    has_cosigner=data.get('HasCoSigner'),
+                    full_name=full_name,
+                    email=email,
+                    state=str(data.get('State', 'MH')),
+                    age=int(data.get('Age', 0)),
+                    income=float(data.get('Income', 0)),
+                    loan_amount=float(data.get('LoanAmount', 0)),
+                    credit_score=int(data.get('CreditScore', 0)),
+                    months_employed=int(data.get('MonthsEmployed', 0)),
+                    num_credit_lines=int(data.get('NumCreditLines', 0)),
+                    interest_rate=float(data.get('InterestRate', 0)),
+                    loan_term=int(data.get('LoanTerm', 0)),
+                    dti_ratio=float(data.get('DTIRatio', 0)),
+                    education=str(data.get('Education', '')),
+                    employment_type=str(data.get('EmploymentType', '')),
+                    marital_status=str(data.get('MaritalStatus', '')),
+                    has_mortgage=str(data.get('HasMortgage', '')),
+                    has_dependents=str(data.get('HasDependents', '')),
+                    loan_purpose=str(data.get('LoanPurpose', '')),
+                    has_cosigner=str(data.get('HasCoSigner', '')),
+                    # New fields
+                    has_existing_loan=str(data.get('HasExistingLoan', 'No')),
+                    existing_bank=str(data.get('ExistingBank', '')),
+                    existing_rate=float(data.get('ExistingRate', 0)),
+                    existing_purpose=str(data.get('ExistingPurpose', '')),
                     prediction=prediction,
                     default_probability=float(probability),
                     risk_category=risk_category
                 )
                 db.add(db_record)
                 db.commit()
-                print("[DB] Prediction saved successfully.")
+                print(f"New record saved with ID: {db_record.id}")
+                print(f"Commit successful. ----------------\n")
             except Exception as db_e:
+                import traceback
                 print(f"[DB ERROR] Failed to save prediction: {db_e}")
+                traceback.print_exc()
                 db.rollback()
             finally:
                 db.close()
@@ -255,6 +329,45 @@ def predict():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/applications', methods=['GET'])
+def get_applications():
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+    
+    try:
+        records = db.query(PredictionRecord).order_by(PredictionRecord.created_at.desc()).all()
+        result = []
+        for r in records:
+            result.append({
+                'id': r.id,
+                'full_name': r.full_name, # Standardized name
+                'email': r.email,
+                'state': r.state,
+                'age': r.age,
+                'income': r.income,
+                'loan_amount': r.loan_amount,
+                'credit_score': r.credit_score,
+                'loan_purpose': r.loan_purpose,
+                'risk_category': r.risk_category,
+                'probability': r.default_probability,
+                'created_at': r.created_at.isoformat() if r.created_at else None,
+                'has_existing_loan': r.has_existing_loan,
+                'existing_bank': r.existing_bank,
+                'existing_rate': r.existing_rate,
+                'existing_purpose': r.existing_purpose,
+                'dti': r.dti_ratio,
+                'term': r.loan_term,
+                'interest_rate': r.interest_rate
+            })
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Database query failed: {str(e)}'}), 500
+    finally:
+        db.close()
 
 
 @app.route('/api/model-info', methods=['GET'])
