@@ -282,40 +282,71 @@ def predict():
                 for r in all_records:
                     print(f"  - ID: {r.id}, Email: '{r.email}', Name: '{r.full_name}'")
 
-                # Always create a new record for every prediction to maintain a history
-                print(f"Creating new record for {email}...")
-                db_record = PredictionRecord(
-                    full_name=full_name,
-                    email=email,
-                    state=str(data.get('State', 'MH')),
-                    age=int(data.get('Age', 0)),
-                    income=float(data.get('Income', 0)),
-                    loan_amount=float(data.get('LoanAmount', 0)),
-                    credit_score=int(data.get('CreditScore', 0)),
-                    months_employed=int(data.get('MonthsEmployed', 0)),
-                    num_credit_lines=int(data.get('NumCreditLines', 0)),
-                    interest_rate=float(data.get('InterestRate', 0)),
-                    loan_term=int(data.get('LoanTerm', 0)),
-                    dti_ratio=float(data.get('DTIRatio', 0)),
-                    education=str(data.get('Education', '')),
-                    employment_type=str(data.get('EmploymentType', '')),
-                    marital_status=str(data.get('MaritalStatus', '')),
-                    has_mortgage=str(data.get('HasMortgage', '')),
-                    has_dependents=str(data.get('HasDependents', '')),
-                    loan_purpose=str(data.get('LoanPurpose', '')),
-                    has_cosigner=str(data.get('HasCoSigner', '')),
-                    # New fields
-                    has_existing_loan=str(data.get('HasExistingLoan', 'No')),
-                    existing_bank=str(data.get('ExistingBank', '')),
-                    existing_rate=float(data.get('ExistingRate', 0)),
-                    existing_purpose=str(data.get('ExistingPurpose', '')),
-                    prediction=prediction,
-                    default_probability=float(probability),
-                    risk_category=risk_category
-                )
-                db.add(db_record)
+                # Check if a record already exists for this email
+                existing = db.query(PredictionRecord).filter(PredictionRecord.email == email).first()
+                
+                if existing:
+                    print(f"Updating existing record for {email}...")
+                    existing.full_name = full_name
+                    existing.state = str(data.get('State', 'MH'))
+                    existing.age = int(data.get('Age', 0))
+                    existing.income = float(data.get('Income', 0))
+                    existing.loan_amount = float(data.get('LoanAmount', 0))
+                    existing.credit_score = int(data.get('CreditScore', 0))
+                    existing.months_employed = int(data.get('MonthsEmployed', 0))
+                    existing.num_credit_lines = int(data.get('NumCreditLines', 0))
+                    existing.interest_rate = float(data.get('InterestRate', 0))
+                    existing.loan_term = int(data.get('LoanTerm', 0))
+                    existing.dti_ratio = float(data.get('DTIRatio', 0))
+                    existing.education = str(data.get('Education', ''))
+                    existing.employment_type = str(data.get('EmploymentType', ''))
+                    existing.marital_status = str(data.get('MaritalStatus', ''))
+                    existing.has_mortgage = str(data.get('HasMortgage', ''))
+                    existing.has_dependents = str(data.get('HasDependents', ''))
+                    existing.loan_purpose = str(data.get('LoanPurpose', ''))
+                    existing.has_cosigner = str(data.get('HasCoSigner', ''))
+                    existing.has_existing_loan = str(data.get('HasExistingLoan', 'No'))
+                    existing.existing_bank = str(data.get('ExistingBank', ''))
+                    existing.existing_rate = float(data.get('ExistingRate', 0))
+                    existing.existing_purpose = str(data.get('ExistingPurpose', ''))
+                    existing.prediction = prediction
+                    existing.default_probability = float(probability)
+                    existing.risk_category = risk_category
+                    db_record = existing
+                else:
+                    print(f"Creating new record for {email}...")
+                    db_record = PredictionRecord(
+                        full_name=full_name,
+                        email=email,
+                        state=str(data.get('State', 'MH')),
+                        age=int(data.get('Age', 0)),
+                        income=float(data.get('Income', 0)),
+                        loan_amount=float(data.get('LoanAmount', 0)),
+                        credit_score=int(data.get('CreditScore', 0)),
+                        months_employed=int(data.get('MonthsEmployed', 0)),
+                        num_credit_lines=int(data.get('NumCreditLines', 0)),
+                        interest_rate=float(data.get('InterestRate', 0)),
+                        loan_term=int(data.get('LoanTerm', 0)),
+                        dti_ratio=float(data.get('DTIRatio', 0)),
+                        education=str(data.get('Education', '')),
+                        employment_type=str(data.get('EmploymentType', '')),
+                        marital_status=str(data.get('MaritalStatus', '')),
+                        has_mortgage=str(data.get('HasMortgage', '')),
+                        has_dependents=str(data.get('HasDependents', '')),
+                        loan_purpose=str(data.get('LoanPurpose', '')),
+                        has_cosigner=str(data.get('HasCoSigner', '')),
+                        has_existing_loan=str(data.get('HasExistingLoan', 'No')),
+                        existing_bank=str(data.get('ExistingBank', '')),
+                        existing_rate=float(data.get('ExistingRate', 0)),
+                        existing_purpose=str(data.get('ExistingPurpose', '')),
+                        prediction=prediction,
+                        default_probability=float(probability),
+                        risk_category=risk_category
+                    )
+                    db.add(db_record)
+                
                 db.commit()
-                print(f"New record saved with ID: {db_record.id}")
+                print(f"Record {db_record.id} saved/updated successfully.")
                 print(f"Commit successful. ----------------\n")
             except Exception as db_e:
                 import traceback
@@ -359,7 +390,10 @@ def get_applications():
                 'existing_purpose': r.existing_purpose,
                 'dti': r.dti_ratio,
                 'term': r.loan_term,
-                'interest_rate': r.interest_rate
+                'interest_rate': r.interest_rate,
+                'employment_type': r.employment_type,
+                'months_employed': r.months_employed,
+                'has_cosigner': r.has_cosigner
             })
         return jsonify(result)
     except Exception as e:

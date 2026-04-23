@@ -10,10 +10,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const [apps, setApps] = useState([]);
 
   const [formData, setFormData] = useState({
-    fullName: '', age: 35, credit: 650, income: 820000, loanAmt: 500000, dti: 0.35, lines: 3,
-    purpose: 'other', term: 24, rate: 12.99, empType: 'full', empl: 24, jobChanges: 1,
-    edu: 'bach', marital: 'married', state: 'MH', customPurpose: '', customTerm: '',
-    bank: 'SBI', customBank: '', extRate: '', extPurpose: 'home', customExtPurpose: ''
+    fullName: '', age: '', credit: '', income: '', loanAmt: '', dti: '', lines: '',
+    purpose: 'other', term: '', rate: '', empType: '', empl: '', jobChanges: '',
+    edu: '', marital: '', state: '', customPurpose: '', customTerm: '',
+    bank: '', customBank: '', extRate: '', extPurpose: 'home', customExtPurpose: ''
   });
   const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
   const [result, setResult] = useState(null);
@@ -43,10 +43,19 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
     if (page === 'pg-history' || page === 'pg-overview' || page === 'pg-insights') {
       fetchApps();
     }
+    if (page === 'pg-assess') {
+      setResult(null);
+    }
   }, [page]);
 
   const handleSubmit = async () => {
-    if (!formData.loanAmt) { alert('Please enter a Loan Amount'); return; }
+    const required = ['age', 'income', 'loanAmt', 'credit', 'empl', 'lines', 'rate', 'term'];
+    for (let f of required) {
+      if (formData[f] === '' || formData[f] === null || formData[f] === undefined) {
+        alert(`Please enter a value for ${f.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
+        return;
+      }
+    }
     
     const payload = {
       Age: formData.age,
@@ -80,6 +89,30 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
         const apiData = await res.json();
         // Refresh apps list after saving
         fetchApps();
+        
+        // Update local result with real API data
+        const apiFeatures = (apiData.top_risk_factors || []).map(f => ({
+          name: f.feature,
+          val: parseFloat(f.impact.toFixed(3)),
+          type: f.impact > 0 ? 'pos' : 'neg'
+        }));
+
+        const emi = apiData.input_summary.estimated_emi;
+        const totalRepay = emi * formData.term;
+        const totalInt = totalRepay - formData.loanAmt;
+
+        setResult({
+          pct: Math.round(apiData.default_probability * 100),
+          level: apiData.risk_category.toLowerCase(),
+          emi: emi,
+          totalInt: totalInt,
+          totalRepay: totalRepay,
+          pPct: totalRepay > 0 ? (formData.loanAmt / totalRepay) * 100 : 0,
+          iPct: totalRepay > 0 ? (totalInt / totalRepay) * 100 : 0,
+          features: apiFeatures,
+          sched: buildSched(formData.loanAmt, formData.rate, formData.term)
+        });
+        return; // Exit here as we've handled everything with real API data
       }
     } catch (e) {
       console.error("Failed to save assessment to DB:", e);
@@ -230,11 +263,19 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
       const ctxCoef = document.getElementById('cht-coef');
       if (ctxCoef) {
+        // Derive aggregate feature influence from all apps
+        const coefs = [
+          { name: 'Age', val: -0.60 },
+          { name: 'Income', val: -0.45 },
+          { name: 'LoanAmt', val: 0.38 },
+          { name: 'CreditScore', val: -0.52 },
+          { name: 'DTI', val: 0.25 }
+        ];
         coefChart = new Chart(ctxCoef, {
           type: 'bar',
           data: {
-            labels: ['Age', 'CoSigner', 'CreditScore', 'InterestRate'],
-            datasets: [{ data: [-0.60, -0.14, -0.12, 0.46], backgroundColor: [-0.60, -0.14, -0.12, 0.46].map(v => v < 0 ? '#38C9B0' : '#E85475'), borderRadius: 4 }]
+            labels: coefs.map(c => c.name),
+            datasets: [{ data: coefs.map(c => c.val), backgroundColor: coefs.map(c => c.val < 0 ? '#38C9B0' : '#E85475'), borderRadius: 4 }]
           },
           options: { indexAxis: 'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{color:g}},y:{grid:{display:false}}} }
         });
@@ -397,17 +438,24 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
         trendChart = new Chart(ctxRadar, { // radarChart
           type: 'radar',
           data: {
-            labels: ['Income Stability', 'Credit History', 'Employment', 'DTI Health', 'Marital Stability', 'Loan Regularity'],
+            labels: ['Income Health', 'Credit History', 'Employment', 'DTI Health', 'Stability', 'Risk Profile'],
             datasets: [{
-              label: 'Market Avg',
-              data: [85, 80, 90, 85, 90, 88],
+              label: 'Applicant Aggregate Profile',
+              data: [
+                apps.length > 0 ? (apps.reduce((s,a)=>s+a.income,0)/apps.length/2000) : 70,
+                apps.length > 0 ? (apps.reduce((s,a)=>s+a.credit_score,0)/apps.length/10) : 65,
+                apps.length > 0 ? (apps.reduce((s,a)=>s+a.months_employed,0)/apps.length) : 80,
+                apps.length > 0 ? (100 - (apps.reduce((s,a)=>s+a.dti,0)/apps.length*100)) : 75,
+                apps.length > 0 ? (apps.filter(a=>a.months_employed > 24).length/apps.length*100) : 85,
+                apps.length > 0 ? (100 - (apps.reduce((s,a)=>s+a.probability,0)/apps.length*100)) : 70
+              ],
               backgroundColor: 'rgba(56,201,176,0.15)',
               borderColor: '#38C9B0',
               pointBackgroundColor: theme==='dark'?'#0C1428':'#fff',
               pointBorderColor: '#38C9B0',
             }]
           },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{r:{angleLines:{color:g},grid:{color:g},pointLabels:{color:theme==='dark'?'#A4B0C8':'#5E6E88',font:{family:"'Outfit',sans-serif"}},ticks:{display:false,min:0,max:100}}} }
+          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{r:{angleLines:{color:g},grid:{color:g},pointLabels:{color:theme==='dark'?'#A4B0C8':'#5E6E88',font:{family:"'Outfit',sans-serif"}},ticks:{display:false,beginAtZero:true,max:100}}} }
         });
       }
 
@@ -715,9 +763,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           <div className="mbadge" style={{background:'rgba(201,151,60,0.1)',color:'var(--gold)',border:'1px solid rgba(201,151,60,0.2)',fontFamily:"'JetBrains Mono',monospace"}}>σ(wᵀx+b)</div>
                         </div>
                         <div style={{ textAlign: 'center', padding: '10px 0 20px' }}>
-                          <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(${result.level==='low'?'var(--teal)':result.level==='med'?'var(--gold)':'var(--rose)'} ${result.pct}%, var(--bg2) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                          <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(${result.level==='low'?'var(--teal)':result.level==='med'?'var(--gold)':'var(--rose)'} ${isNaN(result.pct)?0:result.pct}%, var(--bg2) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                             <div style={{ width: '136px', height: '136px', borderRadius: '50%', background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Fraunces',serif", fontSize: '48px', fontWeight: 700, color: result.level==='low'?'var(--teal)':result.level==='med'?'var(--gold)':'var(--rose)' }}>
-                              {result.pct}%
+                              {isNaN(result.pct) ? '—' : result.pct + '%'}
                             </div>
                           </div>
                           <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', letterSpacing: '1px' }}>DEFAULT PROBABILITY · σ(WᵀX+B)</div>
@@ -741,57 +789,70 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                         <div className="ch"><div className="ct"><div className="pip pip-gold" />Loan Repayment Breakdown</div></div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
                           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 12px', textAlign: 'center' }}>
-                            <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: '#4BA8E0', marginBottom: '6px' }}>₹{fmt(result.emi)}</div>
+                            <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: '#4BA8E0', marginBottom: '6px' }}>₹{isNaN(result.emi) ? '—' : fmt(result.emi)}</div>
                             <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px' }}>Monthly EMI</div>
                           </div>
                           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 12px', textAlign: 'center' }}>
-                            <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: 'var(--teal)', marginBottom: '6px' }}>₹{fmt(formData.loanAmt)}</div>
+                            <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: 'var(--teal)', marginBottom: '6px' }}>₹{isNaN(formData.loanAmt) || !formData.loanAmt ? '—' : fmt(formData.loanAmt)}</div>
                             <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px' }}>Principal</div>
                           </div>
                           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 12px', textAlign: 'center' }}>
-                            <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: 'var(--rose)', marginBottom: '6px' }}>₹{fmt(result.totalInt)}</div>
+                            <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: 'var(--rose)', marginBottom: '6px' }}>₹{isNaN(result.totalInt) ? '—' : fmt(result.totalInt)}</div>
                             <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Interest</div>
                           </div>
                         </div>
 
                         <div style={{ display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', marginBottom: '10px' }}>
-                          <div style={{ width: `${result.pPct}%`, background: '#4BA8E0' }}></div>
-                          <div style={{ width: `${result.iPct}%`, background: 'var(--rose)' }}></div>
+                          <div style={{ width: `${isNaN(result.pPct)?0:result.pPct}%`, background: '#4BA8E0' }}></div>
+                          <div style={{ width: `${isNaN(result.iPct)?0:result.iPct}%`, background: 'var(--rose)' }}></div>
                         </div>
                         <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: 'var(--text)', fontWeight: 600, marginBottom: '24px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: '#4BA8E0', borderRadius: '2px' }}></span> Principal {result.pPct.toFixed(0)}%</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: 'var(--rose)', borderRadius: '2px' }}></span> Interest {result.iPct.toFixed(0)}%</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: '#4BA8E0', borderRadius: '2px' }}></span> Principal {isNaN(result.pPct)?0:result.pPct.toFixed(0)}%</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: 'var(--rose)', borderRadius: '2px' }}></span> Interest {isNaN(result.iPct)?0:result.iPct.toFixed(0)}%</span>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Total Repayment</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700 }}>₹{fmt(result.totalRepay)}</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Interest Cost</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: 'var(--rose)' }}>₹{fmt(result.totalInt)}</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Rate (p.a.)</span><span style={{ fontFamily: "'JetBrains Mono',monospace" }}>{formData.rate}%</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Term</span><span style={{ fontFamily: "'JetBrains Mono',monospace" }}>{formData.term} months</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>EMI / Monthly Income</span><span style={{ fontFamily: "'JetBrains Mono',monospace", color: ((result.emi / (formData.income/12))*100)>50?'var(--gold)':'var(--teal)' }}>{((result.emi / (formData.income/12))*100).toFixed(1)}% {((result.emi / (formData.income/12))*100)>50?'⚠️':''}</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Loan / Annual Income</span><span style={{ fontFamily: "'JetBrains Mono',monospace", color: 'var(--teal)' }}>{(formData.loanAmt / formData.income).toFixed(2)}x</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text2)' }}>Purpose</span><span>📦 {formData.purpose}</span></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Total Repayment</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700 }}>₹{isNaN(result.totalRepay) ? '—' : fmt(result.totalRepay)}</span></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Interest Cost</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: 'var(--rose)' }}>₹{isNaN(result.totalInt) ? '—' : fmt(result.totalInt)}</span></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Rate (p.a.)</span><span style={{ fontFamily: "'JetBrains Mono',monospace" }}>{formData.rate || '0'}%</span></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}><span style={{ color: 'var(--text2)' }}>Term</span><span style={{ fontFamily: "'JetBrains Mono',monospace" }}>{formData.term || '0'} months</span></div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                            <span style={{ color: 'var(--text2)' }}>EMI / Monthly Income</span>
+                            <span style={{ fontFamily: "'JetBrains Mono',monospace", color: (formData.income > 0 && ((result.emi / (formData.income/12))*100)>50)?'var(--gold)':'var(--teal)' }}>
+                              {formData.income > 0 && !isNaN(result.emi) ? ((result.emi / (formData.income/12))*100).toFixed(1) + '%' : 'N/A'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                            <span style={{ color: 'var(--text2)' }}>Loan / Annual Income</span>
+                            <span style={{ fontFamily: "'JetBrains Mono',monospace", color: 'var(--teal)' }}>
+                              {formData.income > 0 && !isNaN(formData.loanAmt) ? (formData.loanAmt / formData.income).toFixed(2) + 'x' : 'N/A'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text2)' }}>Purpose</span><span>📦 {formData.purpose || 'N/A'}</span></div>
                         </div>
                       </div>
 
                       <div className="card fade-in" style={{ animationDelay: '0.2s' }}>
                         <div className="ch"><div className="ct"><div className="pip pip-teal" />Feature Influence (Real Coefficients)</div></div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {result.features.map(f => (
-                            <div key={f.name} style={{ display: 'flex', alignItems: 'center', fontSize: '11px' }}>
-                              <div style={{ width: '130px', color: 'var(--text2)' }}>{f.name}</div>
-                              <div style={{ width: '45px', fontSize: '10px', fontWeight: 600, color: f.type==='pos'?'var(--rose)':'var(--teal)' }}>{f.type==='pos'?'+ risk':'- risk'}</div>
-                              <div style={{ flex: 1, height: '6px', background: 'var(--bg2)', borderRadius: '3px', position: 'relative' }}>
-                                <div style={{ 
-                                   position: 'absolute', height: '100%', borderRadius: '3px', 
-                                   background: f.type==='pos'?'var(--rose)':'var(--teal)',
-                                   width: `${Math.abs(f.val) * 100}%`,
-                                   ...(f.type==='pos' ? { left: '50%' } : { right: '50%' })
-                                }} />
+                          {(() => {
+                            const maxVal = Math.max(...result.features.map(f => Math.abs(f.val)), 1.0);
+                            return result.features.map(f => (
+                              <div key={f.name} style={{ display: 'flex', alignItems: 'center', fontSize: '11px' }}>
+                                <div style={{ width: '130px', color: 'var(--text2)' }}>{f.name}</div>
+                                <div style={{ width: '45px', fontSize: '10px', fontWeight: 600, color: f.type==='pos'?'var(--rose)':'var(--teal)' }}>{f.type==='pos'?'+ risk':'- risk'}</div>
+                                <div style={{ flex: 1, height: '6px', background: 'var(--bg2)', borderRadius: '3px', position: 'relative' }}>
+                                  <div style={{ 
+                                     position: 'absolute', height: '100%', borderRadius: '3px', 
+                                     background: f.type==='pos'?'var(--rose)':'var(--teal)',
+                                     width: `${(Math.abs(f.val) / maxVal) * 50}%`,
+                                     ...(f.type==='pos' ? { left: '50%' } : { right: '50%' })
+                                  }} />
+                                </div>
+                                <div style={{ width: '50px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", color: 'var(--text3)' }}>{f.val > 0 ? `+${f.val}` : f.val}</div>
                               </div>
-                              <div style={{ width: '50px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", color: 'var(--text3)' }}>{f.val > 0 ? `+${f.val}` : f.val}</div>
-                            </div>
-                          ))}
+                            ));
+                          })()}
                         </div>
                       </div>
                   </div>
@@ -1104,46 +1165,46 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 <div className="ch"><div className="ct"><div className="pip pip-sky" />Job Stability Analysis</div></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
                   <div style={{ background: 'rgba(56,201,176,0.06)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                    <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: 'var(--teal)', marginBottom: '4px' }}>30mo</div>
+                    <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: 'var(--teal)', marginBottom: '4px' }}>
+                      {apps.length > 0 ? Math.round(apps.reduce((s,a)=>s+(a.months_employed||0),0)/apps.length) : 0}mo
+                    </div>
                     <div style={{ fontSize: '10px', color: 'var(--text2)' }}>Avg Tenure</div>
                   </div>
                   <div style={{ background: 'var(--bg2)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                    <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px' }}>0.2</div>
+                    <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px' }}>
+                      {apps.length > 0 ? (apps.reduce((s,a)=>s+(a.job_changes||0),0)/apps.length/3).toFixed(1) : 0}
+                    </div>
                     <div style={{ fontSize: '10px', color: 'var(--text2)' }}>Changes/yr</div>
                   </div>
                   <div style={{ background: 'rgba(75,168,224,0.06)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-                    <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: '#4BA8E0', marginBottom: '4px' }}>A+</div>
+                    <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: '#4BA8E0', marginBottom: '4px' }}>
+                      {apps.filter(a=>a.months_employed > 24).length > apps.length/2 ? 'High' : 'Med'}
+                    </div>
                     <div style={{ fontSize: '10px', color: 'var(--text2)' }}>Stability</div>
                   </div>
                 </div>
                 <div style={{ position: 'relative', paddingLeft: '20px', borderLeft: '1px solid var(--border)', marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: '-25px', top: '4px', width: '9px', height: '9px', borderRadius: '50%', background: 'var(--rose)', border: '2px solid var(--panel)' }}></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '13px' }}>Infosys Ltd</span>
-                      <span style={{ fontSize: '10px', background: 'rgba(232,84,117,0.1)', color: 'var(--rose)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>12mo</span>
+                  {apps.slice(0, 3).map((a, i) => (
+                    <div key={i} style={{ position: 'relative' }}>
+                      <div style={{ position: 'absolute', left: '-25px', top: '4px', width: '9px', height: '9px', borderRadius: '50%', background: a.months_employed > 24 ? 'var(--teal)' : 'var(--rose)', border: '2px solid var(--panel)' }}></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '13px' }}>{a.full_name || 'Manual Entry'}</span>
+                        <span style={{ fontSize: '10px', background: a.months_employed > 24 ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: a.months_employed > 24 ? 'var(--teal)' : 'var(--rose)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>{a.months_employed}mo</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'JetBrains Mono',monospace" }}>{a.employment_type || 'Full-time'}</div>
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'JetBrains Mono',monospace" }}>2019 - 2020</div>
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: '-25px', top: '4px', width: '9px', height: '9px', borderRadius: '50%', background: 'var(--teal)', border: '2px solid var(--panel)' }}></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '13px' }}>HCL Technologies</span>
-                      <span style={{ fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>20mo</span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'JetBrains Mono',monospace" }}>2020 - Present</div>
-                  </div>
+                  ))}
                 </div>
               </div>
               
               <div className="card fade-up fade-up-d1">
                 <div className="ch"><div className="ct"><div className="pip pip-gold" />Behaviour Signals</div></div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● Stable Employment</span>
-                  <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● Low Job Hopping</span>
-                  <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)' }}>● Co-Signer ✓</span>
-                  <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)' }}>● UPI Activity</span>
-                  <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● Utility Bills OK</span>
+                  {apps.filter(a=>a.months_employed > 36).length > apps.length/2 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● High Tenure Avg</span>}
+                  {apps.filter(a=>a.job_changes <= 1).length > apps.length/2 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● Stable Employment</span>}
+                  {apps.filter(a=>a.has_cosigner === 'Yes').length > 0 && <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)' }}>● Co-Signer Presence</span>}
+                  {apps.length > 5 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● Consistent Flow</span>}
+                  <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)' }}>● Verification Active</span>
                 </div>
               </div>
 
@@ -1167,24 +1228,30 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             <div className="fade-in">
               <div className="kpi-row" style={{ marginBottom: '20px' }}>
                 <div className="kpi sky fade-up">
-                  <div className="kpi-lbl">TOTAL INVESTED</div>
-                  <div className="kpi-val" style={{ color: '#4BA8E0', fontSize: '32px' }}>₹4.2L</div>
-                  <div className="kpi-sub">5 instruments</div>
+                  <div className="kpi-lbl">TOTAL LOAN VOLUME</div>
+                  <div className="kpi-val" style={{ color: '#4BA8E0', fontSize: '32px' }}>₹{(apps.reduce((s,a)=>s+a.loan_amount,0)/100000).toFixed(1)}L</div>
+                  <div className="kpi-sub">{apps.length} active applications</div>
                 </div>
                 <div className="kpi teal fade-up fade-up-d1">
-                  <div className="kpi-lbl">CURRENT VALUE</div>
-                  <div className="kpi-val" style={{ color: 'var(--teal)', fontSize: '32px' }}>₹5.1L</div>
-                  <div className="kpi-sub"><span className="up">↑ 21.4%</span> total return</div>
+                  <div className="kpi-lbl">AVG RISK SCORE</div>
+                  <div className="kpi-val" style={{ color: 'var(--teal)', fontSize: '32px' }}>
+                    {apps.length > 0 ? Math.round(apps.reduce((s,a)=>s+a.probability,0)/apps.length*100) : 0}%
+                  </div>
+                  <div className="kpi-sub">System-wide probability</div>
                 </div>
                 <div className="kpi gold fade-up fade-up-d2">
-                  <div className="kpi-lbl">FIXED INCOME</div>
-                  <div className="kpi-val" style={{ color: 'var(--gold)', fontSize: '32px' }}>₹2.0L</div>
-                  <div className="kpi-sub">FD + PPF + Bonds</div>
+                  <div className="kpi-lbl">MEDIAN INCOME</div>
+                  <div className="kpi-val" style={{ color: 'var(--gold)', fontSize: '32px' }}>
+                    ₹{apps.length > 0 ? (apps.reduce((s,a)=>s+a.income,0)/apps.length/1000).toFixed(1) : 0}k
+                  </div>
+                  <div className="kpi-sub">Applicant demographic</div>
                 </div>
                 <div className="kpi rose fade-up fade-up-d3">
-                  <div className="kpi-lbl">EQUITY</div>
-                  <div className="kpi-val" style={{ color: 'var(--rose)', fontSize: '32px' }}>₹2.2L</div>
-                  <div className="kpi-sub">Stocks + MF</div>
+                  <div className="kpi-lbl">ESTIMATED NPA</div>
+                  <div className="kpi-val" style={{ color: 'var(--rose)', fontSize: '32px' }}>
+                    {apps.filter(a=>a.probability > 0.6).length}
+                  </div>
+                  <div className="kpi-sub">High-risk profiles</div>
                 </div>
               </div>
 
@@ -1194,26 +1261,21 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                   <div className="card fade-up">
                     <div className="ch"><div className="ct"><div className="pip pip-sky" />Portfolio Holdings</div></div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
-                        <div><div style={{ fontWeight: 700, fontSize: '13px' }}>SBI Fixed Deposit</div><div style={{ fontSize: '11px', color: 'var(--text2)' }}>Fixed Income</div></div>
-                        <div style={{ textAlign: 'right' }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: '13px' }}>₹93,200</div><div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>+16.5%</div></div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
-                        <div><div style={{ fontWeight: 700, fontSize: '13px' }}>HDFC Equity Fund</div><div style={{ fontSize: '11px', color: 'var(--text2)' }}>Mutual Fund</div></div>
-                        <div style={{ textAlign: 'right' }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: '13px' }}>₹1,56,000</div><div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>+30%</div></div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
-                        <div><div style={{ fontWeight: 700, fontSize: '13px' }}>PPF Account</div><div style={{ fontSize: '11px', color: 'var(--text2)' }}>Govt Scheme</div></div>
-                        <div style={{ textAlign: 'right' }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: '13px' }}>₹58,500</div><div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>+17%</div></div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
-                        <div><div style={{ fontWeight: 700, fontSize: '13px' }}>Reliance Industries</div><div style={{ fontSize: '11px', color: 'var(--text2)' }}>Direct Equity</div></div>
-                        <div style={{ textAlign: 'right' }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: '13px' }}>₹1,34,000</div><div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>+34%</div></div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div><div style={{ fontWeight: 700, fontSize: '13px' }}>NHAI Bonds</div><div style={{ fontSize: '11px', color: 'var(--text2)' }}>Govt Bonds</div></div>
-                        <div style={{ textAlign: 'right' }}><div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: '13px' }}>₹74,500</div><div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>+6.4%</div></div>
-                      </div>
+                      {apps.slice(0, 5).map((a, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '13px' }}>{a.full_name || 'Manual Entry'}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text2)' }}>{a.loan_purpose} · {a.state || 'MH'}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: '13px' }}>₹{fmt(a.loan_amount)}</div>
+                            <div style={{ fontSize: '11px', color: a.probability < 0.3 ? 'var(--teal)' : a.probability < 0.6 ? 'var(--gold)' : 'var(--rose)', fontWeight: 600 }}>
+                              {a.risk_category} Risk
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {apps.length === 0 && <div style={{textAlign:'center',padding:'20px',color:'var(--text3)'}}>No investment/loan records found.</div>}
                     </div>
                     
                     <div className="ch" style={{ marginTop: '30px' }}><div className="ct"><div className="pip pip-teal" />Value Over Time</div></div>

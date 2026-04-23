@@ -26,6 +26,11 @@ export default function Auth({ onLogin, theme, toggleTheme }) {
       return;
     }
 
+    if (!form.email.toLowerCase().endsWith('@gmail.com')) {
+      setError('Only @gmail.com email addresses are allowed.');
+      return;
+    }
+
     if (isSignup) {
       if (!form.first || !form.last) {
         setError('Please enter your full name');
