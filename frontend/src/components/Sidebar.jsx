@@ -32,9 +32,9 @@ export default function Sidebar({ user, activePage, setPage, onLogout, type, tog
     <aside className="sidebar">
       <div className="sb-top">
         <div className="sb-brand">
-          <div className="sb-mark">G</div>
+          <div className="sb-mark">L</div>
           <div>
-            <div className="sb-nm">Ground<em>Zero</em></div>
+            <div className="sb-nm">Loan<em>Guard</em></div>
             <div className={`sb-bdg ${type === 'bank' ? 'sbb-bank' : 'sbb-bor'}`}>
               {type === 'bank' ? 'Bank Analyst' : 'Borrower'}
             </div>

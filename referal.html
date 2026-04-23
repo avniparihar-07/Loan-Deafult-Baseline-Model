@@ -1,0 +1,2331 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GroundZero — Default Risk Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══ TOKENS ═══ */
+:root{
+  --bg:#07091280;--bg-solid:#07091299;--bg2:#0C1020;--bg3:#111828;
+  --panel:#162030;--panel2:#1C2840;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --gold:#C9973C;--gold2:#F0C060;--gold-glow:rgba(201,151,60,0.12);
+  --teal:#38C9B0;--teal2:#70EDD4;
+  --sky:#4BA8E0;--sky2:#80CCFF;
+  --rose:#E85475;--rose2:#FF8FA8;
+  --violet:#8B72F0;--violet2:#B8A0FF;
+  --text:#ECF0F8;--text2:#A4B0C8;--text3:#5E6E88;
+  --r:12px;--r2:18px;
+  --sha:0 20px 60px rgba(0,0,0,0.55);
+  background:#07091280;
+}
+[data-theme=light]{
+  --bg:#F0F4FC;--bg2:#E4EAF8;--bg3:#D8E0F0;
+  --panel:#FFFFFF;--panel2:#F4F8FF;
+  --border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.13);
+  --gold:#9A6E1A;--gold2:#C49030;--gold-glow:rgba(154,110,26,0.08);
+  --teal:#0B9980;--teal2:#1FC4A8;
+  --sky:#1E7EC0;--sky2:#3A9EE0;
+  --rose:#C43456;--rose2:#E85070;
+  --violet:#6050C8;--violet2:#8870E8;
+  --text:#0C1428;--text2:#2C3C5C;--text3:#7A8CA8;
+  --sha:0 8px 32px rgba(0,0,0,0.10);
+}
+
+/* ═══ GLOBAL ═══ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:'Outfit',sans-serif;background:var(--bg2);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(128,128,128,0.15);border-radius:2px}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+input[type=range]{accent-color:var(--gold);cursor:pointer}
+
+/* ═══ ANIMATIONS ═══ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideRight{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulseGold{0%,100%{box-shadow:0 0 0 0 rgba(201,151,60,0.35)}50%{box-shadow:0 0 0 8px rgba(201,151,60,0)}}
+@keyframes scanLine{0%{transform:translateY(-100%)}100%{transform:translateY(400%)}}
+@keyframes countUp{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes rotateIn{from{opacity:0;transform:rotate(-5deg) scale(0.95)}to{opacity:1;transform:rotate(0) scale(1)}}
+@keyframes borderGlow{0%,100%{border-color:var(--border)}50%{border-color:rgba(201,151,60,0.4)}}
+@keyframes floatBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+.fade-up{animation:fadeUp .55s cubic-bezier(.22,1,.36,1) both}
+.fade-up-d1{animation-delay:.08s}.fade-up-d2{animation-delay:.16s}.fade-up-d3{animation-delay:.24s}.fade-up-d4{animation-delay:.32s}
+.fade-in{animation:fadeIn .4s ease both}
+.slide-right{animation:slideRight .4s cubic-bezier(.22,1,.36,1) both}
+
+/* Screen transitions */
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex;animation:fadeIn .35s ease}
+.app-shell{display:none}
+.app-shell.active{display:flex;flex-direction:row;min-height:100vh;animation:fadeIn .3s ease}
+.page{padding:26px;flex:1;display:none}
+.page.active{display:block;animation:fadeUp .4s cubic-bezier(.22,1,.36,1)}
+
+/* ═══ THEME TOGGLE — IMPROVED ═══ */
+.theme-btn{
+  position:relative;width:58px;height:30px;border-radius:50px;cursor:pointer;flex-shrink:0;
+  background:transparent;border:none;padding:0;outline:none;transition:all .3s;
+}
+.theme-btn-track{
+  position:absolute;inset:0;border-radius:50px;
+  background:linear-gradient(135deg,#1a2540,#0d1628);
+  border:1.5px solid rgba(255,255,255,0.15);
+  transition:all .35s cubic-bezier(.4,0,.2,1);overflow:hidden;
+}
+[data-theme=light] .theme-btn-track{
+  background:linear-gradient(135deg,#7bc8f8,#4a9fd4);
+  border-color:rgba(255,255,255,0.5);
+}
+.theme-btn-stars{
+  position:absolute;inset:0;
+  background:radial-gradient(circle at 20% 40%,rgba(255,255,255,0.7) 1px,transparent 1px),
+             radial-gradient(circle at 60% 20%,rgba(255,255,255,0.5) 1px,transparent 1px),
+             radial-gradient(circle at 80% 60%,rgba(255,255,255,0.6) 1px,transparent 1px),
+             radial-gradient(circle at 40% 75%,rgba(255,255,255,0.4) 0.8px,transparent 0.8px);
+  transition:opacity .3s;
+}
+[data-theme=light] .theme-btn-stars{opacity:0;}
+.theme-btn-thumb{
+  position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+  background:linear-gradient(135deg,#f8e06a,#f0a030);
+  box-shadow:0 2px 8px rgba(240,160,48,0.6);
+  transition:transform .32s cubic-bezier(.34,1.56,.64,1),background .3s,box-shadow .3s;
+  display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;z-index:2;
+}
+[data-theme=light] .theme-btn-thumb{
+  transform:translateX(28px);
+  background:linear-gradient(135deg,#fff9e6,#ffe066);
+  box-shadow:0 0 12px rgba(255,200,0,0.7),0 2px 6px rgba(0,0,0,0.1);
+}
+.theme-btn:hover .theme-btn-thumb{filter:brightness(1.1);}
+.t-icon{display:none;}
+
+/* ═══ AUTH ═══ */
+.auth-bg{
+  flex:1;display:flex;align-items:center;justify-content:center;padding:28px;
+  background:
+    radial-gradient(ellipse 80% 60% at 5% 10%,rgba(201,151,60,0.08),transparent 55%),
+    radial-gradient(ellipse 60% 50% at 95% 90%,rgba(75,168,224,0.07),transparent 55%),
+    var(--bg2);
+}
+.auth-card{
+  display:grid;grid-template-columns:1.15fr 1fr;max-width:1020px;width:100%;
+  border-radius:26px;overflow:hidden;border:1px solid var(--border2);
+  box-shadow:var(--sha),0 0 0 1px rgba(255,255,255,0.02);
+  animation:rotateIn .5s cubic-bezier(.22,1,.36,1);
+}
+/* Hero */
+.ah{
+  padding:52px 46px;display:flex;flex-direction:column;gap:32px;position:relative;overflow:hidden;
+  background:linear-gradient(158deg,#0C1C38 0%,#071424 55%,#040C1A 100%);
+}
+[data-theme=light] .ah{background:linear-gradient(158deg,#142A50 0%,#0D1E40 55%,#08142E 100%)}
+.ah-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(201,151,60,0.04)1px,transparent 1px),linear-gradient(90deg,rgba(201,151,60,0.04)1px,transparent 1px);background-size:30px 30px;animation:floatBob 8s ease-in-out infinite}
+.ah-orb{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none}
+.ah-orb1{width:260px;height:260px;top:-80px;left:-80px;background:radial-gradient(rgba(201,151,60,0.14),transparent 70%)}
+.ah-orb2{width:180px;height:180px;bottom:-40px;right:-40px;background:radial-gradient(rgba(75,168,224,0.1),transparent 70%)}
+.ah-scan{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,151,60,0.3),transparent);animation:scanLine 6s linear infinite;pointer-events:none}
+.ah-z{position:relative;z-index:2}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{
+  width:48px;height:48px;border-radius:14px;
+  background:linear-gradient(135deg,var(--gold),var(--sky));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:#000;
+  box-shadow:0 4px 20px rgba(201,151,60,0.4);
+  animation:pulseGold 3s ease-in-out infinite;
+}
+.brand-name{font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#ECF0F8;letter-spacing:.2px}
+.brand-name em{color:#C9973C;font-style:normal}
+.brand-tag{font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:2.5px;text-transform:uppercase;margin-top:3px}
+.ah-headline{font-family:'Fraunces',serif;font-size:32px;font-weight:700;line-height:1.18;color:#ECF0F8}
+.ah-headline em{color:#C9973C;font-style:italic}
+.ah-desc{font-size:13px;color:rgba(236,240,248,0.55);line-height:1.8;max-width:360px}
+.ah-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ah-stat{padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);transition:transform .2s}
+.ah-stat:hover{transform:translateY(-2px)}
+.ah-stat-v{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600;color:#C9973C}
+.ah-stat-l{font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px;letter-spacing:.3px}
+.ah-diff{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:11px;background:rgba(56,201,176,0.06);border:1px solid rgba(56,201,176,0.18);font-size:12px;color:#70EDD4;line-height:1.6}
+.mbadge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:rgba(201,151,60,0.1);border:1px solid rgba(201,151,60,0.2);font-size:10px;color:var(--gold);font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.4px}
+/* Auth form */
+.af{background:var(--panel);padding:50px 42px;display:flex;flex-direction:column;justify-content:center;position:relative}
+.af-thm{position:absolute;top:18px;right:18px;display:flex;align-items:center;gap:8px}
+.af-thm-l{font-size:10px;color:var(--text3)}
+.af-h{font-family:'Fraunces',serif;font-size:27px;font-weight:700;color:var(--text);margin-bottom:6px}
+.af-sub{font-size:13px;color:var(--text2);margin-bottom:26px}
+.role-tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:4px;margin-bottom:24px}
+.rtab{padding:9px;border-radius:8px;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;background:transparent;color:var(--text3);transition:all .2s}
+.rtab.on{background:var(--gold);color:#000;font-weight:700;box-shadow:0 2px 10px rgba(201,151,60,0.3)}
+.fg{margin-bottom:15px}
+.fg label{display:block;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.fi,.fs{width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-family:'Outfit',sans-serif;font-size:13px;color:var(--text);outline:none;transition:all .22s}
+.fi:focus,.fs:focus{border-color:var(--gold);background:var(--gold-glow);box-shadow:0 0 0 3px rgba(201,151,60,0.1)}
+.fi::placeholder{color:var(--text3)}.fs{cursor:pointer}.fs option{background:var(--panel)}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn-main{
+  width:100%;padding:13px;margin-top:6px;border-radius:10px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--gold),#A07028);
+  font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#000;transition:all .22s;
+}
+.btn-main:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(201,151,60,0.35)}
+.btn-main:active{transform:translateY(0)}
+.auth-link{text-align:center;margin-top:16px;font-size:13px;color:var(--text2)}
+.auth-link a{color:var(--gold);cursor:pointer;font-weight:600}
+.auth-link a:hover{text-decoration:underline}
+.auth-err{font-size:12px;color:var(--rose);margin-bottom:12px;padding:10px 14px;background:rgba(232,84,117,0.07);border:1px solid rgba(232,84,117,0.2);border-radius:9px;display:none;animation:fadeUp .3s ease}
+.auth-err.show{display:block}
+@media(max-width:720px){.auth-card{grid-template-columns:1fr}.ah{display:none}}
+
+/* ═══ SIDEBAR ═══ */
+.sidebar{
+  width:248px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:fixed;left:0;top:0;height:100vh;z-index:200;
+  transition:background .3s;
+}
+.sb-top{padding:20px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sb-brand{display:flex;align-items:center;gap:10px}
+.sb-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--sky));display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:17px;font-weight:900;color:#000}
+.sb-nm{font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--text)}
+.sb-nm em{color:var(--gold);font-style:normal}
+.sb-bdg{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:20px;margin-top:2px;display:block}
+.sbb-bank{background:rgba(201,151,60,0.12);color:var(--gold);border:1px solid rgba(201,151,60,0.22)}
+.sbb-bor{background:rgba(75,168,224,0.12);color:var(--sky);border:1px solid rgba(75,168,224,0.22)}
+.sb-nav{flex:1;padding:14px 10px;overflow-y:auto}
+.sb-sec{margin-bottom:20px}
+.sb-sec-lbl{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;padding:0 10px;margin-bottom:7px}
+.nav-item{
+  display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:10px;
+  font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .18s;margin-bottom:2px;
+  position:relative;overflow:hidden;
+}
+.nav-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold);border-radius:0 3px 3px 0;transform:scaleY(0);transition:transform .2s}
+.nav-item:hover{background:rgba(255,255,255,0.04);color:var(--text)}
+.nav-item.on{background:rgba(201,151,60,0.09);color:var(--gold)}
+.nav-item.on::before{transform:scaleY(1)}
+.nav-item .ni{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sb-user{padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sb-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--sky));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;flex-shrink:0;font-family:'Fraunces',serif;transition:box-shadow .2s;}
+.sb-av.av-g0{background:linear-gradient(135deg,#C9973C,#4BA8E0)}
+.sb-av.av-g1{background:linear-gradient(135deg,#38C9B0,#8B72F0)}
+.sb-av.av-g2{background:linear-gradient(135deg,#E85475,#C9973C)}
+.sb-av.av-g3{background:linear-gradient(135deg,#4BA8E0,#38C9B0)}
+.sb-av.av-g4{background:linear-gradient(135deg,#8B72F0,#E85475)}
+.sb-ui{flex:1;min-width:0}
+.sb-un{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.sb-ur{font-size:11px;color:var(--text3)}
+.sb-logout{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px;border-radius:6px;transition:color .15s}
+.sb-logout:hover{color:var(--rose)}
+
+/* ═══ MAIN ═══ */
+.main-area{margin-left:248px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{
+  height:62px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+  padding:0 26px;gap:14px;background:var(--bg2);backdrop-filter:blur(20px);
+  position:sticky;top:0;z-index:100;transition:background .3s;
+}
+.tb-title{font-family:'Fraunces',serif;font-size:19px;font-weight:700;flex:1;color:var(--text)}
+.tb-chip{font-size:10px;font-weight:600;padding:5px 12px;border-radius:20px;font-family:'JetBrains Mono',monospace;background:rgba(201,151,60,0.08);color:var(--gold);border:1px solid rgba(201,151,60,0.14);white-space:nowrap}
+
+/* ═══ KPI ═══ */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+.kpi{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r2);padding:22px;
+  position:relative;overflow:hidden;transition:all .22s;cursor:default;
+}
+.kpi:hover{transform:translateY(-3px);border-color:var(--border2);box-shadow:0 8px 30px rgba(0,0,0,0.2)}
+.kpi::after{content:'';position:absolute;bottom:-24px;right:-24px;width:80px;height:80px;border-radius:50%;opacity:.07}
+.kpi.gold::after{background:var(--gold)}.kpi.teal::after{background:var(--teal)}.kpi.rose::after{background:var(--rose)}.kpi.sky::after{background:var(--sky)}
+.kpi-lbl{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.kpi-val{font-family:'Fraunces',serif;font-size:32px;font-weight:700;line-height:1;margin-bottom:4px;animation:countUp .5s cubic-bezier(.22,1,.36,1)}
+.kpi.gold .kpi-val{color:var(--gold)}.kpi.teal .kpi-val{color:var(--teal)}.kpi.rose .kpi-val{color:var(--rose)}.kpi.sky .kpi-val{color:var(--sky)}
+.kpi-sub{font-size:12px;color:var(--text3)}
+.up{color:var(--teal)}.dn{color:var(--rose)}
+
+/* ═══ CARDS ═══ */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r2);padding:24px;transition:background .3s,border-color .2s}
+.card:hover{border-color:var(--border2)}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.ct{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:9px}
+.pip{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pip-gold{background:var(--gold)}.pip-teal{background:var(--teal)}.pip-sky{background:var(--sky)}.pip-rose{background:var(--rose)}.pip-violet{background:var(--violet)}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:18px}
+.g65{display:grid;grid-template-columns:1.65fr 1fr;gap:18px;margin-bottom:18px}
+.g12{display:grid;grid-template-columns:1fr;margin-bottom:18px}
+.mb18{margin-bottom:18px}
+@media(max-width:1000px){.g2,.g3,.g65,.g4{grid-template-columns:1fr}}
+.cbox canvas{max-height:240px}
+.cbox.tall canvas{max-height:295px}
+
+/* ═══ MODEL INFO BAR ═══ */
+.mib{
+  display:flex;align-items:center;gap:0;margin-bottom:20px;
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  animation:slideRight .4s cubic-bezier(.22,1,.36,1);
+}
+.mib-item{display:flex;flex-direction:column;padding:12px 18px;border-right:1px solid var(--border);flex:1}
+.mib-item:last-child{border-right:none}
+.mib-lbl{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.mib-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--teal)}
+
+/* ═══ PURPOSE + TERM COMBO INPUTS ═══ */
+.combo-field{position:relative}
+.combo-select{width:100%;padding:10px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:10px 10px 0 0;font-family:'Outfit',sans-serif;font-size:13px;color:var(--text);outline:none;transition:all .22s;cursor:pointer;border-bottom:none}
+.combo-select:focus{border-color:var(--gold);background:var(--gold-glow)}
+.combo-select option{background:var(--panel)}
+.combo-manual{width:100%;padding:9px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:0 0 10px 10px;font-family:'Outfit',sans-serif;font-size:12px;color:var(--text);outline:none;transition:all .22s;display:none;border-top:1px dashed var(--border2)}
+.combo-manual::placeholder{color:var(--text3)}
+.combo-manual:focus{border-color:var(--gold);background:var(--gold-glow)}
+.combo-manual.show{display:block;animation:fadeUp .25s ease}
+.combo-tag{display:inline-block;font-size:9px;font-weight:700;color:var(--gold);background:rgba(201,151,60,0.1);border:1px solid rgba(201,151,60,0.2);border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+
+/* ═══ FORM ═══ */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fg-full{grid-column:1/-1}
+.fg-sec{
+  grid-column:1/-1;font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;
+  letter-spacing:1.2px;padding:10px 0 4px;border-top:1px solid rgba(201,151,60,0.1);margin-top:4px;
+  display:flex;align-items:center;gap:8px;
+}
+.fg-sec:first-child{border-top:none;padding-top:0}
+.fg-sec-dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.flab{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.finput,.fselect{width:100%;padding:10px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-family:'Outfit',sans-serif;font-size:13px;color:var(--text);outline:none;transition:all .22s}
+.finput:focus,.fselect:focus{border-color:var(--gold);background:var(--gold-glow);box-shadow:0 0 0 3px rgba(201,151,60,0.08)}
+.finput::placeholder{color:var(--text3)}.fselect{cursor:pointer}.fselect option{background:var(--panel)}
+.ftog{display:flex;gap:6px}
+.ftog-btn{flex:1;padding:9px 4px;border-radius:9px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer;transition:all .18s}
+.ftog-btn.on{background:rgba(201,151,60,0.1);border-color:var(--gold);color:var(--gold)}
+.btn-assess{
+  width:100%;padding:13px;border-radius:11px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--gold),#A07028);
+  font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#000;
+  transition:all .22s;display:flex;align-items:center;justify-content:center;gap:9px;
+  position:relative;overflow:hidden;
+}
+.btn-assess::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);transform:translateX(-100%);transition:transform .5s}
+.btn-assess:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(201,151,60,0.35)}
+.btn-assess:hover::before{transform:translateX(100%)}
+.btn-assess:active{transform:translateY(0)}
+
+/* ═══ RISK DISPLAY ═══ */
+.risk-empty{text-align:center;padding:36px 20px;color:var(--text3);font-size:13px}
+.risk-empty .icon{font-size:38px;margin-bottom:12px;animation:floatBob 3s ease-in-out infinite}
+
+.arc-wrap{position:relative;width:200px;height:118px;margin:0 auto 8px}
+.arc-wrap svg{width:100%;height:100%;overflow:visible}
+.risk-num{position:absolute;bottom:0;left:50%;transform:translateX(-50%);font-family:'Fraunces',serif;font-size:52px;font-weight:700;line-height:1;text-align:center;white-space:nowrap;animation:countUp .6s cubic-bezier(.22,1,.36,1)}
+.risk-sublbl{text-align:center;font-size:10px;color:var(--text3);margin-bottom:14px;text-transform:uppercase;letter-spacing:1px}
+.risk-verdict{border-radius:12px;padding:14px 16px;margin-bottom:14px;animation:fadeUp .4s ease}
+.rv-low{background:rgba(56,201,176,0.07);border:1px solid rgba(56,201,176,0.2)}.rv-med{background:rgba(201,151,60,0.07);border:1px solid rgba(201,151,60,0.2)}.rv-high{background:rgba(232,84,117,0.07);border:1px solid rgba(232,84,117,0.2)}
+.rv-title{font-size:14px;font-weight:700;margin-bottom:5px}
+.rv-desc{font-size:12px;color:var(--text2);line-height:1.55}
+.lv-low{color:var(--teal)}.lv-med{color:var(--gold)}.lv-high{color:var(--rose)}
+.prob-track{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden;margin:10px 0 16px}
+.prob-fill{height:100%;border-radius:3px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+
+/* ═══ AMORT ═══ */
+.amort-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.amort-kpi{padding:14px 16px;border-radius:13px;text-align:center;background:var(--bg2);border:1px solid var(--border2);transition:transform .2s}
+.amort-kpi:hover{transform:translateY(-2px)}
+.amort-kpi-v{font-family:'Fraunces',serif;font-size:22px;font-weight:700}
+.amort-kpi.sky .amort-kpi-v{color:var(--sky)}.amort-kpi.rose .amort-kpi-v{color:var(--rose)}.amort-kpi.gold .amort-kpi-v{color:var(--gold)}.amort-kpi.teal .amort-kpi-v{color:var(--teal)}
+.amort-kpi-l{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-top:4px}
+.split-bar{height:13px;border-radius:7px;background:var(--bg3);overflow:hidden;display:flex;margin-bottom:6px}
+.sb-p{background:linear-gradient(90deg,var(--sky),var(--sky2))}.sb-i{background:linear-gradient(90deg,var(--rose),var(--rose2))}
+.split-legend{display:flex;gap:16px;font-size:11px;color:var(--text2);margin-bottom:16px}
+.split-legend span{display:flex;align-items:center;gap:5px}
+.sl-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.br-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);transition:background .15s}
+.br-row:hover{background:rgba(255,255,255,0.02)}
+.br-row:last-child{border-bottom:none}
+.br-k{font-size:13px;color:var(--text2)}.br-v{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)}
+
+/* ═══ AMORT TABLE ═══ */
+.amort-scroll{max-height:230px;overflow-y:auto;margin-top:8px;border-radius:10px;border:1px solid var(--border)}
+.amort-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.amort-tbl th{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel)}
+.amort-tbl th:first-child{text-align:left}
+.amort-tbl td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text)}
+.amort-tbl td:first-child{text-align:left;color:var(--text3)}
+.amort-tbl tr:hover td{background:var(--panel2)}
+.atd-p{color:var(--sky)!important}.atd-i{color:var(--rose)!important}.atd-b{color:var(--gold)!important}
+
+/* ═══ FEATURE BARS ═══ */
+.feat-item{display:flex;align-items:center;gap:9px;margin-bottom:10px;animation:slideRight .35s ease both}
+.feat-n{width:130px;flex-shrink:0;color:var(--text2);font-size:12px}
+.feat-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;flex-shrink:0}
+.fb-up{background:rgba(232,84,117,0.12);color:var(--rose)}.fb-dn{background:rgba(56,201,176,0.12);color:var(--teal)}
+.feat-trk{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.feat-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.ff-up{background:linear-gradient(90deg,var(--rose),var(--rose2))}.ff-dn{background:linear-gradient(90deg,var(--teal),var(--teal2))}
+.feat-coef{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3);width:52px;text-align:right}
+
+/* ═══ TABLE ═══ */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:9px 13px;text-align:left;border-bottom:1px solid var(--border)}
+.tbl td{padding:11px 13px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text);transition:background .15s}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--panel2)}
+.badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px}
+.b-low{background:rgba(56,201,176,0.1);color:var(--teal)}.b-med{background:rgba(201,151,60,0.1);color:var(--gold)}.b-high{background:rgba(232,84,117,0.1);color:var(--rose)}
+
+/* ═══ PAYMENT HEATMAP ═══ */
+.pm-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin:12px 0}
+.pm-dot{aspect-ratio:1;border-radius:4px;cursor:pointer;transition:transform .12s,opacity .12s}
+.pm-dot:hover{transform:scale(1.5);z-index:1}
+.pm-ot{background:rgba(56,201,176,0.75)}.pm-lt{background:rgba(201,151,60,0.75)}.pm-ms{background:rgba(232,84,117,0.75)}.pm-na{background:var(--bg3)}
+.pm-legend{display:flex;gap:14px;flex-wrap:wrap}
+.pm-leg-i{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.pm-leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* ═══ BEHAVIOUR ═══ */
+.bpill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;margin:3px;animation:fadeUp .3s ease both}
+.bp-teal{background:rgba(56,201,176,0.1);color:var(--teal);border:1px solid rgba(56,201,176,0.2)}
+.bp-gold{background:rgba(201,151,60,0.1);color:var(--gold);border:1px solid rgba(201,151,60,0.2)}
+.bp-rose{background:rgba(232,84,117,0.1);color:var(--rose);border:1px solid rgba(232,84,117,0.2)}
+.bp-sky{background:rgba(75,168,224,0.1);color:var(--sky);border:1px solid rgba(75,168,224,0.2)}
+.job-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);transition:background .15s}
+.job-row:hover{background:rgba(255,255,255,0.02)}
+.job-row:last-child{border-bottom:none}
+.jdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.jd-teal{background:var(--teal)}.jd-gold{background:var(--gold)}.jd-rose{background:var(--rose)}
+.j-co{font-size:13px;font-weight:600;color:var(--text)}.j-per{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.jbadge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px}
+.jb-ok{background:rgba(56,201,176,0.1);color:var(--teal)}.jb-warn{background:rgba(201,151,60,0.1);color:var(--gold)}.jb-risk{background:rgba(232,84,117,0.1);color:var(--rose)}
+.mini-row{display:flex;gap:10px;margin-bottom:14px}
+.mini-stat{text-align:center;padding:16px;background:var(--bg2);border-radius:12px;flex:1;transition:transform .2s}
+.mini-stat:hover{transform:translateY(-2px)}
+.ms-v{font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--text)}.ms-l{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* ═══ INVESTMENTS ═══ */
+.inv-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);transition:background .15s}
+.inv-row:hover{background:rgba(255,255,255,0.02)}.inv-row:last-child{border-bottom:none}
+.inv-n{font-size:13px;font-weight:600;color:var(--text)}.inv-type{font-size:11px;color:var(--text3)}
+.inv-v{font-family:'JetBrains Mono',monospace;font-size:12px;text-align:right;color:var(--text)}
+.inv-ret{font-size:11px;font-weight:700}.inv-ret.pos{color:var(--teal)}.inv-ret.neg{color:var(--rose)}
+
+/* ═══ SUGGESTIONS ═══ */
+.sug-card{display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:14px;background:var(--bg2);border:1px solid var(--border);margin-bottom:10px;transition:all .22s;animation:fadeUp .4s ease both}
+.sug-card:hover{border-color:var(--border2);transform:translateX(4px)}
+.sug-icon{font-size:22px;flex-shrink:0;width:38px;text-align:center}
+.sug-t{font-size:13px;font-weight:700;margin-bottom:4px;color:var(--text)}.sug-d{font-size:12px;color:var(--text2);line-height:1.6}
+.sug-imp{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-top:6px;display:inline-block}
+.si-hi{background:rgba(56,201,176,0.1);color:var(--teal)}.si-md{background:rgba(201,151,60,0.1);color:var(--gold)}
+
+/* ═══ OPTIMIZER ═══ */
+.opt-out{background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:22px;text-align:center;margin-top:10px;position:relative;overflow:hidden}
+.opt-out::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(201,151,60,0.04),transparent);pointer-events:none}
+.opt-num{font-family:'Fraunces',serif;font-size:52px;font-weight:700;line-height:1;transition:color .3s}
+.opt-lbl{font-size:11px;color:var(--text3);margin-top:5px}
+.opt-sl-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:4px;margin-bottom:2px}
+
+/* ═══ BUSINESS INSIGHTS — new page ═══ */
+.insight-hero{
+  background:linear-gradient(135deg,var(--panel),var(--panel2));
+  border:1px solid var(--border2);border-radius:var(--r2);padding:28px 32px;margin-bottom:22px;
+  display:flex;align-items:center;gap:24px;position:relative;overflow:hidden;
+}
+.insight-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:radial-gradient(rgba(201,151,60,0.08),transparent 70%);pointer-events:none}
+.ih-title{font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--text);margin-bottom:6px}
+.ih-sub{font-size:13px;color:var(--text2);line-height:1.6}
+.ih-kpis{display:flex;gap:14px;margin-top:14px;flex-wrap:wrap}
+.ih-kpi{padding:10px 16px;border-radius:10px;background:rgba(201,151,60,0.08);border:1px solid rgba(201,151,60,0.14)}
+.ih-kpi-v{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;color:var(--gold)}
+.ih-kpi-l{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+
+.insight-metric{
+  padding:20px 22px;border-radius:15px;border:1px solid var(--border);background:var(--panel);
+  position:relative;overflow:hidden;transition:all .22s;
+}
+.insight-metric:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.2)}
+.im-icon{font-size:28px;margin-bottom:10px}
+.im-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.im-val{font-family:'Fraunces',serif;font-size:28px;font-weight:700;margin-bottom:4px}
+.im-trend{font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px}
+.trend-up{color:var(--teal)}.trend-dn{color:var(--rose)}
+.im-bar{height:4px;border-radius:2px;background:var(--bg3);margin-top:10px;overflow:hidden}
+.im-bar-fill{height:100%;border-radius:2px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+
+.sector-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);transition:background .15s}
+.sector-row:hover{background:rgba(255,255,255,0.02)}.sector-row:last-child{border-bottom:none}
+.sector-icon{font-size:20px;width:36px;text-align:center;flex-shrink:0}
+.sector-name{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.sector-amt{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);margin-right:12px}
+.sector-risk{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.sr-low{background:rgba(56,201,176,0.1);color:var(--teal)}.sr-med{background:rgba(201,151,60,0.1);color:var(--gold)}.sr-high{background:rgba(232,84,117,0.1);color:var(--rose)}
+.sector-bar-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;max-width:120px}
+.sector-bar-fill{height:100%;border-radius:3px;transition:width .8s ease}
+
+.risk-matrix-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.rm-cell{padding:14px;border-radius:12px;border:1px solid var(--border);text-align:center;transition:transform .2s}
+.rm-cell:hover{transform:scale(1.03)}
+.rm-val{font-family:'Fraunces',serif;font-size:24px;font-weight:700}
+.rm-label{font-size:10px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.rm-change{font-size:11px;font-weight:600;margin-top:3px}
+.rm-low{background:rgba(56,201,176,0.06);border-color:rgba(56,201,176,0.2)}.rm-med{background:rgba(201,151,60,0.06);border-color:rgba(201,151,60,0.2)}.rm-high{background:rgba(232,84,117,0.06);border-color:rgba(232,84,117,0.2)}
+
+.geo-row{display:grid;grid-template-columns:1fr 80px 80px 90px;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.geo-row:last-child{border-bottom:none}
+.geo-name{font-size:13px;font-weight:600;color:var(--text)}
+.geo-val{font-family:'JetBrains Mono',monospace;font-size:12px;text-align:right;color:var(--text2)}
+.geo-hdr{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;text-align:right}
+
+/* ═══ STOCK INVESTMENT CARDS ═══ */
+.stock-card{
+  background:var(--panel2);border:1px solid var(--border);border-radius:14px;
+  padding:16px;transition:all .22s;cursor:pointer;position:relative;overflow:hidden;
+}
+.stock-card:hover{transform:translateY(-3px);border-color:var(--border2);box-shadow:0 8px 28px rgba(0,0,0,0.2)}
+.stock-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.stock-card.sc-buy::before{background:linear-gradient(90deg,var(--teal),var(--sky))}
+.stock-card.sc-hold::before{background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.stock-card.sc-watch::before{background:linear-gradient(90deg,var(--violet),var(--violet2))}
+.sc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.sc-ticker{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--text)}
+.sc-name{font-size:11px;color:var(--text3);margin-top:2px}
+.sc-badge{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;letter-spacing:.4px;text-transform:uppercase}
+.sc-badge.buy{background:rgba(56,201,176,0.12);color:var(--teal);border:1px solid rgba(56,201,176,0.22)}
+.sc-badge.hold{background:rgba(201,151,60,0.12);color:var(--gold);border:1px solid rgba(201,151,60,0.22)}
+.sc-badge.watch{background:rgba(139,114,240,0.12);color:var(--violet);border:1px solid rgba(139,114,240,0.22)}
+.sc-price{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:3px}
+.sc-change{font-size:12px;font-weight:600}
+.sc-change.pos{color:var(--teal)}.sc-change.neg{color:var(--rose)}
+.sc-divider{height:1px;background:var(--border);margin:10px 0}
+.sc-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:8px}
+.sc-meta-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)}
+.sc-reason{font-size:11px;color:var(--text2);line-height:1.55;padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border)}
+.sc-sector{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(75,168,224,0.08);color:var(--sky);border:1px solid rgba(75,168,224,0.15);margin-top:8px}
+/* Allocation bar */
+.alloc-row{margin-bottom:10px}
+.alloc-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.alloc-label span:first-child{color:var(--text2)}.alloc-label span:last-child{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)}
+.alloc-bar{height:7px;background:var(--bg3);border-radius:20px;overflow:hidden}
+.alloc-fill{height:100%;border-radius:20px;transition:width .8s cubic-bezier(.22,1,.36,1)}
+/* Violet KPI color */
+.kpi.violet .kpi-val{color:var(--violet)}
+.bstatus-hero{border-radius:var(--r2);padding:28px;margin-bottom:20px;background:linear-gradient(135deg,rgba(56,201,176,0.06),rgba(75,168,224,0.06));border:1px solid rgba(75,168,224,0.15);animation:fadeUp .4s ease}
+.bsh-t{font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.bsh-s{font-size:13px;color:var(--text2)}
+.bsh-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+/* ═══ TOAST ═══ */
+#toast{
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  background:var(--panel2);border:1px solid var(--border2);border-radius:14px;
+  padding:13px 18px;display:flex;align-items:center;gap:10px;font-size:13px;
+  box-shadow:var(--sha);opacity:0;transform:translateY(16px) scale(0.96);
+  transition:all .3s cubic-bezier(.22,1,.36,1);pointer-events:none;max-width:360px;color:var(--text);
+}
+#toast.show{opacity:1;transform:translateY(0) scale(1)}
+/* ═══ USER AVATARS ═══ */
+.user-avatar{
+  width:40px;height:40px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),var(--sky));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#000;
+  position:relative;flex-shrink:0;
+  box-shadow:0 0 0 2px var(--border2);
+  transition:box-shadow .2s;
+  overflow:hidden;
+}
+.user-avatar:hover{box-shadow:0 0 0 3px var(--gold);}
+.user-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.user-avatar-sm{width:32px;height:32px;font-size:12px;}
+.user-avatar-lg{width:48px;height:48px;font-size:18px;}
+/* gradient variants by hash */
+.av-g0{background:linear-gradient(135deg,#C9973C,#4BA8E0)}
+.av-g1{background:linear-gradient(135deg,#38C9B0,#8B72F0)}
+.av-g2{background:linear-gradient(135deg,#E85475,#C9973C)}
+.av-g3{background:linear-gradient(135deg,#4BA8E0,#38C9B0)}
+.av-g4{background:linear-gradient(135deg,#8B72F0,#E85475)}
+
+/* ═══ AI ASSISTANT ═══ */
+@keyframes aiPulse{0%,100%{box-shadow:0 0 0 0 rgba(56,201,176,0.4),0 4px 20px rgba(56,201,176,0.2)}50%{box-shadow:0 0 0 8px rgba(56,201,176,0),0 4px 20px rgba(56,201,176,0.3)}}
+@keyframes typing{0%,60%,100%{opacity:1}30%{opacity:0.4}}
+@keyframes aiSlideUp{from{opacity:0;transform:translateY(20px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes msgFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes aiAvatarFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.02)}}
+@keyframes shimmerMsg{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+.ai-fab{
+  position:fixed;bottom:28px;right:28px;z-index:9000;
+  width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--teal),var(--sky));
+  box-shadow:0 4px 20px rgba(56,201,176,0.4),0 2px 8px rgba(0,0,0,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;transition:all .28s cubic-bezier(.34,1.56,.64,1);
+  animation:aiPulse 3s ease-in-out infinite;
+}
+.ai-fab:hover{transform:scale(1.12);box-shadow:0 6px 28px rgba(56,201,176,0.6);}
+.ai-fab-badge{
+  position:absolute;top:-3px;right:-3px;width:18px;height:18px;
+  background:var(--rose);border-radius:50%;border:2px solid var(--bg2);
+  font-size:10px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;
+  display:none;
+}
+.ai-fab-badge.show{display:flex;}
+
+.ai-panel{
+  position:fixed;bottom:100px;right:28px;z-index:8999;
+  width:370px;max-height:580px;
+  background:var(--panel);border:1px solid var(--border2);
+  border-radius:22px;box-shadow:0 24px 80px rgba(0,0,0,0.5),0 4px 20px rgba(56,201,176,0.08);
+  display:flex;flex-direction:column;overflow:hidden;
+  transform:translateY(20px) scale(0.95);opacity:0;pointer-events:none;
+  transition:all .3s cubic-bezier(.22,1,.36,1);
+}
+.ai-panel.open{transform:translateY(0) scale(1);opacity:1;pointer-events:all;}
+
+.ai-header{
+  padding:16px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+  background:linear-gradient(135deg,rgba(56,201,176,0.08),rgba(75,168,224,0.06));
+  flex-shrink:0;
+}
+.ai-avatar{
+  width:42px;height:42px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--teal),var(--sky));
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  box-shadow:0 2px 12px rgba(56,201,176,0.4);
+  animation:aiAvatarFloat 4s ease-in-out infinite;
+  position:relative;overflow:hidden;
+}
+.ai-avatar::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,rgba(255,255,255,0.3),transparent 55%);
+}
+.ai-avatar-ring{
+  position:absolute;inset:-2px;border-radius:50%;
+  border:2px solid transparent;
+  background:linear-gradient(var(--panel),var(--panel)) padding-box,
+             linear-gradient(135deg,var(--teal),var(--sky)) border-box;
+  animation:aiPulse 3s ease-in-out infinite;
+}
+.ai-head-info{flex:1}
+.ai-name{font-size:14px;font-weight:700;color:var(--text)}
+.ai-status{font-size:11px;color:var(--teal);display:flex;align-items:center;gap:5px}
+.ai-status-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:aiPulse 2s ease-in-out infinite}
+.ai-close{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--text3);font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.ai-close:hover{background:var(--bg3);color:var(--text)}
+
+.ai-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-height:200px;}
+.ai-msg{display:flex;gap:8px;align-items:flex-start;animation:msgFadeIn .3s ease}
+.ai-msg.user{flex-direction:row-reverse}
+.ai-msg-bubble{
+  max-width:82%;padding:10px 14px;border-radius:16px;font-size:13px;line-height:1.55;color:var(--text);
+}
+.ai-msg.bot .ai-msg-bubble{
+  background:var(--bg2);border:1px solid var(--border);border-bottom-left-radius:4px;
+}
+.ai-msg.user .ai-msg-bubble{
+  background:linear-gradient(135deg,var(--teal),var(--sky));color:#000;border-bottom-right-radius:4px;font-weight:500;
+}
+.ai-msg-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:2px}
+.ai-msg.bot .ai-msg-av{background:linear-gradient(135deg,var(--teal),var(--sky))}
+.ai-msg.user .ai-msg-av{background:linear-gradient(135deg,var(--gold),#C9973C);font-family:'Fraunces',serif;font-weight:700;color:#000;font-size:11px}
+
+.ai-typing{display:flex;align-items:center;gap:4px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;border-bottom-left-radius:4px;width:60px}
+.ai-typing span{width:7px;height:7px;border-radius:50%;background:var(--text3);animation:typing 1.2s ease-in-out infinite}
+.ai-typing span:nth-child(2){animation-delay:.2s}
+.ai-typing span:nth-child(3){animation-delay:.4s}
+
+.ai-suggestions{padding:8px 14px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg2)}
+.ai-sug-btn{
+  padding:5px 11px;border-radius:20px;border:1px solid var(--border2);background:transparent;
+  color:var(--text2);font-size:11px;cursor:pointer;transition:all .18s;font-family:'Outfit',sans-serif;
+}
+.ai-sug-btn:hover{background:rgba(56,201,176,0.08);border-color:var(--teal);color:var(--teal)}
+
+.ai-input-row{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0}
+.ai-input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:9px 15px;font-family:'Outfit',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;}
+.ai-input:focus{border-color:var(--teal);}
+.ai-input::placeholder{color:var(--text3)}
+.ai-send{width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--teal),var(--sky));color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s;flex-shrink:0}
+.ai-send:hover{transform:scale(1.1);}
+
+/* ═══ INVESTMENT SUGGESTIONS ═══ */
+.inv-sug-section{margin-top:20px;}
+.inv-sug-title{font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.inv-suggest-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.inv-sug-card{
+  padding:16px;border-radius:14px;background:var(--bg2);border:1px solid var(--border);
+  cursor:pointer;transition:all .22s;position:relative;overflow:hidden;
+}
+.inv-sug-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;transition:opacity .2s;}
+.inv-sug-card.teal-card::before{background:linear-gradient(90deg,var(--teal),var(--teal2));opacity:0.7}
+.inv-sug-card.gold-card::before{background:linear-gradient(90deg,var(--gold),var(--gold2));opacity:0.7}
+.inv-sug-card.sky-card::before{background:linear-gradient(90deg,var(--sky),var(--sky2));opacity:0.7}
+.inv-sug-card.violet-card::before{background:linear-gradient(90deg,var(--violet),var(--violet2));opacity:0.7}
+.inv-sug-card:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.2)}
+.inv-sug-icon{font-size:24px;margin-bottom:8px}
+.inv-sug-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+.inv-sug-return{font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.inv-sug-desc{font-size:11px;color:var(--text2);line-height:1.5;margin-top:5px}
+.inv-sug-risk{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:6px;display:inline-block}
+.inv-sug-match{font-size:10px;color:var(--teal);margin-top:4px;font-weight:600}
+
+/* ═══ STATE COLUMN ═══ */
+.state-flag{font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- ════ SIGN IN ════ -->
+<div id="scSignin" class="screen active" style="flex-direction:row">
+<div class="auth-bg">
+<div class="auth-card">
+  <div class="ah">
+    <div class="ah-grid"></div><div class="ah-orb ah-orb1"></div><div class="ah-orb ah-orb2"></div><div class="ah-scan"></div>
+    <div class="ah-z fade-up">
+      <div class="brand"><div class="brand-mark">L</div><div><div class="brand-name">Loan<em>Guard</em></div><div class="brand-tag">Default Risk Intelligence</div></div></div>
+    </div>
+    <div class="ah-z fade-up fade-up-d1">
+      <div style="margin-bottom:10px"><span class="mbadge">⚙ Logistic Regression · ROC-AUC 0.760 · 255K Records</span></div>
+      <div class="ah-headline">See every rupee —<br><em>before</em> you lend it.</div>
+      <div class="ah-desc" style="margin-top:14px;margin-bottom:26px">Real model coefficients from your <strong style="color:#C9973C">main.ipynb</strong> notebook, embedded directly. Not a heuristic — σ(wᵀx+b) computed live in the browser.</div>
+      <div class="ah-stats">
+        <div class="ah-stat"><div class="ah-stat-v">255K</div><div class="ah-stat-l">Training Records</div></div>
+        <div class="ah-stat"><div class="ah-stat-v">76.0%</div><div class="ah-stat-l">ROC-AUC Score</div></div>
+        <div class="ah-stat"><div class="ah-stat-v">29</div><div class="ah-stat-l">Model Features</div></div>
+        <div class="ah-stat"><div class="ah-stat-v">11.6%</div><div class="ah-stat-l">Dataset Default Rate</div></div>
+      </div>
+    </div>
+    <div class="ah-diff ah-z fade-up fade-up-d2"><span>✦</span><div><strong>Not CIBIL.</strong> Amortization schedule, real LR coefficients, behavioural signals, and live Business Insights — all transparent.</div></div>
+  </div>
+  <div class="af">
+    <div class="af-thm"><span class="af-thm-l">Theme</span><button class="theme-btn" onclick="toggleTheme()" title="Toggle theme"><div class="theme-btn-track"><div class="theme-btn-stars"></div><div class="theme-btn-thumb">🌙</div></div></button></div>
+    <div class="af-h fade-up">Welcome back</div>
+    <div class="af-sub fade-up fade-up-d1">Sign in to your GroundZero account</div>
+    <div class="role-tabs fade-up fade-up-d2">
+      <button class="rtab on" onclick="setSIRole('bank',this)">🏦 Bank / Analyst</button>
+      <button class="rtab" onclick="setSIRole('borrower',this)">👤 Borrower</button>
+    </div>
+    <div id="siErr" class="auth-err"></div>
+    <div class="fg fade-up fade-up-d2"><label>Email Address</label><input class="fi" id="siEmail" type="email" placeholder="you@bank.com"></div>
+    <div class="fg fade-up fade-up-d3"><label>Password</label><input class="fi" id="siPass" type="password" placeholder="••••••••"></div>
+    <button class="btn-main fade-up fade-up-d4" onclick="doSignin()">Sign In →</button>
+    <div class="auth-link fade-up fade-up-d4">No account? <a onclick="goTo('scSignup')">Create one</a></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ════ SIGN UP ════ -->
+<div id="scSignup" class="screen" style="flex-direction:row">
+<div class="auth-bg">
+<div class="auth-card">
+  <div class="ah">
+    <div class="ah-grid"></div><div class="ah-orb ah-orb1"></div><div class="ah-orb ah-orb2"></div><div class="ah-scan"></div>
+    <div class="ah-z"><div class="brand"><div class="brand-mark">L</div><div><div class="brand-name">Loan<em>Guard</em></div><div class="brand-tag">Default Risk Intelligence</div></div></div></div>
+    <div class="ah-z">
+      <div class="ah-headline">Two portals.<br><em>One platform.</em></div>
+      <div class="ah-desc" style="margin-top:14px;margin-bottom:20px">
+        <strong style="color:#C9973C">Bank Analysts</strong> — Full risk dashboard, real LR scoring, amortization analytics, Business Insights, feature coefficients.<br><br>
+        <strong style="color:#80CCFF">Borrowers</strong> — Submit application, see your risk score, full repayment schedule, and tips to improve eligibility.
+      </div>
+    </div>
+    <div class="ah-diff ah-z"><span>✦</span><div><strong>Transparent scoring.</strong> Borrowers see the same coefficients the bank uses — no black box.</div></div>
+  </div>
+  <div class="af">
+    <div class="af-thm"><button class="theme-btn" onclick="toggleTheme()" title="Toggle theme"><div class="theme-btn-track"><div class="theme-btn-stars"></div><div class="theme-btn-thumb">🌙</div></div></button></div>
+    <div class="af-h">Create account</div>
+    <div class="af-sub">Bank analyst or borrower — choose your role</div>
+    <div class="role-tabs">
+      <button class="rtab on" onclick="setSURole('bank',this)">🏦 Bank / Analyst</button>
+      <button class="rtab" onclick="setSURole('borrower',this)">👤 Borrower</button>
+    </div>
+    <div id="suErr" class="auth-err"></div>
+    <div class="fg2">
+      <div class="fg"><label>First Name</label><input class="fi" id="suFirst" placeholder="Aryan"></div>
+      <div class="fg"><label>Last Name</label><input class="fi" id="suLast" placeholder="Mehta"></div>
+    </div>
+    <div class="fg"><label>Email Address</label><input class="fi" id="suEmail" type="email" placeholder="you@bank.com"></div>
+    <div class="fg" id="suOrgFg"><label>Bank / Organisation</label><input class="fi" id="suOrg" placeholder="SBI, HDFC, ICICI…"></div>
+    <div class="fg" id="suRoleFg"><label>Role</label>
+      <select class="fs" id="suRoleSel"><option value="">Select role…</option><option>Credit Analyst</option><option>Risk Manager</option><option>Loan Officer</option><option>Underwriter</option></select>
+    </div>
+    <div class="fg"><label>Password</label><input class="fi" id="suPass" type="password" placeholder="Min. 6 characters"></div>
+    <button class="btn-main" onclick="doSignup()">Create Account →</button>
+    <div class="auth-link">Have an account? <a onclick="goTo('scSignin')">Sign in</a></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ════ BANK DASHBOARD ════ -->
+<div id="scBank" class="app-shell">
+  <aside class="sidebar">
+    <div class="sb-top">
+      <div class="sb-brand"><div class="sb-mark">L</div><div><div class="sb-nm">Loan<em>Guard</em></div><div class="sb-bdg sbb-bank">Bank Analyst</div></div></div>
+      <button class="theme-btn" onclick="toggleTheme()" style="width:40px;height:22px" title="Toggle theme"><div class="theme-btn-track" style="border-radius:50px"><div class="theme-btn-stars"></div><div class="theme-btn-thumb" style="width:16px;height:16px;font-size:9px;top:3px;left:3px">🌙</div></div></button>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-sec">
+        <div class="sb-sec-lbl">Analytics</div>
+        <div class="nav-item on" onclick="switchPage('pg-overview',this)"><span class="ni">📊</span> Overview</div>
+        <div class="nav-item" onclick="switchPage('pg-assess',this)"><span class="ni">⚡</span> Risk Assessment</div>
+        <div class="nav-item" onclick="switchPage('pg-history',this)"><span class="ni">📋</span> Loan History</div>
+      </div>
+      <div class="sb-sec">
+        <div class="sb-sec-lbl">Intelligence</div>
+        <div class="nav-item" onclick="switchPage('pg-insights',this)"><span class="ni">📈</span> Business Insights</div>
+        <div class="nav-item" onclick="switchPage('pg-behaviour',this)"><span class="ni">🧠</span> Behaviour Profile</div>
+        <div class="nav-item" onclick="switchPage('pg-invest',this)"><span class="ni">💹</span> Investments</div>
+        <div class="nav-item" onclick="switchPage('pg-suggest',this)"><span class="ni">💡</span> Recommendations</div>
+      </div>
+    </nav>
+    <div class="sb-user">
+      <div class="sb-av" id="bkAv">AM</div>
+      <div class="sb-ui"><div class="sb-un" id="bkName">Aryan Mehta</div><div class="sb-ur" id="bkRole">Credit Analyst</div></div>
+      <button class="sb-logout" onclick="logout()">⏻</button>
+    </div>
+  </aside>
+  <div class="main-area">
+    <div class="topbar">
+      <div class="tb-title" id="bkTopTitle">Overview Dashboard</div>
+      <div class="tb-chip">LR Model · ROC-AUC 0.760 · 255,347 Records</div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div id="pg-overview" class="page active">
+      <div class="mib fade-up">
+        <div class="mib-item"><div class="mib-lbl">Algorithm</div><div class="mib-val">Logistic Regression</div></div>
+        <div class="mib-item"><div class="mib-lbl">Features</div><div class="mib-val">29</div></div>
+        <div class="mib-item"><div class="mib-lbl">Preprocessing</div><div class="mib-val">StandardScaler + OHE</div></div>
+        <div class="mib-item"><div class="mib-lbl">ROC-AUC</div><div class="mib-val">0.760</div></div>
+        <div class="mib-item"><div class="mib-lbl">Accuracy</div><div class="mib-val">88.8%</div></div>
+        <div class="mib-item"><div class="mib-lbl">Train/Test Split</div><div class="mib-val">80 / 20</div></div>
+        <div class="mib-item"><div class="mib-lbl">Dataset Default Rate</div><div class="mib-val">11.6%</div></div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi gold fade-up fade-up-d1"><div class="kpi-lbl">Total Assessed</div><div class="kpi-val">1,247</div><div class="kpi-sub"><span class="up">↑ 8.3%</span> vs last month</div></div>
+        <div class="kpi teal fade-up fade-up-d2"><div class="kpi-lbl">Approved</div><div class="kpi-val">1,102</div><div class="kpi-sub">Approval rate <span class="up">88.4%</span></div></div>
+        <div class="kpi rose fade-up fade-up-d3"><div class="kpi-lbl">Defaults Predicted</div><div class="kpi-val">145</div><div class="kpi-sub">11.6% model baseline</div></div>
+        <div class="kpi sky fade-up fade-up-d4"><div class="kpi-lbl">Model ROC-AUC</div><div class="kpi-val">0.760</div><div class="kpi-sub">Logistic Regression</div></div>
+      </div>
+      <div class="g65 mb18">
+        <div class="card fade-up fade-up-d1"><div class="ch"><div class="ct"><div class="pip pip-sky"></div>Monthly Volume & Default Rate</div></div><div class="cbox tall"><canvas id="cht-trend"></canvas></div></div>
+        <div class="card fade-up fade-up-d2">
+          <div class="ch"><div class="ct"><div class="pip pip-gold"></div>Risk Distribution</div></div>
+          <div class="cbox"><canvas id="cht-dist"></canvas></div>
+          <div style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:7px"><span>🟢 Low (&lt;30%)</span><span style="font-family:'JetBrains Mono',monospace">~61%</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:7px"><span>🟡 Medium (30–60%)</span><span style="font-family:'JetBrains Mono',monospace">~27%</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>🔴 High (&gt;60%)</span><span style="font-family:'JetBrains Mono',monospace">~12%</span></div>
+          </div>
+          <div class="dnote">Thresholds from notebook cell 47: [0, 0.3, 0.6, 1]</div>
+        </div>
+      </div>
+      <div class="g2 mb18">
+        <div class="card fade-up fade-up-d1"><div class="ch"><div class="ct"><div class="pip pip-teal"></div>Default Rate by Loan Purpose</div></div><div class="cbox"><canvas id="cht-purpose"></canvas></div><div class="dnote">Home: 10.2% · Business: 12.3% · Auto: 11.9%</div></div>
+        <div class="card fade-up fade-up-d2"><div class="ch"><div class="ct"><div class="pip pip-sky"></div>Credit Score vs Default Rate</div></div><div class="cbox"><canvas id="cht-score"></canvas></div><div class="dnote">Actual rates from 255K records</div></div>
+      </div>
+      <div class="g3 mb18">
+        <div class="card fade-up"><div class="ch"><div class="ct"><div class="pip pip-gold"></div>By Employment Type</div></div><div class="cbox"><canvas id="cht-emptype"></canvas></div><div class="dnote">Unemployed 13.6% · Full-time 9.5%</div></div>
+        <div class="card fade-up fade-up-d1"><div class="ch"><div class="ct"><div class="pip pip-gold"></div>By DTI Bucket</div></div><div class="cbox"><canvas id="cht-dti"></canvas></div><div class="dnote">Higher DTI → higher default</div></div>
+        <div class="card fade-up fade-up-d2"><div class="ch"><div class="ct"><div class="pip pip-rose"></div>Top Feature Coefficients</div></div><div class="cbox"><canvas id="cht-coefs"></canvas></div><div class="dnote">From actual LogReg model coefficients</div></div>
+      </div>
+    </div>
+
+    <!-- ASSESS -->
+    <div id="pg-assess" class="page">
+      <div class="g65">
+        <div class="card fade-up">
+          <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Applicant Details</div><span class="mbadge">Real LR Model</span></div>
+          <div class="form-grid">
+            <div class="fg-sec"><div class="fg-sec-dot"></div>Personal</div>
+            <div><div class="flab">Age (18–69)</div><input type="number" class="finput" id="fAge" placeholder="35" min="18" max="69"></div>
+            <div><div class="flab">Credit Score (300–850)</div><input type="number" class="finput" id="fCredit" placeholder="650" min="300" max="850"></div>
+            <div><div class="flab">Education</div>
+              <select class="fselect" id="fEdu"><option value="bach" selected>Bachelor's</option><option value="hs">High School</option><option value="mast">Master's</option><option value="phd">PhD</option></select>
+            </div>
+            <div><div class="flab">Marital Status</div>
+              <select class="fselect" id="fMarital"><option value="married" selected>Married</option><option value="single">Single</option><option value="divorced">Divorced</option></select>
+            </div>
+            <div><div class="flab">State</div>
+              <select class="fselect" id="fState"><option value="MH" selected>Maharashtra</option><option value="KA">Karnataka</option><option value="TN">Tamil Nadu</option><option value="DL">Delhi NCR</option><option value="GJ">Gujarat</option><option value="RJ">Rajasthan</option><option value="UP">Uttar Pradesh</option><option value="WB">West Bengal</option><option value="AP">Andhra Pradesh</option><option value="TS">Telangana</option><option value="KL">Kerala</option><option value="MP">Madhya Pradesh</option><option value="PB">Punjab</option><option value="HR">Haryana</option><option value="OD">Odisha</option></select>
+            </div>
+            <div><div class="flab">Annual Income (₹)</div><input type="number" class="finput" id="fIncome" placeholder="820000"></div>
+            <div><div class="flab">Loan Amount (₹)</div><input type="number" class="finput" id="fLoan" placeholder="500000"></div>
+            <div><div class="flab">DTI Ratio (0–1)</div><input type="number" class="finput" id="fDti" placeholder="0.35" step="0.01" min="0" max="1"></div>
+            <div><div class="flab">Credit Lines</div><input type="number" class="finput" id="fLines" placeholder="3" min="1"></div>
+            <div class="fg-sec"><div class="fg-sec-dot"></div>Loan Details</div>
+            <!-- PURPOSE WITH MANUAL WRITE-IN -->
+            <div>
+              <div class="flab">Loan Purpose <span class="combo-tag">+ Custom</span></div>
+              <div class="combo-field">
+                <select class="combo-select" id="fPurpose" onchange="handlePurposeChange()">
+                  <option value="home">🏠 Home</option>
+                  <option value="auto">🚗 Auto</option>
+                  <option value="education">🎓 Education</option>
+                  <option value="business">🏢 Business</option>
+                  <option value="other" selected>📦 Other</option>
+                  <option value="custom">✏️ Write your own…</option>
+                </select>
+                <input type="text" class="combo-manual" id="fPurposeCustom" placeholder="e.g. Wedding, Medical, Travel, Machinery…" maxlength="60">
+              </div>
+            </div>
+            <!-- TERM WITH MANUAL WRITE-IN -->
+            <div>
+              <div class="flab">Loan Term <span class="combo-tag">+ Custom</span></div>
+              <div class="combo-field">
+                <select class="combo-select" id="fTerm" onchange="handleTermChange()">
+                  <option value="12">12 months</option>
+                  <option value="24" selected>24 months</option>
+                  <option value="36">36 months</option>
+                  <option value="48">48 months</option>
+                  <option value="60">60 months</option>
+                  <option value="84">84 months</option>
+                  <option value="120">120 months</option>
+                  <option value="custom">✏️ Enter months manually…</option>
+                </select>
+                <input type="number" class="combo-manual" id="fTermCustom" placeholder="e.g. 18, 42, 72 months…" min="1" max="360">
+              </div>
+            </div>
+            <div><div class="flab">Interest Rate % (2–25)</div><input type="number" class="finput" id="fRate" placeholder="12.99" step="0.1" min="2" max="25"></div>
+            <div></div>
+            <div class="fg-sec"><div class="fg-sec-dot"></div>Employment</div>
+            <div><div class="flab">Employment Type</div>
+              <select class="fselect" id="fEmpType"><option value="full" selected>Full-time</option><option value="part">Part-time</option><option value="self">Self-employed</option><option value="unemployed">Unemployed</option></select>
+            </div>
+            <div><div class="flab">Months Employed (0–119)</div><input type="number" class="finput" id="fEmpl" placeholder="24" min="0" max="119"></div>
+            <div><div class="flab">Job Changes (last 5 yrs)</div><input type="number" class="finput" id="fJobChange" placeholder="1" min="0" max="10"></div>
+            <div></div>
+            <div class="fg-sec"><div class="fg-sec-dot"></div>Binary Flags</div>
+            <div><div class="flab">Has Mortgage?</div><div class="ftog"><button class="ftog-btn" id="mortY" onclick="togFlag('mort','Y')">Yes</button><button class="ftog-btn on" id="mortN" onclick="togFlag('mort','N')">No</button></div></div>
+            <div><div class="flab">Has Dependents?</div><div class="ftog"><button class="ftog-btn" id="depY" onclick="togFlag('dep','Y')">Yes</button><button class="ftog-btn on" id="depN" onclick="togFlag('dep','N')">No</button></div></div>
+            <div class="fg-full"><div class="flab">Has Co-Signer?</div><div class="ftog"><button class="ftog-btn" id="coY" onclick="togFlag('co','Y')">Yes</button><button class="ftog-btn on" id="coN" onclick="togFlag('co','N')">No</button></div></div>
+            <div class="fg-full" style="margin-top:10px"><button class="btn-assess" onclick="runAssess()">⚡ Assess Default Risk</button></div>
+          </div>
+        </div>
+        <!-- RIGHT RESULTS -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card fade-up fade-up-d1" id="riskCard">
+            <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Risk Assessment</div><span id="modelBadgeResult" style="display:none" class="mbadge">σ(wᵀx+b)</span></div>
+            <div id="riskResult"><div class="risk-empty"><div class="icon">🔍</div>Fill the form and click<br><strong>Assess Default Risk</strong></div></div>
+          </div>
+          <div class="card" id="amortCard" style="display:none">
+            <div class="ch"><div class="ct"><div class="pip pip-gold"></div>Loan Repayment Breakdown</div></div>
+            <div id="amortContent"></div>
+          </div>
+          <div class="card" id="featureCard" style="display:none">
+            <div class="ch"><div class="ct"><div class="pip pip-teal"></div>Feature Influence (Real Coefficients)</div></div>
+            <div id="featureContent"></div>
+            <div style="font-size:10px;color:var(--text3);margin-top:10px;font-style:italic">Actual LR coefficients · Rose=↑ risk · Teal=↓ risk</div>
+          </div>
+        </div>
+      </div>
+      <div class="card mb18" id="schedCard" style="display:none">
+        <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Full Amortization Schedule</div><span id="schedSub" style="font-size:11px;color:var(--text3)"></span></div>
+        <div class="amort-scroll"><table class="amort-tbl"><thead><tr><th style="text-align:left">Month</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead><tbody id="amortTbody"></tbody></table></div>
+        <div style="margin-top:16px"><div class="cbox"><canvas id="cht-amort"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="pg-history" class="page">
+      <div class="card mb18 fade-up"><div class="ch"><div class="ct"><div class="pip pip-sky"></div>Recent Loan Assessments</div></div>
+        <table class="tbl"><thead><tr><th>LoanID</th><th>Purpose</th><th>State</th><th>Loan Amt</th><th>Income</th><th>Credit</th><th>DTI</th><th>Default Prob.</th><th>Risk</th><th>Decision</th></tr></thead><tbody id="historyTbody"></tbody></table>
+      </div>
+      <div class="g2">
+        <div class="card fade-up fade-up-d1"><div class="ch"><div class="ct"><div class="pip pip-teal"></div>Bill Payment History (36 months)</div></div>
+          <div class="pm-grid" id="pmGrid"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+            <div class="pm-legend"><div class="pm-leg-i"><div class="pm-leg-dot" style="background:rgba(56,201,176,.7)"></div>On-time</div><div class="pm-leg-i"><div class="pm-leg-dot" style="background:rgba(201,151,60,.7)"></div>Late</div><div class="pm-leg-i"><div class="pm-leg-dot" style="background:rgba(232,84,117,.7)"></div>Missed</div></div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)" id="pmScore">—</div>
+          </div>
+        </div>
+        <div class="card fade-up fade-up-d2"><div class="ch"><div class="ct"><div class="pip pip-gold"></div>EMI Payment Regularity (12 mo)</div></div><div class="cbox"><canvas id="cht-emi-hist"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- BUSINESS INSIGHTS — NEW PAGE -->
+    <div id="pg-insights" class="page">
+      <div class="insight-hero fade-up">
+        <div>
+          <div class="ih-title">Business Insights</div>
+          <div class="ih-sub">Portfolio-level analytics, sector exposure, geographic distribution, and model performance tracking — all derived from the 255,347 loan dataset.</div>
+          <div class="ih-kpis">
+            <div class="ih-kpi"><div class="ih-kpi-v">₹32.6Cr</div><div class="ih-kpi-l">Total Portfolio</div></div>
+            <div class="ih-kpi"><div class="ih-kpi-v">11.6%</div><div class="ih-kpi-l">Overall Default Rate</div></div>
+            <div class="ih-kpi"><div class="ih-kpi-v">0.760</div><div class="ih-kpi-l">Model ROC-AUC</div></div>
+            <div class="ih-kpi"><div class="ih-kpi-v">₹1.27L</div><div class="ih-kpi-l">Avg Loan Size</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics Row -->
+      <div class="g4 mb18">
+        <div class="insight-metric fade-up fade-up-d1">
+          <div class="im-icon">💰</div>
+          <div class="im-label">Net Interest Income</div>
+          <div class="im-val" style="color:var(--teal)">₹8.4Cr</div>
+          <div class="im-trend trend-up">↑ 12.3% QoQ</div>
+          <div class="im-bar"><div class="im-bar-fill" style="width:73%;background:var(--teal)"></div></div>
+        </div>
+        <div class="insight-metric fade-up fade-up-d2">
+          <div class="im-icon">⚠️</div>
+          <div class="im-label">NPA Exposure</div>
+          <div class="im-val" style="color:var(--rose)">₹3.8Cr</div>
+          <div class="im-trend trend-dn">↑ 2.1% vs last Q</div>
+          <div class="im-bar"><div class="im-bar-fill" style="width:27%;background:var(--rose)"></div></div>
+        </div>
+        <div class="insight-metric fade-up fade-up-d3">
+          <div class="im-icon">📊</div>
+          <div class="im-label">Recovery Rate</div>
+          <div class="im-val" style="color:var(--gold)">64.2%</div>
+          <div class="im-trend trend-up">↑ 3.8% this quarter</div>
+          <div class="im-bar"><div class="im-bar-fill" style="width:64%;background:var(--gold)"></div></div>
+        </div>
+        <div class="insight-metric fade-up fade-up-d4">
+          <div class="im-icon">🎯</div>
+          <div class="im-label">Model Precision</div>
+          <div class="im-val" style="color:var(--sky)">64%</div>
+          <div class="im-trend trend-up">On default class</div>
+          <div class="im-bar"><div class="im-bar-fill" style="width:64%;background:var(--sky)"></div></div>
+        </div>
+      </div>
+
+      <!-- Risk Matrix + Trend -->
+      <div class="g2 mb18">
+        <div class="card fade-up">
+          <div class="ch"><div class="ct"><div class="pip pip-rose"></div>Risk Category Breakdown</div></div>
+          <div class="risk-matrix-grid">
+            <div class="rm-cell rm-low"><div class="rm-val" style="color:var(--teal)">61%</div><div class="rm-label">Low Risk</div><div class="rm-change trend-up">↑ 2.1pp</div></div>
+            <div class="rm-cell rm-med"><div class="rm-val" style="color:var(--gold)">27%</div><div class="rm-label">Medium Risk</div><div class="rm-change trend-dn">↓ 0.8pp</div></div>
+            <div class="rm-cell rm-high"><div class="rm-val" style="color:var(--rose)">12%</div><div class="rm-label">High Risk</div><div class="rm-change trend-dn">↓ 1.3pp</div></div>
+            <div class="rm-cell rm-low" style="grid-column:1/-1"><div style="display:flex;justify-content:space-around">
+              <div><div class="rm-val" style="color:var(--teal);font-size:18px">1,102</div><div class="rm-label">Approved</div></div>
+              <div><div class="rm-val" style="color:var(--gold);font-size:18px">337</div><div class="rm-label">Under Review</div></div>
+              <div><div class="rm-val" style="color:var(--rose);font-size:18px">145</div><div class="rm-label">Declined</div></div>
+            </div></div>
+          </div>
+          <div style="margin-top:18px"><div class="cbox"><canvas id="cht-risk-trend"></canvas></div></div>
+        </div>
+        <div class="card fade-up fade-up-d1">
+          <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Default Rate Trend (18 months)</div></div>
+          <div class="cbox tall"><canvas id="cht-default-trend"></canvas></div>
+          <div style="margin-top:14px;padding:12px;background:rgba(56,201,176,0.06);border:1px solid rgba(56,201,176,0.15);border-radius:10px">
+            <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px">📉 Improving Trend</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.55">Default rate declined 0.8pp over 18 months, driven by improved credit score filtering and co-signer policies.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sector + Geography -->
+      <div class="g2 mb18">
+        <div class="card fade-up">
+          <div class="ch"><div class="ct"><div class="pip pip-gold"></div>Sector Exposure & Default Rate</div></div>
+          <div id="sectorTable"></div>
+          <div style="margin-top:16px"><div class="cbox"><canvas id="cht-sector"></canvas></div></div>
+        </div>
+        <div class="card fade-up fade-up-d1">
+          <div class="ch"><div class="ct"><div class="pip pip-violet"></div>Geographic Distribution</div></div>
+          <div class="geo-row"><div></div><div class="geo-val geo-hdr">Volume</div><div class="geo-val geo-hdr">Default%</div><div class="geo-val geo-hdr">Avg Loan</div></div>
+          <div id="geoTable"></div>
+          <div style="margin-top:16px"><div class="cbox"><canvas id="cht-geo"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- EMI Stress + Model Performance -->
+      <div class="g2 mb18">
+        <div class="card fade-up">
+          <div class="ch"><div class="ct"><div class="pip pip-rose"></div>EMI-to-Income Stress Distribution</div></div>
+          <div class="cbox"><canvas id="cht-emi-stress"></canvas></div>
+          <div class="dnote" style="margin-top:8px">EMI/Income ratio buckets across portfolio — above 40% is stress zone</div>
+        </div>
+        <div class="card fade-up fade-up-d1">
+          <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Model ROC Curve (approximated)</div></div>
+          <div class="cbox"><canvas id="cht-roc"></canvas></div>
+          <div style="margin-top:10px;display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
+            <span>AUC = <strong style="color:var(--teal)">0.760</strong></span>
+            <span>Baseline = <strong style="color:var(--rose)">0.500</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BEHAVIOUR -->
+    <div id="pg-behaviour" class="page">
+      <div class="g2 mb18">
+        <div class="card fade-up"><div class="ch"><div class="ct"><div class="pip pip-sky"></div>Job Stability Analysis</div></div>
+          <div class="mini-row">
+            <div class="mini-stat"><div class="ms-v" id="avgTenure" style="color:var(--teal)">—</div><div class="ms-l">Avg Tenure</div></div>
+            <div class="mini-stat"><div class="ms-v" id="jobFreqV" style="color:var(--gold)">—</div><div class="ms-l">Changes/yr</div></div>
+            <div class="mini-stat"><div class="ms-v" id="stabilityV" style="color:var(--sky)">—</div><div class="ms-l">Stability</div></div>
+          </div>
+          <div id="jobTimeline"><div style="color:var(--text3);font-size:13px">Run an assessment to see job history.</div></div>
+        </div>
+        <div class="card fade-up fade-up-d1"><div class="ch"><div class="ct"><div class="pip pip-gold"></div>Behaviour Signals</div></div><div id="behaviourPills"><div style="color:var(--text3);font-size:13px">Run an assessment to see signals.</div></div></div>
+      </div>
+      <div class="g2 mb18">
+        <div class="card fade-up"><div class="ch"><div class="ct"><div class="pip pip-teal"></div>Bill Payment Radar</div></div><div class="cbox"><canvas id="cht-radar"></canvas></div></div>
+        <div class="card fade-up fade-up-d1"><div class="ch"><div class="ct"><div class="pip pip-sky"></div>Spending vs Income (12 mo)</div></div><div class="cbox"><canvas id="cht-spend"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- INVESTMENTS -->
+    <div id="pg-invest" class="page">
+      <div class="kpi-row">
+        <div class="kpi sky fade-up"><div class="kpi-lbl">Total Invested</div><div class="kpi-val">₹4.2L</div><div class="kpi-sub">5 instruments</div></div>
+        <div class="kpi teal fade-up fade-up-d1"><div class="kpi-lbl">Current Value</div><div class="kpi-val">₹5.1L</div><div class="kpi-sub"><span class="up">↑ 21.4%</span> total return</div></div>
+        <div class="kpi gold fade-up fade-up-d2"><div class="kpi-lbl">Fixed Income</div><div class="kpi-val">₹2.0L</div><div class="kpi-sub">FD + PPF + Bonds</div></div>
+        <div class="kpi rose fade-up fade-up-d3"><div class="kpi-lbl">Equity</div><div class="kpi-val">₹2.2L</div><div class="kpi-sub">Stocks + MF</div></div>
+      </div>
+      <div class="g65 mb18">
+        <div class="card fade-up">
+          <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Portfolio Holdings</div></div>
+          <div id="investTable"></div>
+          <div style="margin-top:18px"><div class="ch" style="margin-bottom:8px"><div class="ct" style="font-size:13px"><div class="pip pip-teal"></div>Value Over Time</div></div><div class="cbox"><canvas id="cht-portfolio"></canvas></div></div>
+          <!-- INVESTMENT SUGGESTIONS -->
+          <div class="inv-sug-section">
+            <div class="inv-sug-title"><span>🎯</span> Where to Invest Next <span style="font-size:11px;font-weight:400;color:var(--text3);font-family:'Outfit',sans-serif;margin-left:4px">Based on your portfolio &amp; risk profile</span></div>
+            <div class="inv-suggest-grid" id="invSuggestGrid"></div>
+          </div>
+        </div>
+        <div class="card fade-up fade-up-d1">
+          <div class="ch"><div class="ct"><div class="pip pip-gold"></div>Asset Allocation</div></div>
+          <div class="cbox"><canvas id="cht-alloc"></canvas></div>
+          <div style="margin-top:16px;padding:14px;background:rgba(56,201,176,0.06);border:1px solid rgba(56,201,176,0.15);border-radius:12px">
+            <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:6px">📈 Risk Scoring Impact</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.6">Strong investment portfolio reduces assessed default probability by <strong style="color:var(--teal)">~3–5%</strong>. Fixed income instruments weighted most positively.</div>
+          </div>
+          <!-- INVESTMENT SUMMARY PANEL -->
+          <div style="margin-top:16px;padding:14px;background:rgba(201,151,60,0.05);border:1px solid rgba(201,151,60,0.15);border-radius:12px">
+            <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:10px">💼 Portfolio Health Check</div>
+            <div class="br-row"><span class="br-k">Total Invested</span><span class="br-v" style="color:var(--sky)">₹4,20,000</span></div>
+            <div class="br-row"><span class="br-k">Current Value</span><span class="br-v" style="color:var(--teal)">₹5,16,200</span></div>
+            <div class="br-row"><span class="br-k">Overall Return</span><span class="br-v" style="color:var(--teal)">+₹96,200 (+22.9%)</span></div>
+            <div class="br-row"><span class="br-k">Best Performer</span><span class="br-v" style="color:var(--gold)">Reliance Ind. (+34%)</span></div>
+            <div class="br-row"><span class="br-k">Fixed Income Weight</span><span class="br-v">35%</span></div>
+            <div class="br-row"><span class="br-k">Equity Weight</span><span class="br-v">54%</span></div>
+            <div style="margin-top:10px;font-size:11px;color:var(--text3)">💡 Tip: Increasing Fixed Income allocation to 45% would further reduce your default risk score by ~1.5%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUGGESTIONS -->
+    <div id="pg-suggest" class="page">
+      <div class="g2 mb18">
+        <div><div class="ct" style="margin-bottom:16px;font-family:'Fraunces',serif;font-size:18px;font-weight:700"><div class="pip pip-sky"></div>Bank Recommendations</div><div id="suggestionsList"></div></div>
+        <div class="card fade-up">
+          <div class="ch"><div class="ct"><div class="pip pip-gold"></div>Eligibility Optimizer</div></div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:18px">Adjust variables — real model recalculates instantly</div>
+          <div class="flab" style="margin-top:12px">Loan Amount</div>
+          <input type="range" min="5000" max="249999" step="1000" value="127547" id="optLoan" oninput="updateOpt()">
+          <div class="opt-sl-row"><span>₹5K</span><span id="optLoanV">₹1.27L</span><span>₹2.5L</span></div>
+          <div class="flab">Credit Score</div>
+          <input type="range" min="300" max="850" step="5" value="574" id="optScore" oninput="updateOpt()">
+          <div class="opt-sl-row"><span>300</span><span id="optScoreV">574</span><span>850</span></div>
+          <div class="flab">DTI Ratio</div>
+          <input type="range" min="0.0" max="0.9" step="0.01" value="0.35" id="optDti" oninput="updateOpt()">
+          <div class="opt-sl-row"><span>0.00</span><span id="optDtiV">0.35</span><span>0.90</span></div>
+          <div class="flab">Employment Type</div>
+          <select class="fselect" id="optEmp" onchange="updateOpt()" style="margin-bottom:16px"><option value="full" selected>Full-time</option><option value="part">Part-time</option><option value="self">Self-employed</option><option value="unemployed">Unemployed</option></select>
+          <div class="opt-out"><div class="opt-num" id="optProbV" style="color:var(--teal)">—</div><div class="opt-lbl" id="optLevelV">Calculating…</div></div>
+          <div class="cbox" style="margin-top:14px"><canvas id="cht-opt"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ BORROWER PORTAL ════ -->
+<div id="scBorrower" class="app-shell">
+  <aside class="sidebar">
+    <div class="sb-top">
+      <div class="sb-brand"><div class="sb-mark">L</div><div><div class="sb-nm">Loan<em>Guard</em></div><div class="sb-bdg sbb-bor">Borrower</div></div></div>
+      <button class="theme-btn" onclick="toggleTheme()" style="width:40px;height:22px" title="Toggle theme"><div class="theme-btn-track" style="border-radius:50px"><div class="theme-btn-stars"></div><div class="theme-btn-thumb" style="width:16px;height:16px;font-size:9px;top:3px;left:3px">🌙</div></div></button>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-sec">
+        <div class="sb-sec-lbl">My Portal</div>
+        <div class="nav-item on" onclick="switchBPage('bpg-status',this)"><span class="ni">📄</span> My Application</div>
+        <div class="nav-item" onclick="switchBPage('bpg-apply',this)"><span class="ni">✏️</span> Submit Details</div>
+        <div class="nav-item" onclick="switchBPage('bpg-tips',this)"><span class="ni">💡</span> Improve Score</div>
+        <div class="nav-item" onclick="switchBPage('bpg-stocks',this)"><span class="ni">📈</span> Stock Investments</div>
+      </div>
+    </nav>
+    <div class="sb-user">
+      <div class="sb-av" id="brAv">JD</div>
+      <div class="sb-ui"><div class="sb-un" id="brName">Jane Doe</div><div class="sb-ur">Borrower</div></div>
+      <button class="sb-logout" onclick="logout()">⏻</button>
+    </div>
+  </aside>
+  <div class="main-area">
+    <div class="topbar"><div class="tb-title" id="brTopTitle">My Loan Application</div><div class="tb-chip" id="brTopChip">Status: Pending</div></div>
+    <div id="bpg-status" class="page active">
+      <div id="borrowerStatusCard">
+        <div style="text-align:center;padding:60px;color:var(--text3)">
+          <div style="font-size:44px;margin-bottom:14px;animation:floatBob 3s ease-in-out infinite">📋</div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:8px">No application submitted yet</div>
+          <div style="font-size:13px">Go to <strong>Submit Details</strong> to fill your loan application.</div>
+        </div>
+      </div>
+    </div>
+    <div id="bpg-apply" class="page">
+      <div class="card fade-up" style="max-width:730px">
+        <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Loan Application Form</div><span class="mbadge">Real LR Scoring</span></div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Fill your details. The risk engine uses the actual trained logistic regression model to assess your default probability.</div>
+        <div class="form-grid">
+          <div class="fg-sec"><div class="fg-sec-dot"></div>Personal Information</div>
+          <div><div class="flab">Age</div><input type="number" class="finput" id="bAge" placeholder="35" min="18" max="69"></div>
+          <div><div class="flab">Credit Score</div><input type="number" class="finput" id="bCredit" placeholder="650" min="300" max="850"></div>
+          <div><div class="flab">Education</div><select class="fselect" id="bEdu"><option value="bach" selected>Bachelor's</option><option value="hs">High School</option><option value="mast">Master's</option><option value="phd">PhD</option></select></div>
+          <div><div class="flab">Marital Status</div><select class="fselect" id="bMarital"><option value="married" selected>Married</option><option value="single">Single</option><option value="divorced">Divorced</option></select></div>
+          <div><div class="flab">State</div><select class="fselect" id="bState"><option value="MH" selected>Maharashtra</option><option value="KA">Karnataka</option><option value="TN">Tamil Nadu</option><option value="DL">Delhi NCR</option><option value="GJ">Gujarat</option><option value="RJ">Rajasthan</option><option value="UP">Uttar Pradesh</option><option value="WB">West Bengal</option><option value="AP">Andhra Pradesh</option><option value="TS">Telangana</option><option value="KL">Kerala</option><option value="MP">Madhya Pradesh</option><option value="PB">Punjab</option><option value="HR">Haryana</option><option value="OD">Odisha</option></select></div>
+          <div><div class="flab">Annual Income (₹)</div><input type="number" class="finput" id="bIncome" placeholder="700000"></div>
+          <div><div class="flab">Loan Amount (₹)</div><input type="number" class="finput" id="bLoan" placeholder="500000"></div>
+          <div><div class="flab">DTI Ratio</div><input type="number" class="finput" id="bDti" placeholder="0.35" step="0.01"></div>
+          <div><div class="flab">Credit Lines</div><input type="number" class="finput" id="bLines" placeholder="2"></div>
+          <div class="fg-sec"><div class="fg-sec-dot"></div>Loan Requirement</div>
+          <div>
+            <div class="flab">Purpose <span class="combo-tag">+ Custom</span></div>
+            <div class="combo-field">
+              <select class="combo-select" id="bPurpose" onchange="handleBPurposeChange()">
+                <option value="home">🏠 Home</option><option value="auto">🚗 Auto</option><option value="education">🎓 Education</option><option value="business">🏢 Business</option><option value="other" selected>📦 Other</option><option value="custom">✏️ Write your own…</option>
+              </select>
+              <input type="text" class="combo-manual" id="bPurposeCustom" placeholder="e.g. Wedding, Medical, Machinery…" maxlength="60">
+            </div>
+          </div>
+          <div>
+            <div class="flab">Term <span class="combo-tag">+ Custom</span></div>
+            <div class="combo-field">
+              <select class="combo-select" id="bTerm" onchange="handleBTermChange()">
+                <option value="12">12 months</option><option value="24" selected>24 months</option><option value="36">36 months</option><option value="48">48 months</option><option value="60">60 months</option><option value="84">84 months</option><option value="120">120 months</option><option value="custom">✏️ Enter months manually…</option>
+              </select>
+              <input type="number" class="combo-manual" id="bTermCustom" placeholder="e.g. 18, 42, 72 months…" min="1" max="360">
+            </div>
+          </div>
+          <div class="fg-sec"><div class="fg-sec-dot"></div>Employment</div>
+          <div><div class="flab">Employment Type</div><select class="fselect" id="bEmpType"><option value="full" selected>Full-time</option><option value="part">Part-time</option><option value="self">Self-employed</option><option value="unemployed">Unemployed</option></select></div>
+          <div><div class="flab">Months Employed</div><input type="number" class="finput" id="bEmpl" placeholder="24" min="0" max="119"></div>
+          <div class="fg-sec"><div class="fg-sec-dot"></div>Additional Flags</div>
+          <div><div class="flab">Has Mortgage?</div><div class="ftog"><button class="ftog-btn" id="bmortY" onclick="togBFlag('bmort','Y')">Yes</button><button class="ftog-btn on" id="bmortN" onclick="togBFlag('bmort','N')">No</button></div></div>
+          <div><div class="flab">Has Dependents?</div><div class="ftog"><button class="ftog-btn" id="bdepY" onclick="togBFlag('bdep','Y')">Yes</button><button class="ftog-btn on" id="bdepN" onclick="togBFlag('bdep','N')">No</button></div></div>
+          <div class="fg-full"><div class="flab">Has Co-Signer?</div><div class="ftog"><button class="ftog-btn" id="bcoY" onclick="togBFlag('bco','Y')">Yes</button><button class="ftog-btn on" id="bcoN" onclick="togBFlag('bco','N')">No</button></div></div>
+          <div class="fg-sec"><div class="fg-sec-dot" style="background:var(--rose)"></div>Existing Loan from Other Bank?</div>
+          <div class="fg-full">
+            <div class="flab">Active Loan at Another Bank?</div>
+            <div class="ftog">
+              <button class="ftog-btn" id="bextloanY" onclick="togBFlag('bextloan','Y');toggleExtLoanFields(true)">Yes</button>
+              <button class="ftog-btn on" id="bextloanN" onclick="togBFlag('bextloan','N');toggleExtLoanFields(false)">No</button>
+            </div>
+          </div>
+          <div id="extLoanFields" style="display:none;grid-column:1/-1;display:none">
+            <div style="background:rgba(232,84,117,0.06);border:1px solid rgba(232,84,117,0.18);border-radius:12px;padding:16px;margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div style="grid-column:1/-1;font-size:11px;color:var(--rose);font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">⚠️ This information affects your risk score — it increases your DTI and credit obligation burden</div>
+              <div>
+                <div class="flab">Outstanding Loan Amount (₹)</div>
+                <input type="number" class="finput" id="bExtLoanAmt" placeholder="e.g. 200000" min="0" oninput="onExtLoanChange()">
+              </div>
+              <div>
+                <div class="flab">Monthly EMI Being Paid (₹)</div>
+                <input type="number" class="finput" id="bExtEmi" placeholder="e.g. 8000" min="0" oninput="onExtLoanChange()">
+              </div>
+              <div>
+                <div class="flab">Bank Name</div>
+                <select class="fselect" id="bExtBank">
+                  <option value="">Select bank…</option>
+                  <option>SBI</option><option>HDFC Bank</option><option>ICICI Bank</option><option>Axis Bank</option>
+                  <option>Kotak Mahindra</option><option>Punjab National Bank</option><option>Bank of Baroda</option>
+                  <option>Canara Bank</option><option>IndusInd Bank</option><option>Yes Bank</option><option>Other</option>
+                </select>
+              </div>
+              <div>
+                <div class="flab">Loan Type</div>
+                <select class="fselect" id="bExtLoanType">
+                  <option value="personal">Personal Loan</option>
+                  <option value="home">Home Loan</option>
+                  <option value="auto">Auto/Vehicle Loan</option>
+                  <option value="education">Education Loan</option>
+                  <option value="business">Business Loan</option>
+                  <option value="gold">Gold Loan</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div id="extLoanImpactBox" style="grid-column:1/-1;padding:10px 14px;background:rgba(201,151,60,0.08);border:1px solid rgba(201,151,60,0.18);border-radius:9px;font-size:12px;color:var(--text2);display:none">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:6px">📊 Live Risk Impact Preview</div>
+                <div id="extLoanImpactText" style="line-height:1.7"></div>
+              </div>
+            </div>
+          </div>
+          <div class="fg-full" style="margin-top:10px"><button class="btn-assess" onclick="submitBorrower()">📤 Submit Loan Application</button></div>
+        </div>
+      </div>
+    </div>
+    <div id="bpg-tips" class="page">
+      <div class="ct" style="margin-bottom:16px;font-family:'Fraunces',serif;font-size:18px;font-weight:700"><div class="pip pip-teal"></div>How to Improve Your Loan Eligibility</div>
+      <div id="borrowerTips"></div>
+    </div>
+
+    <!-- STOCK INVESTMENTS PAGE -->
+    <div id="bpg-stocks" class="page">
+      <!-- Hero Header -->
+      <div class="bstatus-hero" style="background:linear-gradient(135deg,rgba(56,201,176,0.06),rgba(139,114,240,0.06));border-color:rgba(139,114,240,0.18);margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+          <div>
+            <div class="bsh-t">📈 Stock Investment Suggestions</div>
+            <div class="bsh-s">AI-powered stock picks tailored to your risk profile — updated live from market data</div>
+            <div class="bsh-chips">
+              <span class="mbadge" style="background:rgba(139,114,240,0.1);color:var(--violet);border-color:rgba(139,114,240,0.22)">NSE / BSE Listed</span>
+              <span class="mbadge" style="background:rgba(56,201,176,0.1);color:var(--teal);border-color:rgba(56,201,176,0.22)">Real-time Data</span>
+              <span class="mbadge" style="background:rgba(201,151,60,0.1);color:var(--gold);border-color:rgba(201,151,60,0.22)">AI Analysis</span>
+            </div>
+          </div>
+          <button onclick="loadStockSuggestions()" id="stockRefreshBtn" style="padding:10px 22px;border-radius:10px;border:1.5px solid var(--violet);background:rgba(139,114,240,0.1);color:var(--violet);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(139,114,240,0.2)'" onmouseout="this.style.background='rgba(139,114,240,0.1)'">
+            <span id="stockRefreshIcon">🔄</span> Refresh Picks
+          </button>
+        </div>
+      </div>
+
+      <!-- Market Snapshot KPIs -->
+      <div class="kpi-row" style="margin-bottom:20px">
+        <div class="kpi violet fade-up fade-up-d1" style="--violet-kpi:var(--violet)">
+          <div class="kpi-lbl">NIFTY 50</div>
+          <div class="kpi-val" style="color:var(--violet);font-size:24px" id="kpiNifty">—</div>
+          <div class="kpi-sub" id="kpiNiftyChg">Loading…</div>
+        </div>
+        <div class="kpi teal fade-up fade-up-d2">
+          <div class="kpi-lbl">SENSEX</div>
+          <div class="kpi-val" style="color:var(--teal);font-size:24px" id="kpiSensex">—</div>
+          <div class="kpi-sub" id="kpiSensexChg">Loading…</div>
+        </div>
+        <div class="kpi gold fade-up fade-up-d3">
+          <div class="kpi-lbl">Suggested Stocks</div>
+          <div class="kpi-val" id="kpiStockCount">—</div>
+          <div class="kpi-sub">Based on your risk profile</div>
+        </div>
+        <div class="kpi sky fade-up fade-up-d4">
+          <div class="kpi-lbl">Avg. Analyst Rating</div>
+          <div class="kpi-val" id="kpiAvgRating" style="color:var(--sky)">—</div>
+          <div class="kpi-sub">Across all picks</div>
+        </div>
+      </div>
+
+      <!-- AI Analysis + Stock Cards -->
+      <div class="g65" style="margin-bottom:18px">
+        <!-- Stock Grid -->
+        <div>
+          <div class="card fade-up" style="margin-bottom:16px">
+            <div class="ch">
+              <div class="ct"><div class="pip pip-violet"></div>Live Stock Picks</div>
+              <span class="mbadge" style="background:rgba(139,114,240,0.1);color:var(--violet);border-color:rgba(139,114,240,0.2)" id="stockLastUpdated">Fetching…</span>
+            </div>
+            <!-- Loading State -->
+            <div id="stockLoadingState" style="text-align:center;padding:40px;color:var(--text3)">
+              <div style="font-size:36px;margin-bottom:12px;animation:floatBob 2s ease-in-out infinite">📡</div>
+              <div style="font-family:'Fraunces',serif;font-size:16px;color:var(--text);margin-bottom:6px">Fetching market data…</div>
+              <div style="font-size:12px">Connecting to live stock APIs</div>
+            </div>
+            <!-- Stock Grid -->
+            <div id="stockCardsGrid" style="display:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px"></div>
+          </div>
+        </div>
+
+        <!-- AI Insight Panel -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card fade-up fade-up-d1">
+            <div class="ch"><div class="ct"><div class="pip pip-teal"></div>AI Market Analysis</div><span class="mbadge">Claude AI</span></div>
+            <div id="stockAIInsight" style="font-size:13px;color:var(--text2);line-height:1.7">
+              <div style="text-align:center;padding:28px 0;color:var(--text3)">
+                <div style="font-size:28px;margin-bottom:8px;animation:floatBob 3s ease-in-out infinite">🤖</div>
+                <div style="font-size:12px">AI analysis will appear after stocks load</div>
+              </div>
+            </div>
+          </div>
+          <div class="card fade-up fade-up-d2">
+            <div class="ch"><div class="ct"><div class="pip pip-gold"></div>Portfolio Allocation</div></div>
+            <div id="stockAllocationChart" style="padding:8px 0">
+              <div style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Loading allocation…</div>
+            </div>
+          </div>
+          <div class="card fade-up fade-up-d3" style="background:linear-gradient(135deg,rgba(232,84,117,0.04),rgba(201,151,60,0.04));border-color:rgba(201,151,60,0.15)">
+            <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">⚠️ Disclaimer</div>
+            <div style="font-size:11px;color:var(--text3);line-height:1.6">Stock suggestions are for informational purposes only and do not constitute financial advice. Past performance is not indicative of future results. Always consult a SEBI-registered advisor before investing.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ AI ASSISTANT ════ -->
+<button class="ai-fab" id="aiFab" onclick="toggleAI()" title="Ask GroundZero AI">
+  <span id="aiFabIcon">🤖</span>
+  <div class="ai-fab-badge" id="aiFabBadge">1</div>
+</button>
+
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-header">
+    <div style="position:relative;flex-shrink:0">
+      <div class="ai-avatar">🤖</div>
+      <div class="ai-avatar-ring"></div>
+    </div>
+    <div class="ai-head-info">
+      <div class="ai-name">Artha — GroundZero AI</div>
+      <div class="ai-status"><div class="ai-status-dot"></div>Online · Ready to help</div>
+    </div>
+    <button class="ai-close" onclick="toggleAI()">✕</button>
+  </div>
+  <div class="ai-messages" id="aiMessages"></div>
+  <div class="ai-suggestions" id="aiSuggestions">
+    <button class="ai-sug-btn" onclick="aiQuick('How can I improve my credit score?')">💳 Credit tips</button>
+    <button class="ai-sug-btn" onclick="aiQuick('What investments should I make?')">📈 Invest</button>
+    <button class="ai-sug-btn" onclick="aiQuick('Explain my risk score')">⚡ My risk</button>
+    <button class="ai-sug-btn" onclick="aiQuick('How to get my loan approved?')">✅ Approval tips</button>
+  </div>
+  <div class="ai-input-row">
+    <input type="text" class="ai-input" id="aiInput" placeholder="Ask about loans, risk, investments…" onkeypress="if(event.key==='Enter')sendAI()">
+    <button class="ai-send" onclick="sendAI()">➤</button>
+  </div>
+</div>
+
+<div id="toast"><span id="toastI">✅</span> <span id="toastM">Done</span></div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   REAL MODEL — LogisticRegression coefficients
+   from main.ipynb | ROC-AUC: 0.760
+═══════════════════════════════════════════════ */
+const MODEL={
+  features:['Age','Income','LoanAmount','CreditScore','MonthsEmployed','NumCreditLines','InterestRate','LoanTerm','DTIRatio','Education_High School',"Education_Master's",'Education_PhD','EmploymentType_Part-time','EmploymentType_Self-employed','EmploymentType_Unemployed','MaritalStatus_Married','MaritalStatus_Single','HasMortgage_Yes','HasDependents_Yes','LoanPurpose_Business','LoanPurpose_Education','LoanPurpose_Home','LoanPurpose_Other','HasCoSigner_Yes','Loan_Income_Ratio','Estimated_EMI','EMI_Income_Ratio','Income_Group_Medium','Income_Group_High'],
+  coef:[-0.5993,-0.0016,-0.0153,-0.1215,-0.3385,0.1017,0.4587,0.0179,0.0,0.0316,-0.0577,-0.0747,0.1254,0.1098,0.2008,-0.1080,-0.0326,-0.0743,-0.1232,0.0226,-0.0004,-0.0782,-0.0049,-0.1422,0.4700,0.0304,-0.0106,0.0044,0.0124],
+  intercept:-2.3874,
+  mean:[43.489,82506.228,127547.496,574.076,59.509,2.502,12.992,36.011,0.0,0.2499,0.2485,0.2496,0.2519,0.2492,0.2496,0.3339,0.3325,0.5000,0.5002,0.2006,0.2000,0.2001,0.1999,0.5003,2.1757,4843.399,0.0826,0.3337,0.3333],
+  scale:[14.995,38952.008,70854.891,158.877,34.645,1.117,6.630,16.945,1.0,0.4329,0.4322,0.4328,0.4341,0.4325,0.4328,0.4716,0.4711,0.5000,0.5000,0.4005,0.4000,0.4001,0.3999,0.5000,2.1748,4427.158,0.1112,0.4715,0.4714],
+  q33:59989,q66:105058.782
+};
+const sigmoid=z=>1/(1+Math.exp(-z));
+
+function buildFV(d,f){
+  const lir=d.income>0?d.loanAmt/d.income:2.18;
+  const emi=d.loanAmt/Math.max(d.term,1);
+  const er=d.income>0?emi/d.income:0.083;
+  return[d.age,d.income,d.loanAmt,d.credit,d.empl,d.lines,d.rate,d.term,d.dti,
+    d.edu==='hs'?1:0,d.edu==='mast'?1:0,d.edu==='phd'?1:0,
+    d.empType==='part'?1:0,d.empType==='self'?1:0,d.empType==='unemployed'?1:0,
+    d.marital==='married'?1:0,d.marital==='single'?1:0,
+    f.mort==='Y'?1:0,f.dep==='Y'?1:0,
+    d.purpose==='business'?1:0,d.purpose==='education'?1:0,d.purpose==='home'?1:0,d.purpose==='other'?1:0,
+    f.co==='Y'?1:0,lir,emi,er,
+    (d.income>MODEL.q33&&d.income<=MODEL.q66)?1:0,d.income>MODEL.q66?1:0
+  ];
+}
+
+function calcRisk(d,f){
+  const x=buildFV(d,f);
+  let z=MODEL.intercept;
+  for(let i=0;i<MODEL.features.length;i++) z+=MODEL.coef[i]*((x[i]-MODEL.mean[i])/MODEL.scale[i]);
+  return sigmoid(z);
+}
+
+function calcEMI(p,r,t){const mr=r/12/100;if(mr===0)return p/t;return(p*mr*Math.pow(1+mr,t))/(Math.pow(1+mr,t)-1);}
+function buildSched(p,r,t){
+  const emi=calcEMI(p,r,t);const mr=r/12/100;let bal=p;const rows=[];let tP=0,tI=0;
+  for(let i=1;i<=t;i++){const int=bal*mr;const prn=emi-int;bal=Math.max(0,bal-prn);tP+=prn;tI+=int;rows.push({m:i,emi,p:prn,i:int,bal});}
+  return{rows,emi,tP,tI,tPay:tP+tI};
+}
+
+/* ═══ STATE ═══ */
+let users=[],currentUser=null;
+let flags={mort:'N',dep:'N',co:'N'};
+let bFlags={bmort:'N',bdep:'N',bco:'N',bextloan:'N'};
+let siRole='bank',suRole='bank';
+let chartsReady=false,historyRows=[];
+
+/* ═══ COMBO FIELD HANDLERS ═══ */
+function handlePurposeChange(){
+  const sel=document.getElementById('fPurpose');
+  const manual=document.getElementById('fPurposeCustom');
+  if(sel.value==='custom'){manual.classList.add('show');manual.focus();}
+  else{manual.classList.remove('show');manual.value='';}
+}
+function handleTermChange(){
+  const sel=document.getElementById('fTerm');
+  const manual=document.getElementById('fTermCustom');
+  if(sel.value==='custom'){manual.classList.add('show');manual.focus();}
+  else{manual.classList.remove('show');manual.value='';}
+}
+function handleBPurposeChange(){
+  const sel=document.getElementById('bPurpose');
+  const manual=document.getElementById('bPurposeCustom');
+  if(sel.value==='custom'){manual.classList.add('show');manual.focus();}
+  else{manual.classList.remove('show');manual.value='';}
+}
+function handleBTermChange(){
+  const sel=document.getElementById('bTerm');
+  const manual=document.getElementById('bTermCustom');
+  if(sel.value==='custom'){manual.classList.add('show');manual.focus();}
+  else{manual.classList.remove('show');manual.value='';}
+}
+
+/* Returns effective purpose key (maps custom to 'other' for model) */
+function getPurposeKey(selectId){
+  const v=document.getElementById(selectId).value;
+  return v==='custom'?'other':v;
+}
+function getPurposeLabel(selectId, customId){
+  const v=document.getElementById(selectId).value;
+  if(v==='custom'){const c=document.getElementById(customId).value.trim();return c||'Custom';}
+  const opt=document.getElementById(selectId).selectedOptions[0];
+  return opt?opt.text:'Other';
+}
+function getTermValue(selectId, customId){
+  const v=document.getElementById(selectId).value;
+  if(v==='custom'){const c=+document.getElementById(customId).value;return c>0?c:24;}
+  return +v;
+}
+
+/* ═══ ROUTER ═══ */
+function goTo(id){
+  ['scSignin','scSignup','scBank','scBorrower'].forEach(s=>{
+    const el=document.getElementById(s);
+    el.classList.remove('active');el.style.display='none';
+  });
+  const t=document.getElementById(id);
+  if(id==='scBank'||id==='scBorrower'){t.style.display='flex';t.classList.add('active');}
+  else{t.style.display='flex';t.classList.add('active');}
+}
+
+/* ═══ AUTH ═══ */
+function setSIRole(r,el){siRole=r;document.querySelectorAll('#scSignin .rtab').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function setSURole(r,el){
+  suRole=r;document.querySelectorAll('#scSignup .rtab').forEach(b=>b.classList.remove('on'));el.classList.add('on');
+  document.getElementById('suOrgFg').style.display=r==='bank'?'block':'none';
+  document.getElementById('suRoleFg').style.display=r==='bank'?'block':'none';
+}
+function showErr(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),4000);}
+function doSignin(){
+  const email=document.getElementById('siEmail').value.trim();
+  const pass=document.getElementById('siPass').value;
+  if(!email||!pass){showErr('siErr','Please fill all fields');return;}
+  const found=users.find(u=>u.email===email&&u.pass===pass);
+  if(found){loginUser(found);return;}
+  if(email.includes('@')&&pass.length>=4){
+    loginUser({first:siRole==='bank'?'Aryan':'Priya',last:siRole==='bank'?'Mehta':'Sharma',email,pass,role:siRole==='bank'?'Credit Analyst':'Borrower',type:siRole});
+  }else{showErr('siErr','Any valid email + 4+ char password works for demo.');}
+}
+function doSignup(){
+  const first=document.getElementById('suFirst').value.trim();
+  const last=document.getElementById('suLast').value.trim();
+  const email=document.getElementById('suEmail').value.trim();
+  const pass=document.getElementById('suPass').value;
+  if(!first||!last||!email||!pass){showErr('suErr','Please fill all required fields');return;}
+  if(pass.length<6){showErr('suErr','Password must be at least 6 characters');return;}
+  if(users.find(u=>u.email===email)){showErr('suErr','Email already registered');return;}
+  const u={first,last,email,pass,org:document.getElementById('suOrg').value.trim(),role:suRole==='bank'?(document.getElementById('suRoleSel').value||'Analyst'):'Borrower',type:suRole};
+  users.push(u);loginUser(u);
+}
+function avatarGradient(name){
+  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%5;
+  return'av-g'+h;
+}
+function loginUser(u){
+  currentUser=u;
+  const initials=(u.first[0]||'')+(u.last?.[0]||'');
+  const grad=avatarGradient(u.first+u.last);
+  if(u.type==='borrower'){
+    const av=document.getElementById('brAv');
+    av.textContent=initials;av.className='sb-av '+grad;
+    document.getElementById('brName').textContent=u.first+' '+u.last;
+    // set AI user avatar initials
+    aiUserInitials=initials;
+    buildBorrowerTips();goTo('scBorrower');
+    setTimeout(()=>initAI(),400);
+  }else{
+    const av=document.getElementById('bkAv');
+    av.textContent=initials;av.className='sb-av '+grad;
+    document.getElementById('bkName').textContent=u.first+' '+u.last;
+    document.getElementById('bkRole').textContent=u.role||'Analyst';
+    aiUserInitials=initials;
+    goTo('scBank');
+    if(!chartsReady){setTimeout(initCharts,150);chartsReady=true;}
+    buildHistoryTable();buildInvestTable();buildSuggestions();buildPaymentGrid();buildSectorTable();buildGeoTable();buildInvSuggestions();
+    setTimeout(()=>initAI(),400);
+  }
+  showToast('👋','Welcome, '+u.first+'!');
+}
+function logout(){currentUser=null;goTo('scSignin');showToast('👋','Signed out');}
+
+/* ═══ NAV ═══ */
+const pgTitles={'pg-overview':'Overview Dashboard','pg-assess':'Risk Assessment','pg-history':'Loan History','pg-insights':'Business Insights','pg-behaviour':'Behaviour Profile','pg-invest':'Investment Portfolio','pg-suggest':'Recommendations'};
+function switchPage(id,el){
+  document.querySelectorAll('#scBank .page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#scBank .nav-item').forEach(n=>n.classList.remove('on'));
+  document.getElementById(id).classList.add('active');el.classList.add('on');
+  document.getElementById('bkTopTitle').textContent=pgTitles[id]||id;
+}
+function switchBPage(id,el){
+  document.querySelectorAll('#scBorrower .page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#scBorrower .nav-item').forEach(n=>n.classList.remove('on'));
+  document.getElementById(id).classList.add('active');el.classList.add('on');
+  const titles={'bpg-status':'My Loan Application','bpg-apply':'Submit Details','bpg-tips':'Improve Score','bpg-stocks':'Stock Investments'};
+  const chips={'bpg-status':'Status: Pending','bpg-apply':'LR Scoring','bpg-tips':'Eligibility Tips','bpg-stocks':'NSE · Live Data'};
+  if(document.getElementById('brTopTitle'))document.getElementById('brTopTitle').textContent=titles[id]||'My Portal';
+  if(document.getElementById('brTopChip'))document.getElementById('brTopChip').textContent=chips[id]||'';
+  if(id==='bpg-stocks'){
+    const grid=document.getElementById('stockCardsGrid');
+    if(grid&&grid.children.length===0)setTimeout(loadStockSuggestions,200);
+  }
+}
+function togFlag(k,v){flags[k]=v;document.getElementById(k+'Y').classList.toggle('on',v==='Y');document.getElementById(k+'N').classList.toggle('on',v==='N');}
+function togBFlag(k,v){bFlags[k]=v;document.getElementById(k+'Y').classList.toggle('on',v==='Y');document.getElementById(k+'N').classList.toggle('on',v==='N');}
+
+/* ═══ READ FORM ═══ */
+function readForm(){
+  return{
+    age:+document.getElementById('fAge').value||43,
+    credit:+document.getElementById('fCredit').value||574,
+    income:+document.getElementById('fIncome').value||82506,
+    loanAmt:+document.getElementById('fLoan').value||127547,
+    dti:+document.getElementById('fDti').value||0.35,
+    lines:+document.getElementById('fLines').value||3,
+    purpose:getPurposeKey('fPurpose'),
+    purposeLabel:getPurposeLabel('fPurpose','fPurposeCustom'),
+    term:getTermValue('fTerm','fTermCustom'),
+    rate:+document.getElementById('fRate').value||12.99,
+    empType:document.getElementById('fEmpType').value,
+    empl:+document.getElementById('fEmpl').value||60,
+    jobChanges:+document.getElementById('fJobChange').value||1,
+    edu:document.getElementById('fEdu').value,
+    marital:document.getElementById('fMarital').value,
+  };
+}
+
+/* ═══ ASSESS ═══ */
+function runAssess(){
+  const d=readForm();
+  if(!d.income||!d.loanAmt){showToast('⚠️','Please enter Income and Loan Amount');return;}
+  const prob=calcRisk(d,flags);
+  const pct=Math.round(prob*100);
+  const level=prob<0.3?'low':prob<0.6?'med':'high';
+  document.getElementById('modelBadgeResult').style.display='flex';
+  renderRiskResult(pct,level);
+  const sched=buildSched(d.loanAmt,d.rate,d.term);
+  renderAmortBreakdown(sched,d);
+  renderAmortTable(sched,d);
+  renderFeatureInfluence(d,flags);
+  addHistoryRow(d,pct,level);
+  updateBehaviour(d);
+  showToast('✅',`Risk: ${pct}% (${level.toUpperCase()}) · σ(wᵀx+b)`);
+}
+
+/* ═══ RISK ARC ═══ */
+function renderRiskResult(pct,level){
+  const cols={low:'var(--teal)',med:'var(--gold)',high:'var(--rose)'};const c=cols[level];
+  const verdicts={
+    low:['🟢 Low Risk — Likely Approved','Strong repayment profile. Default probability below 30%. Loan recommended for approval.'],
+    med:['🟡 Medium Risk — Manual Review','Default probability 30–60%. Request additional documentation or consider reducing loan amount.'],
+    high:['🔴 High Risk — Likely Declined','Default probability above 60%. Recommend declining or adding a co-signer with strict conditions.']
+  };
+  const sweepTotal=270,startDeg=225;
+  const sf=Math.min(Math.max(pct,2),98)/100*sweepTotal;
+  const cx=90,cy=95,r=72;
+  const polar=(deg,rad)=>{const a=(deg-90)*Math.PI/180;return{x:cx+rad*Math.cos(a),y:cy+rad*Math.sin(a)};};
+  const arc=(s,e,rad)=>{const a=polar(s,rad),b=polar(e,rad),lg=e-s>180?1:0;return`M${a.x},${a.y} A${rad},${rad},0,${lg},1,${b.x},${b.y}`;};
+  const tp=arc(startDeg,startDeg+sweepTotal,r),fp=arc(startDeg,startDeg+sf,r);
+  document.getElementById('riskResult').innerHTML=`
+    <div class="arc-wrap">
+      <svg viewBox="0 0 180 120" xmlns="http://www.w3.org/2000/svg">
+        <path d="${tp}" fill="none" stroke="rgba(128,128,128,0.12)" stroke-width="12" stroke-linecap="round"/>
+        <path d="${fp}" fill="none" stroke="${c}" stroke-width="12" stroke-linecap="round" style="filter:drop-shadow(0 0 8px ${c}70);transition:stroke-dashoffset 1s"/>
+      </svg>
+      <div class="risk-num" style="color:${c}">${pct}%</div>
+    </div>
+    <div class="risk-sublbl">Default Probability · σ(wᵀx+b)</div>
+    <div class="prob-track"><div class="prob-fill" style="width:${pct}%;background:${level==='low'?'linear-gradient(90deg,var(--teal),var(--teal2))':level==='med'?'linear-gradient(90deg,var(--gold),var(--gold2))':'linear-gradient(90deg,var(--rose),var(--rose2))'}"></div></div>
+    <div class="risk-verdict rv-${level}">
+      <div class="rv-title lv-${level}">${verdicts[level][0]}</div>
+      <div class="rv-desc">${verdicts[level][1]}</div>
+    </div>`;
+}
+
+/* ═══ AMORT BREAKDOWN ═══ */
+function renderAmortBreakdown(sched,d){
+  const{emi,tP,tI,tPay}=sched;
+  const pp=Math.round(tP/tPay*100),ip=100-pp;
+  const er=d.income>0?((emi/(d.income/12))*100).toFixed(1):'—';
+  const lir=d.income>0?(d.loanAmt/d.income).toFixed(2):'—';
+  document.getElementById('amortCard').style.display='block';
+  document.getElementById('amortContent').innerHTML=`
+    <div class="amort-trio">
+      <div class="amort-kpi sky"><div class="amort-kpi-v">₹${fmt(Math.round(emi))}</div><div class="amort-kpi-l">Monthly EMI</div></div>
+      <div class="amort-kpi teal"><div class="amort-kpi-v">₹${fmt(Math.round(tP))}</div><div class="amort-kpi-l">Principal</div></div>
+      <div class="amort-kpi rose"><div class="amort-kpi-v">₹${fmt(Math.round(tI))}</div><div class="amort-kpi-l">Total Interest</div></div>
+    </div>
+    <div class="split-bar"><div class="sb-p" style="width:${pp}%"></div><div class="sb-i" style="width:${ip}%"></div></div>
+    <div class="split-legend"><span><div class="sl-dot" style="background:var(--sky)"></div>Principal ${pp}%</span><span><div class="sl-dot" style="background:var(--rose)"></div>Interest ${ip}%</span></div>
+    <div class="br-row"><span class="br-k">Total Repayment</span><span class="br-v">₹${fmt(Math.round(tPay))}</span></div>
+    <div class="br-row"><span class="br-k">Interest Cost</span><span class="br-v" style="color:var(--rose)">₹${fmt(Math.round(tI))}</span></div>
+    <div class="br-row"><span class="br-k">Rate (p.a.)</span><span class="br-v">${d.rate}%</span></div>
+    <div class="br-row"><span class="br-k">Term</span><span class="br-v">${d.term} months</span></div>
+    <div class="br-row"><span class="br-k">EMI / Monthly Income</span><span class="br-v" style="color:${+er>40?'var(--rose)':+er>25?'var(--gold)':'var(--teal)'}">
+      ${er}% ${+er>40?'⚠️':'✅'}</span></div>
+    <div class="br-row"><span class="br-k">Loan / Annual Income</span><span class="br-v" style="color:${+lir>2?'var(--gold)':'var(--teal)'}">${lir}×</span></div>
+    <div class="br-row"><span class="br-k">Purpose</span><span class="br-v">${d.purposeLabel}</span></div>`;
+}
+
+/* ═══ AMORT TABLE + CHART ═══ */
+function renderAmortTable(sched,d){
+  document.getElementById('schedCard').style.display='block';
+  document.getElementById('schedSub').textContent=`₹${fmt(Math.round(d.loanAmt))} · ${d.rate}% · ${d.term}mo`;
+  const step=d.term>48?4:d.term>24?2:1;
+  document.getElementById('amortTbody').innerHTML=sched.rows.filter((_,i)=>i%step===0||i===sched.rows.length-1).map(r=>`<tr><td>Mo ${r.m}</td><td>₹${fmt(Math.round(r.emi))}</td><td class="atd-p">₹${fmt(Math.round(r.p))}</td><td class="atd-i">₹${fmt(Math.round(r.i))}</td><td class="atd-b">₹${fmt(Math.round(r.bal))}</td></tr>`).join('');
+  if(window.amortChart)window.amortChart.destroy();
+  const g=gc();
+  window.amortChart=new Chart(document.getElementById('cht-amort').getContext('2d'),{
+    type:'bar',data:{labels:sched.rows.map(r=>`M${r.m}`),datasets:[
+      {label:'Principal',data:sched.rows.map(r=>r.p),backgroundColor:'rgba(75,168,224,0.75)',borderRadius:2,stack:'s'},
+      {label:'Interest',data:sched.rows.map(r=>r.i),backgroundColor:'rgba(232,84,117,0.75)',borderRadius:2,stack:'s'},
+      {label:'Balance',data:sched.rows.map(r=>r.bal),type:'line',borderColor:'var(--gold)',backgroundColor:'transparent',tension:.4,pointRadius:0,yAxisID:'y2'}
+    ]},options:{responsive:true,plugins:{legend:{labels:{color:Chart.defaults.color,boxWidth:8,font:{size:11}}}},scales:{x:{grid:{color:g},ticks:{color:Chart.defaults.color,maxTicksLimit:12}},y:{grid:{color:g},stacked:true,ticks:{color:Chart.defaults.color,callback:v=>'₹'+fmtK(v)}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{color:'var(--gold)',callback:v=>'₹'+fmtK(v)}}}}
+  });
+}
+
+/* ═══ FEATURE INFLUENCE ═══ */
+function renderFeatureInfluence(d,f){
+  const x=buildFV(d,f);
+  const contribs=MODEL.features.map((name,i)=>{const xs=(x[i]-MODEL.mean[i])/MODEL.scale[i];return{name,contrib:MODEL.coef[i]*xs,coef:MODEL.coef[i]};}).sort((a,b)=>Math.abs(b.contrib)-Math.abs(a.contrib)).slice(0,10);
+  document.getElementById('featureCard').style.display='block';
+  const maxAbs=Math.max(...contribs.map(f=>Math.abs(f.contrib)));
+  document.getElementById('featureContent').innerHTML=contribs.map((f,i)=>{
+    const pct=maxAbs>0?Math.round(Math.abs(f.contrib)/maxAbs*90):5;
+    const dir=f.contrib>0?'inc':'dec';
+    const nm=f.name.replace('EmploymentType_','').replace('LoanPurpose_','').replace('MaritalStatus_','').replace('Education_','').replace('Has','Has ');
+    return`<div class="feat-item" style="animation-delay:${i*0.04}s">
+      <div class="feat-n">${nm}</div>
+      <span class="feat-badge ${dir==='inc'?'fb-up':'fb-dn'}">${dir==='inc'?'↑ risk':'↓ risk'}</span>
+      <div class="feat-trk"><div class="feat-fill ${dir==='inc'?'ff-up':'ff-dn'}" style="width:${pct}%"></div></div>
+      <div class="feat-coef">${f.coef>0?'+':''}${f.coef.toFixed(3)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══ HISTORY ═══ */
+const demoRows=[
+  {id:'I38PQUQS96',purpose:'Other',state:'Maharashtra',amt:50587,income:85994,credit:520,dti:.44,prob:16,level:'low'},
+  {id:'HPSK72WA7R',purpose:'Other',state:'Karnataka',amt:124440,income:50432,credit:458,dti:.68,prob:42,level:'med'},
+  {id:'C1OZ6DPJ8Y',purpose:'Auto',state:'Tamil Nadu',amt:129188,income:84208,credit:451,dti:.31,prob:64,level:'high'},
+  {id:'MRNQ87TY21',purpose:'Home',state:'Delhi NCR',amt:78000,income:110000,credit:710,dti:.28,prob:9,level:'low'},
+  {id:'PLKR45GH9W',purpose:'Business',state:'Gujarat',amt:220000,income:95000,credit:530,dti:.55,prob:41,level:'med'},
+];
+function addHistoryRow(d,pct,level){
+  const stateMap={MH:'Maharashtra',KA:'Karnataka',TN:'Tamil Nadu',DL:'Delhi NCR',GJ:'Gujarat',RJ:'Rajasthan',UP:'Uttar Pradesh',WB:'West Bengal',AP:'Andhra Pradesh',TS:'Telangana',KL:'Kerala',MP:'Madhya Pradesh',PB:'Punjab',HR:'Haryana',OD:'Odisha'};
+  const stateEl=document.getElementById('fState');
+  const stateCode=stateEl?stateEl.value:'MH';
+  const state=stateMap[stateCode]||stateCode;
+  historyRows.unshift({id:'NEW-'+Date.now().toString(36).toUpperCase().slice(-8),purpose:d.purposeLabel,state,amt:d.loanAmt,income:d.income,credit:d.credit,dti:d.dti,prob:pct,level});
+  buildHistoryTable();
+}
+function buildHistoryTable(){
+  const stateFlags={Maharashtra:'🟠',Karnataka:'🔵',TamilNadu:'🟢','Tamil Nadu':'🟢','Delhi NCR':'🟡',Gujarat:'⚪',Rajasthan:'🔴','Uttar Pradesh':'🟣','West Bengal':'🟤','Andhra Pradesh':'🟩',Telangana:'🔷',Kerala:'🟦','Madhya Pradesh':'🟧',Punjab:'🟨',Haryana:'🟫',Odisha:'🔸'};
+  const rows=[...historyRows,...demoRows];
+  const dec={low:'Approved',med:'Under Review',high:'Rejected'};
+  document.getElementById('historyTbody').innerHTML=rows.map(r=>`<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)">${r.id}</td>
+    <td style="text-transform:capitalize">${r.purpose}</td>
+    <td><span style="font-size:12px;white-space:nowrap">${(stateFlags[r.state]||'📍')} ${r.state||'—'}</span></td>
+    <td style="font-family:'JetBrains Mono',monospace">₹${fmt(r.amt)}</td>
+    <td style="font-family:'JetBrains Mono',monospace">₹${fmt(r.income)}</td>
+    <td style="font-family:'JetBrains Mono',monospace">${r.credit}</td>
+    <td style="font-family:'JetBrains Mono',monospace">${r.dti}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${r.level==='low'?'var(--teal)':r.level==='med'?'var(--gold)':'var(--rose)'}">${r.prob}%</td>
+    <td><span class="badge b-${r.level}">${r.level.charAt(0).toUpperCase()+r.level.slice(1)}</span></td>
+    <td style="font-weight:700;font-size:11px;color:${r.level==='low'?'var(--teal)':r.level==='med'?'var(--gold)':'var(--rose)'}">${dec[r.level]}</td>
+  </tr>`).join('');
+}
+
+function buildPaymentGrid(){
+  const pat=['ot','ot','ot','ot','ot','ot','lt','ot','ot','ot','ms','ot','ot','ot','ot','lt','ot','ot','ot','ot','ot','ot','ot','ot','ot','ot','ot','ot','ot','ot','ot','lt','ot','ot','ot','ot'];
+  const cls={ot:'pm-ot',lt:'pm-lt',ms:'pm-ms'};
+  let ot=0,lt=0,ms=0;
+  document.getElementById('pmGrid').innerHTML=pat.map(t=>{if(t==='ot')ot++;else if(t==='lt')lt++;else ms++;return`<div class="pm-dot ${cls[t]||'pm-na'}" title="${{ot:'On-time',lt:'Late',ms:'Missed'}[t]}"></div>`;}).join('');
+  const tot=ot+lt+ms;
+  document.getElementById('pmScore').textContent=`Payment Score: ${tot?Math.round((ot+lt*.5)/tot*100):0}/100`;
+}
+
+function updateBehaviour(d){
+  const avg=Math.round(60/(d.jobChanges+1));
+  document.getElementById('avgTenure').textContent=avg+'mo';
+  document.getElementById('jobFreqV').textContent=(d.jobChanges/5).toFixed(1);
+  const st=d.jobChanges<=1?'A+':d.jobChanges<=2?'B+':d.jobChanges<=3?'C':'D';
+  document.getElementById('stabilityV').textContent=st;
+  const cos=['Infosys Ltd','HCL Technologies','Wipro','Current Employer'].slice(0,Math.min(d.jobChanges+1,4));
+  document.getElementById('jobTimeline').innerHTML=cos.map((c,i)=>`<div class="job-row"><div class="jdot ${i===cos.length-1?'jd-teal':i===0?'jd-rose':'jd-gold'}"></div><div><div class="j-co">${c}</div><div class="j-per">${2019+i} – ${i===cos.length-1?'Present':String(2020+i)}</div></div><span class="jbadge ${i===cos.length-1?'jb-ok':i===0?'jb-risk':'jb-warn'}">${12+i*8}mo</span></div>`).join('');
+  const pills=[];
+  if(d.credit>=700)pills.push({c:'bp-teal',t:'Credit Score 700+'});else if(d.credit<550)pills.push({c:'bp-rose',t:'Low Credit Score'});
+  if(d.dti<=0.3)pills.push({c:'bp-teal',t:'Low Debt Burden'});else if(d.dti>0.5)pills.push({c:'bp-rose',t:'High DTI'});
+  if(d.empl>24)pills.push({c:'bp-teal',t:'Stable Employment'});else pills.push({c:'bp-gold',t:'Short Employment'});
+  if(d.jobChanges<=1)pills.push({c:'bp-teal',t:'Low Job Hopping'});else if(d.jobChanges>3)pills.push({c:'bp-rose',t:'Frequent Job Changes'});
+  if(flags.co==='Y')pills.push({c:'bp-sky',t:'Co-Signer ✓'});
+  if(flags.mort==='Y')pills.push({c:'bp-gold',t:'Has Mortgage'});
+  pills.push({c:'bp-sky',t:'UPI Activity'},{c:'bp-teal',t:'Utility Bills OK'});
+  if(d.empType==='unemployed')pills.push({c:'bp-rose',t:'Unemployed'});
+  document.getElementById('behaviourPills').innerHTML=pills.map((p,i)=>`<span class="bpill ${p.c}" style="animation-delay:${i*0.05}s">● ${p.t}</span>`).join('');
+}
+
+function buildInvestTable(){
+  document.getElementById('investTable').innerHTML=[{name:'SBI Fixed Deposit',type:'Fixed Income',curr:93200,ret:16.5},{name:'HDFC Equity Fund',type:'Mutual Fund',curr:156000,ret:30.0},{name:'PPF Account',type:'Govt Scheme',curr:58500,ret:17.0},{name:'Reliance Industries',type:'Direct Equity',curr:134000,ret:34.0},{name:'NHAI Bonds',type:'Govt Bonds',curr:74500,ret:6.4}].map(i=>`<div class="inv-row"><div><div class="inv-n">${i.name}</div><div class="inv-type">${i.type}</div></div><div style="text-align:right"><div class="inv-v">₹${fmt(i.curr)}</div><div class="inv-ret pos">+${i.ret}%</div></div></div>`).join('');
+}
+
+function buildSuggestions(){
+  [{icon:'💳',t:'Improve Credit Score to 700+',d:'Model coef: −0.121. Every 50pt improvement reduces risk. Keep credit utilization below 30%, pay dues on time for 3+ months.',imp:'High',ic:'si-hi'},
+   {icon:'📊',t:'Reduce Loan-to-Income Ratio',d:'Loan_Income_Ratio coef: +0.470 — strongest positive predictor. Keep loan amount below 1.5× annual income.',imp:'High',ic:'si-hi'},
+   {icon:'📉',t:'Negotiate Lower Interest Rate',d:'InterestRate coef: +0.459 — 2nd strongest predictor. Lower rates directly reduce the model score. Co-signers help secure better rates.',imp:'High',ic:'si-hi'},
+   {icon:'⏰',t:'Stay Employed Longer',d:'MonthsEmployed coef: −0.339 — 4th strongest. Avoid switching jobs within 6 months before application. 48+ months significantly lowers probability.',imp:'High',ic:'si-hi'},
+   {icon:'🤝',t:'Add a Co-Signer',d:'HasCoSigner_Yes coef: −0.142. Choose co-signer with 720+ credit score, full-time employment, stable income history.',imp:'Med',ic:'si-md'},
+   {icon:'🏠',t:'Choose Home Loan Purpose',d:'LoanPurpose_Home coef: −0.078. Lowest risk purpose (10.2% default rate). Business loans: +0.023 coef. Reframe if purpose is flexible.',imp:'Med',ic:'si-md'}
+  ].forEach((s,i)=>{document.getElementById('suggestionsList').innerHTML+=`<div class="sug-card" style="animation-delay:${i*0.07}s"><div class="sug-icon">${s.icon}</div><div><div class="sug-t">${s.t}</div><div class="sug-d">${s.d}</div><span class="sug-imp ${s.ic}">${s.imp} Impact</span></div></div>`;});
+}
+
+/* ═══ BUSINESS INSIGHTS DATA ═══ */
+function buildSectorTable(){
+  const sectors=[
+    {icon:'🏠',name:'Home Loans',amt:'₹8.2Cr',risk:'Low',pct:10.2,bar:40},
+    {icon:'🎓',name:'Education Loans',amt:'₹4.1Cr',risk:'Low',pct:11.8,bar:46},
+    {icon:'🚗',name:'Auto Loans',amt:'₹5.8Cr',risk:'Med',pct:11.9,bar:47},
+    {icon:'📦',name:'Other Purposes',amt:'₹6.4Cr',risk:'Med',pct:11.8,bar:47},
+    {icon:'🏢',name:'Business Loans',amt:'₹8.1Cr',risk:'High',pct:12.3,bar:53},
+  ];
+  document.getElementById('sectorTable').innerHTML=sectors.map(s=>`
+    <div class="sector-row">
+      <div class="sector-icon">${s.icon}</div>
+      <div class="sector-name">${s.name}</div>
+      <div class="sector-amt">${s.amt}</div>
+      <div class="sector-bar-track"><div class="sector-bar-fill" style="width:${s.bar}%;background:${s.risk==='Low'?'var(--teal)':s.risk==='Med'?'var(--gold)':'var(--rose)'}"></div></div>
+      <span class="sector-risk sr-${s.risk.toLowerCase()}">${s.pct}%</span>
+    </div>`).join('');
+}
+function buildGeoTable(){
+  const geos=[{name:'Maharashtra',vol:'312',def:'11.2%',avg:'₹1.38L'},{name:'Karnataka',vol:'278',def:'10.8%',avg:'₹1.24L'},{name:'Tamil Nadu',vol:'241',def:'11.9%',avg:'₹1.18L'},{name:'Delhi NCR',vol:'198',def:'12.4%',avg:'₹1.52L'},{name:'Gujarat',vol:'187',def:'10.5%',avg:'₹1.31L'},{name:'Others',vol:'283',def:'12.1%',avg:'₹1.09L'}];
+  document.getElementById('geoTable').innerHTML=geos.map(g=>`<div class="geo-row"><div class="geo-name">${g.name}</div><div class="geo-val">${g.vol}</div><div class="geo-val">${g.def}</div><div class="geo-val">${g.avg}</div></div>`).join('');
+}
+
+/* ═══ OPTIMIZER ═══ */
+let optH=[];
+function updateOpt(){
+  const loan=+document.getElementById('optLoan').value;
+  const score=+document.getElementById('optScore').value;
+  const dti=+document.getElementById('optDti').value;
+  const emp=document.getElementById('optEmp').value;
+  document.getElementById('optLoanV').textContent='₹'+fmtK(loan);
+  document.getElementById('optScoreV').textContent=score;
+  document.getElementById('optDtiV').textContent=dti.toFixed(2);
+  const d={age:43,credit:score,income:82506,loanAmt:loan,dti,lines:3,purpose:'other',term:36,rate:12.99,empType:emp,empl:60,jobChanges:1,edu:'bach',marital:'married'};
+  const f={mort:'N',dep:'N',co:'N'};
+  const p=Math.round(calcRisk(d,f)*100);
+  document.getElementById('optProbV').textContent=p+'%';
+  document.getElementById('optProbV').style.color=p<30?'var(--teal)':p<60?'var(--gold)':'var(--rose)';
+  document.getElementById('optLevelV').textContent=p<30?'✅ Low Risk':p<60?'⚠️ Medium Risk':'❌ High Risk';
+  optH.push(p);if(optH.length>10)optH.shift();
+  if(window.optChart){window.optChart.data.labels=optH.map((_,i)=>`#${i+1}`);window.optChart.data.datasets[0].data=optH;window.optChart.update();}
+}
+
+/* ═══ EXT LOAN TOGGLE ═══ */
+function toggleExtLoanFields(show){
+  const box=document.getElementById('extLoanFields');
+  box.style.display=show?'block':'none';
+  if(!show){
+    document.getElementById('bExtLoanAmt').value='';
+    document.getElementById('bExtEmi').value='';
+    document.getElementById('extLoanImpactBox').style.display='none';
+  }
+}
+
+function onExtLoanChange(){
+  const income=+document.getElementById('bIncome').value||0;
+  const loanAmt=+document.getElementById('bLoan').value||0;
+  const extAmt=+document.getElementById('bExtLoanAmt').value||0;
+  const extEmi=+document.getElementById('bExtEmi').value||0;
+  const box=document.getElementById('extLoanImpactBox');
+  if(!extAmt&&!extEmi){box.style.display='none';return;}
+  box.style.display='block';
+  const monthlyInc=income/12;
+  const currEmiRatio=monthlyInc>0?((extEmi/monthlyInc)*100).toFixed(1):0;
+  const totalDebt=loanAmt+extAmt;
+  const newLir=income>0?(totalDebt/income).toFixed(2):'—';
+  const dtiIncrease=monthlyInc>0?((extEmi/monthlyInc)).toFixed(2):0;
+  const impactLevel=extAmt>income*0.5?'high':extAmt>income*0.2?'medium':'low';
+  const impColors={high:'var(--rose)',medium:'var(--gold)',low:'var(--teal)'};
+  document.getElementById('extLoanImpactText').innerHTML=
+    `<span style="color:${impColors[impactLevel]}">● Existing EMI burden: <strong>₹${fmt(extEmi)}/mo</strong> = ${currEmiRatio}% of your monthly income</span><br>`+
+    `<span style="color:var(--gold)">● Combined Loan/Income Ratio: <strong>${newLir}×</strong> (was ${income>0?(loanAmt/income).toFixed(2):'—'}×)</span><br>`+
+    `<span style="color:var(--text2)">● DTI effectively increases by ~<strong>${dtiIncrease}</strong> — model penalises higher DTI</span><br>`+
+    `<span style="color:var(--text3)">● Credit lines count will be raised by 1, reflecting existing obligation</span>`;
+}
+
+/* ═══ BORROWER SUBMIT ═══ */
+function submitBorrower(){
+  const d={age:+document.getElementById('bAge').value||35,credit:+document.getElementById('bCredit').value||650,income:+document.getElementById('bIncome').value||0,loanAmt:+document.getElementById('bLoan').value||0,dti:+document.getElementById('bDti').value||0.35,lines:+document.getElementById('bLines').value||2,purpose:getPurposeKey('bPurpose'),purposeLabel:getPurposeLabel('bPurpose','bPurposeCustom'),term:getTermValue('bTerm','bTermCustom'),rate:12.99,empType:document.getElementById('bEmpType').value,empl:+document.getElementById('bEmpl').value||24,jobChanges:1,edu:document.getElementById('bEdu').value,marital:document.getElementById('bMarital').value};
+  if(!d.loanAmt){showToast('⚠️','Please enter a Loan Amount');return;}
+
+  // ── Existing loan adjustments ──
+  const hasExtLoan=bFlags.bextloan==='Y';
+  const extLoanAmt=hasExtLoan?(+document.getElementById('bExtLoanAmt').value||0):0;
+  const extEmi=hasExtLoan?(+document.getElementById('bExtEmi').value||0):0;
+  const extBankName=hasExtLoan?(document.getElementById('bExtBank').value||'Another Bank'):'';
+  const extLoanType=hasExtLoan?(document.getElementById('bExtLoanType').value||'personal'):'';
+
+  // Adjust model inputs to reflect existing obligations
+  let adjustedD={...d};
+  if(hasExtLoan){
+    const monthlyInc=d.income/12||1;
+    // Raise DTI by the existing EMI burden
+    adjustedD.dti=Math.min(d.dti+(extEmi/monthlyInc),0.99);
+    // Add 1 extra credit line for the existing loan
+    adjustedD.lines=d.lines+1;
+    // If home loan from other bank, treat mortgage as yes
+  }
+  const bF={mort:(bFlags.bmort==='Y'||(hasExtLoan&&extLoanType==='home'))?'Y':'N',dep:bFlags.bdep,co:bFlags.bco};
+
+  const prob=calcRisk(adjustedD,bF);const pct=Math.round(prob*100);const level=prob<0.3?'low':prob<0.6?'med':'high';
+
+  // Compare: what would risk be WITHOUT the external loan?
+  const probWithout=hasExtLoan?calcRisk(d,{mort:bFlags.bmort,dep:bFlags.bdep,co:bFlags.bco}):null;
+  const pctWithout=probWithout?Math.round(probWithout*100):null;
+  const riskDelta=hasExtLoan?(pct-pctWithout):0;
+
+  const sched=buildSched(d.loanAmt,d.rate,d.term);const{emi,tP,tI,tPay}=sched;
+  const pp=Math.round(tP/tPay*100),ip=100-pp;
+  const dec={low:'✅ Likely Approved',med:'⚠️ Under Review',high:'❌ High Risk — May be Declined'};
+  const er=d.income>0?((emi/(d.income/12))*100).toFixed(1):'—';
+  const step=d.term>48?4:d.term>24?2:1;
+
+  // Build ext loan impact panel HTML
+  const extLoanPanel=hasExtLoan?`
+    <div class="card mb18" style="border-color:rgba(232,84,117,0.25);background:linear-gradient(135deg,rgba(232,84,117,0.04),rgba(201,151,60,0.03))">
+      <div class="ch"><div class="ct"><div class="pip" style="background:var(--rose)"></div>Existing Loan Impact Analysis</div><span class="mbadge" style="background:rgba(232,84,117,0.1);color:var(--rose);border-color:rgba(232,84,117,0.2)">⚠️ External Obligation</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+        <div style="padding:12px;background:var(--bg3);border-radius:10px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Loan at ${extBankName||'Other Bank'}</div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--rose)">₹${fmt(extLoanAmt)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Outstanding · ${extLoanType.charAt(0).toUpperCase()+extLoanType.slice(1)} Loan</div>
+        </div>
+        <div style="padding:12px;background:var(--bg3);border-radius:10px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Monthly EMI Burden</div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--gold)">₹${fmt(extEmi)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">per month already committed</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(232,84,117,0.07);border-radius:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--rose);margin-bottom:8px">How this changed your risk score:</div>
+        <div class="br-row"><span class="br-k">Risk without existing loan</span><span class="br-v" style="color:${pctWithout<30?'var(--teal)':pctWithout<60?'var(--gold)':'var(--rose)'}">${pctWithout}%</span></div>
+        <div class="br-row"><span class="br-k">Risk with existing loan included</span><span class="br-v" style="color:${pct<30?'var(--teal)':pct<60?'var(--gold)':'var(--rose)'};font-weight:700">${pct}%</span></div>
+        <div class="br-row"><span class="br-k">Risk increase due to external loan</span><span class="br-v" style="color:${riskDelta>10?'var(--rose)':riskDelta>4?'var(--gold)':'var(--teal)'}">${riskDelta>0?'+':''}${riskDelta} pp ${riskDelta>10?'⚠️':riskDelta>0?'↑':'—'}</span></div>
+        <div class="br-row"><span class="br-k">Adjusted DTI (with ext. EMI)</span><span class="br-v" style="color:${adjustedD.dti>0.5?'var(--rose)':'var(--gold)'}">${adjustedD.dti.toFixed(2)}</span></div>
+        <div class="br-row"><span class="br-k">Total monthly EMI obligations</span><span class="br-v">₹${fmt(Math.round(emi+extEmi))}</span></div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text3);padding:10px;background:rgba(56,201,176,0.04);border:1px solid rgba(56,201,176,0.1);border-radius:9px">💡 <strong style="color:var(--teal)">Tip:</strong> Clearing or reducing your existing ${extBankName||'bank'} loan before this application could lower your risk by ~${riskDelta} percentage points.</div>
+    </div>`:'';
+
+  document.getElementById('borrowerStatusCard').innerHTML=`
+    <div class="bstatus-hero">
+      <div class="bsh-t">Application Submitted</div>
+      <div class="bsh-s">Assessed by GroundZero LR Model · ROC-AUC 0.760 · ${new Date().toLocaleString()}</div>
+      <div class="bsh-chips">
+        <span class="bpill ${level==='low'?'bp-teal':level==='med'?'bp-gold':'bp-rose'}">${dec[level]}</span>
+        <span class="bpill bp-sky">₹${fmt(d.loanAmt)} · ${d.purposeLabel}</span>
+        <span class="mbadge">σ(wᵀx+b) = ${pct}%</span>
+        ${hasExtLoan?`<span class="bpill bp-rose">⚠️ Existing Loan Factored</span>`:''}
+      </div>
+    </div>
+    <div class="g2 mb18">
+      <div class="card">
+        <div class="ch"><div class="ct"><div class="pip pip-${level==='low'?'teal':level==='med'?'gold':'rose'}"></div>Your Risk Score</div></div>
+        <div style="text-align:center;padding:16px 0">
+          <div style="font-family:'Fraunces',serif;font-size:64px;font-weight:700;line-height:1;color:${level==='low'?'var(--teal)':level==='med'?'var(--gold)':'var(--rose)'};animation:countUp .6s ease">${pct}%</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:6px">Default Probability</div>
+          <div style="height:8px;border-radius:4px;background:var(--bg3);margin:14px 0 0;overflow:hidden">
+            <div style="height:100%;width:${pct}%;border-radius:4px;transition:width 1.2s ease;background:${level==='low'?'linear-gradient(90deg,var(--teal),var(--teal2))':level==='med'?'linear-gradient(90deg,var(--gold),var(--gold2))':'linear-gradient(90deg,var(--rose),var(--rose2))'}"></div>
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:10px">Category: <strong style="color:${level==='low'?'var(--teal)':level==='med'?'var(--gold)':'var(--rose)'}">${level==='low'?'Low (<30%)':level==='med'?'Medium (30–60%)':'High (>60%)'}</strong></div>
+          ${hasExtLoan&&riskDelta>0?`<div style="margin-top:8px;font-size:11px;color:var(--rose)">▲ ${riskDelta}pp higher due to existing loan</div>`:''}
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Monthly EMI</div></div>
+        <div style="text-align:center;padding:12px 0">
+          <div style="font-family:'Fraunces',serif;font-size:48px;font-weight:700;line-height:1;color:var(--gold);animation:countUp .6s ease">₹${fmt(Math.round(emi))}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">per month for ${d.term} months</div>
+          <div style="font-size:13px;margin-top:12px;font-weight:700;color:${+er>40?'var(--rose)':+er>25?'var(--gold)':'var(--teal)'}">
+            ${er}% of monthly income ${+er>40?'⚠️ High':'✅ Healthy'}
+          </div>
+          ${hasExtLoan&&extEmi>0?`<div style="margin-top:8px;font-size:11px;padding:6px 10px;border-radius:7px;background:rgba(232,84,117,0.08);color:var(--rose)">+ ₹${fmt(extEmi)}/mo existing EMI → Total: ₹${fmt(Math.round(emi+extEmi))}/mo</div>`:''}
+        </div>
+      </div>
+    </div>
+    ${extLoanPanel}
+    <div class="card mb18">
+      <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Your Repayment Breakdown</div></div>
+      <div class="amort-trio">
+        <div class="amort-kpi teal"><div class="amort-kpi-v">₹${fmt(Math.round(tP))}</div><div class="amort-kpi-l">Principal</div></div>
+        <div class="amort-kpi rose"><div class="amort-kpi-v">₹${fmt(Math.round(tI))}</div><div class="amort-kpi-l">Total Interest</div></div>
+        <div class="amort-kpi gold"><div class="amort-kpi-v">₹${fmt(Math.round(tPay))}</div><div class="amort-kpi-l">Total Repayment</div></div>
+      </div>
+      <div class="split-bar"><div class="sb-p" style="width:${pp}%"></div><div class="sb-i" style="width:${ip}%"></div></div>
+      <div class="split-legend"><span><div class="sl-dot" style="background:var(--sky)"></div>Principal ${pp}%</span><span><div class="sl-dot" style="background:var(--rose)"></div>Interest ${ip}%</span></div>
+      <div class="br-row"><span class="br-k">Rate (indicative)</span><span class="br-v">${d.rate}% p.a.</span></div>
+      <div class="br-row"><span class="br-k">Term</span><span class="br-v">${d.term} months (${d.purposeLabel})</span></div>
+      <div class="br-row"><span class="br-k">Loan / Annual Income</span><span class="br-v">${d.income>0?(d.loanAmt/d.income).toFixed(2):'—'}×</span></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct"><div class="pip pip-sky"></div>Full Amortization Schedule</div><span style="font-size:11px;color:var(--text3)">Month-by-month repayment</span></div>
+      <div class="amort-scroll"><table class="amort-tbl"><thead><tr><th style="text-align:left">Month</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+      <tbody>${sched.rows.filter((_,i)=>i%step===0||i===sched.rows.length-1).map(r=>`<tr><td>Mo ${r.m}</td><td>₹${fmt(Math.round(r.emi))}</td><td class="atd-p">₹${fmt(Math.round(r.p))}</td><td class="atd-i">₹${fmt(Math.round(r.i))}</td><td class="atd-b">₹${fmt(Math.round(r.bal))}</td></tr>`).join('')}</tbody></table></div>
+    </div>`;
+  document.getElementById('brTopChip').textContent=`Status: ${level==='low'?'Approved':level==='med'?'Under Review':'Declined'} · ${pct}%`;
+  switchBPage('bpg-status',document.querySelector('#scBorrower .nav-item'));
+  showToast('📤','Application submitted! Risk: '+pct+'%');
+}
+
+function buildBorrowerTips(){
+  [{icon:'💳',t:'Credit Score: Aim for 700+',d:'Model coef: −0.121. Credit score 700–800 default rate: 10.4% vs 13.3% for 300–400. Pay EMIs on time, keep utilization below 30%.'},
+   {icon:'📊',t:'Loan/Income Ratio is #1 Predictor',d:'Loan_Income_Ratio coef: +0.470. Keep loan amount below 1.5× your annual income for best results with this model.'},
+   {icon:'📉',t:'Interest Rate is #2 Risk Driver',d:'InterestRate coef: +0.459. Negotiate for lower rates — even 1% less can noticeably reduce your default probability score.'},
+   {icon:'💼',t:'Employment Tenure Matters Most',d:'MonthsEmployed coef: −0.339. Avoid job changes within 6 months of application. The model rewards 48+ months of tenure.'},
+   {icon:'🤝',t:'Co-Signer Helps Significantly',d:'HasCoSigner_Yes coef: −0.142. Arrange a co-signer with 720+ credit score and stable full-time income to reduce your risk score.'},
+   {icon:'🏠',t:'Purpose: Home Loans are Safest',d:'LoanPurpose_Home coef: −0.078. Home loans have the lowest default rate (10.2%). Business loans carry the highest risk coefficient.'}
+  ].forEach((t,i)=>{document.getElementById('borrowerTips').innerHTML+=`<div class="sug-card" style="animation-delay:${i*0.08}s"><div class="sug-icon">${t.icon}</div><div><div class="sug-t">${t.t}</div><div class="sug-d">${t.d}</div></div></div>`;});
+}
+
+/* ═══ CHARTS ═══ */
+function gc(){return document.documentElement.getAttribute('data-theme')==='dark'?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.06)';}
+function initCharts(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  Chart.defaults.color=isDark?'#5E6E88':'#4B5563';
+  Chart.defaults.font.family="'Outfit',sans-serif";
+  const g=gc();
+
+  mk('cht-trend','line',{labels:['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'],datasets:[{label:'Assessments',data:[98,112,125,108,134,141,119,128,145,158],borderColor:'var(--sky)',backgroundColor:'rgba(75,168,224,0.08)',tension:.4,fill:true,yAxisID:'y'},{label:'Default Rate %',data:[12.1,11.8,11.5,11.9,11.4,11.2,11.7,11.6,11.3,11.6],borderColor:'var(--rose)',backgroundColor:'rgba(232,84,117,0.06)',tension:.4,fill:false,yAxisID:'y1'}]},{responsive:true,plugins:{legend:{labels:{boxWidth:10}}},scales:{x:{grid:{color:g}},y:{grid:{color:g},title:{display:true,text:'Assessments',color:'var(--sky)'}},y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Default %',color:'var(--rose)'},ticks:{callback:v=>v+'%'}}}});
+  mk('cht-dist','doughnut',{labels:['Low Risk (<30%)','Medium Risk','High Risk (>60%)'],datasets:[{data:[61,27,12],backgroundColor:['rgba(56,201,176,0.8)','rgba(201,151,60,0.8)','rgba(232,84,117,0.8)'],borderColor:'transparent',hoverOffset:8}]},{cutout:'68%',plugins:{legend:{labels:{boxWidth:8}}}});
+  mk('cht-purpose','bar',{labels:['Home','Other','Education','Auto','Business'],datasets:[{data:[10.2,11.8,11.8,11.9,12.3],backgroundColor:['rgba(56,201,176,0.8)','rgba(139,114,240,0.8)','rgba(75,168,224,0.8)','rgba(201,151,60,0.8)','rgba(232,84,117,0.8)'],borderRadius:6}]},{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}}});
+  mk('cht-score','line',{labels:['300–400','400–500','500–600','600–700','700–800','800+'],datasets:[{label:'Default Rate %',data:[13.3,12.2,11.8,11.2,10.4,9.8],borderColor:'var(--sky)',backgroundColor:'rgba(75,168,224,0.1)',tension:.4,fill:true,pointBackgroundColor:'var(--sky)',pointRadius:4}]},{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}}});
+  mk('cht-emptype','bar',{labels:['Full-time','Self-empl','Part-time','Unemployed'],datasets:[{data:[9.5,11.5,12.0,13.6],backgroundColor:['rgba(56,201,176,.8)','rgba(75,168,224,.8)','rgba(201,151,60,.8)','rgba(232,84,117,.8)'],borderRadius:6}]},{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:g},ticks:{callback:v=>v+'%'}},y:{grid:{color:g}}}});
+  mk('cht-dti','line',{labels:['0–0.2','0.2–0.4','0.4–0.6','0.6–0.8','0.8–1.0'],datasets:[{data:[10.4,11.2,11.8,12.2,12.2],borderColor:'var(--gold)',backgroundColor:'rgba(201,151,60,0.08)',tension:.4,fill:true,pointBackgroundColor:'var(--gold)',pointRadius:4}]},{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}}});
+  const tc=[{name:'Age',coef:-0.599},{name:'Loan/Income',coef:0.470},{name:'InterestRate',coef:0.459},{name:'MonthsEmployed',coef:-0.339},{name:'Unemployed',coef:0.201},{name:'CoSigner',coef:-0.142},{name:'Dependents',coef:-0.123},{name:'CreditScore',coef:-0.121}].sort((a,b)=>a.coef-b.coef);
+  mk('cht-coefs','bar',{labels:tc.map(f=>f.name),datasets:[{data:tc.map(f=>f.coef),backgroundColor:tc.map(f=>f.coef>0?'rgba(232,84,117,0.75)':'rgba(56,201,176,0.75)'),borderRadius:4}]},{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:g},title:{display:true,text:'LR Coefficient'}},y:{grid:{color:g}}}});
+  mk('cht-emi-hist','bar',{labels:['May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'],datasets:[{label:'On-time',data:[18500,18500,18500,18500,18500,0,18500,18500,18500,18500,0,18500],backgroundColor:'rgba(56,201,176,.7)',borderRadius:4},{label:'Late/Partial',data:[0,0,0,0,0,18500,0,0,0,0,18500,0],backgroundColor:'rgba(201,151,60,.7)',borderRadius:4}]},{responsive:true,plugins:{legend:{labels:{boxWidth:8}}},scales:{x:{stacked:true,grid:{color:g}},y:{stacked:true,grid:{color:g}}}});
+  mk('cht-radar','radar',{labels:['Electricity','Internet','Phone','Water','Rent','Insurance','Credit Card'],datasets:[{label:'On-time %',data:[96,92,89,97,100,84,79],borderColor:'var(--teal)',backgroundColor:'rgba(56,201,176,0.1)',pointBackgroundColor:'var(--teal)',borderWidth:2}]},{responsive:true,plugins:{legend:{display:false}},scales:{r:{grid:{color:g},ticks:{backdropColor:'transparent',font:{size:10}}}}});
+  mk('cht-spend','line',{labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],datasets:[{label:'Monthly Income',data:Array(12).fill(68750),borderColor:'var(--sky)',tension:.1,borderDash:[5,5],pointRadius:0},{label:'Spending',data:[52000,48000,61000,44000,55000,58000,49000,53000,47000,62000,51000,45000],borderColor:'var(--gold)',backgroundColor:'rgba(201,151,60,0.05)',tension:.4,fill:true}]},{responsive:true,plugins:{legend:{labels:{boxWidth:8}}},scales:{x:{grid:{color:g}},y:{grid:{color:g}}}});
+  mk('cht-portfolio','line',{labels:['Jan 24','Mar 24','May 24','Jul 24','Sep 24','Nov 24','Jan 25','Mar 25','Apr 25'],datasets:[{data:[420000,435000,448000,462000,479000,488000,498000,508000,516200],borderColor:'var(--sky)',backgroundColor:'rgba(75,168,224,0.1)',tension:.4,fill:true,pointRadius:3,pointBackgroundColor:'var(--sky)'}]},{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g}},y:{grid:{color:g},ticks:{callback:v=>'₹'+Math.round(v/1000)+'K'}}}});
+  mk('cht-alloc','doughnut',{labels:['Fixed Income','Equity MF','Direct Equity','Govt Bonds'],datasets:[{data:[35,30,24,11],backgroundColor:['rgba(56,201,176,.8)','rgba(75,168,224,.8)','rgba(201,151,60,.8)','rgba(139,114,240,.8)'],borderColor:'transparent',hoverOffset:8}]},{cutout:'60%',plugins:{legend:{labels:{boxWidth:8}}}});
+
+  /* BUSINESS INSIGHTS charts */
+  mk('cht-risk-trend','bar',{labels:['Oct','Nov','Dec','Jan','Feb','Mar','Apr'],datasets:[{label:'Low',data:[58,60,61,62,61,62,61],backgroundColor:'rgba(56,201,176,0.75)',borderRadius:4,stack:'s'},{label:'Medium',data:[29,28,27,27,28,27,27],backgroundColor:'rgba(201,151,60,0.75)',borderRadius:4,stack:'s'},{label:'High',data:[13,12,12,11,11,11,12],backgroundColor:'rgba(232,84,117,0.75)',borderRadius:4,stack:'s'}]},{responsive:true,plugins:{legend:{labels:{boxWidth:8}}},scales:{x:{stacked:true,grid:{color:g}},y:{stacked:true,grid:{color:g},max:100,ticks:{callback:v=>v+'%'}}}});
+  mk('cht-default-trend','line',{labels:['Oct 23','Nov','Dec','Jan 24','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan 25','Feb','Mar'],datasets:[{label:'Default Rate %',data:[12.8,12.5,12.3,12.1,12.0,11.9,11.8,11.8,11.7,11.6,11.5,11.6,11.4,11.3,11.2,11.3,11.1,11.0],borderColor:'var(--teal)',backgroundColor:'rgba(56,201,176,0.08)',tension:.4,fill:true,pointRadius:3,pointBackgroundColor:'var(--teal)'}]},{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g},ticks:{maxTicksLimit:9}},y:{grid:{color:g},ticks:{callback:v=>v+'%'},min:10,max:14}}});
+  mk('cht-sector','doughnut',{labels:['Home','Education','Auto','Other','Business'],datasets:[{data:[25,12,18,19,26],backgroundColor:['rgba(56,201,176,.8)','rgba(75,168,224,.8)','rgba(201,151,60,.8)','rgba(139,114,240,.8)','rgba(232,84,117,.8)'],borderColor:'transparent',hoverOffset:6}]},{cutout:'65%',plugins:{legend:{labels:{boxWidth:8}}}});
+  mk('cht-geo','bar',{labels:['Maharashtra','Karnataka','Tamil Nadu','Delhi NCR','Gujarat','Others'],datasets:[{label:'Assessments',data:[312,278,241,198,187,283],backgroundColor:'rgba(75,168,224,0.75)',borderRadius:5}]},{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g}},y:{grid:{color:g}}}});
+  mk('cht-emi-stress','bar',{labels:['<15%','15–25%','25–35%','35–45%','>45%'],datasets:[{label:'% of Portfolio',data:[18,32,28,14,8],backgroundColor:['rgba(56,201,176,.8)','rgba(56,201,176,.6)','rgba(201,151,60,.7)','rgba(232,84,117,.7)','rgba(232,84,117,.9)'],borderRadius:6}]},{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g}},y:{grid:{color:g},ticks:{callback:v=>v+'%'}}}});
+  // ROC Curve
+  const fprs=[0,0.05,0.1,0.18,0.28,0.38,0.5,0.65,0.8,1.0];
+  const tprs=[0,0.18,0.34,0.50,0.63,0.73,0.81,0.88,0.93,1.0];
+  mk('cht-roc','line',{labels:fprs.map(v=>v.toFixed(2)),datasets:[{label:'GroundZero LR (AUC=0.760)',data:tprs,borderColor:'var(--teal)',backgroundColor:'rgba(56,201,176,0.08)',tension:.3,fill:true,pointRadius:3,pointBackgroundColor:'var(--teal)'},{label:'Random (AUC=0.500)',data:fprs,borderColor:'rgba(232,84,117,0.5)',borderDash:[4,4],pointRadius:0}]},{responsive:true,plugins:{legend:{labels:{boxWidth:8}}},scales:{x:{grid:{color:g},title:{display:true,text:'False Positive Rate'}},y:{grid:{color:g},title:{display:true,text:'True Positive Rate'},min:0,max:1}}});
+
+  window.optChart=new Chart(document.getElementById('cht-opt').getContext('2d'),{type:'line',data:{labels:['Start'],datasets:[{label:'Default Prob %',data:[12],borderColor:'var(--sky)',backgroundColor:'rgba(75,168,224,0.1)',tension:.4,fill:true,pointRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:g}},y:{grid:{color:g},ticks:{callback:v=>v+'%'},min:0,max:80}}}}); 
+  updateOpt();
+}
+function mk(id,type,data,options){const ctx=document.getElementById(id);if(!ctx)return;return new Chart(ctx,{type,data,options});}
+
+/* ═══ UTILS ═══ */
+function fmt(n){return(+n).toLocaleString('en-IN');}
+function fmtK(n){if(n>=100000)return'₹'+(n/100000).toFixed(1)+'L';if(n>=1000)return'₹'+(n/1000).toFixed(0)+'K';return'₹'+n;}
+function showToast(icon,msg){
+  document.getElementById('toastI').textContent=icon;
+  document.getElementById('toastM').textContent=msg;
+  const t=document.getElementById('toast');t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+document.addEventListener('keypress',e=>{if(e.key==='Enter'&&document.getElementById('scSignin').classList.contains('active'))doSignin();});
+document.getElementById('scBank').style.display='none';
+document.getElementById('scBorrower').style.display='none';
+document.getElementById('scSignup').style.display='none';
+
+/* ═══ THEME TOGGLE — updated for new button ═══ */
+function toggleTheme(){
+  const html=document.documentElement;
+  const dark=html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme',dark?'light':'dark');
+  localStorage.setItem('lg-theme',dark?'light':'dark');
+  // Update thumb emoji on all toggle buttons
+  document.querySelectorAll('.theme-btn-thumb').forEach(t=>{
+    t.textContent=dark?'☀️':'🌙';
+  });
+  if(chartsReady){
+    const isDark=!dark;
+    Chart.defaults.color=isDark?'#5E6E88':'#4B5563';
+    Object.values(Chart.instances).forEach(c=>{c.update();});
+  }
+}
+(()=>{
+  const t=localStorage.getItem('lg-theme');
+  if(t){
+    document.documentElement.setAttribute('data-theme',t);
+    if(t==='light'){
+      document.querySelectorAll('.theme-btn-thumb').forEach(el=>el.textContent='☀️');
+    }
+  }
+})();
+
+/* ═══ INVESTMENT SUGGESTIONS ═══ */
+function buildInvSuggestions(){
+  const suggestions=[
+    {icon:'🏛️',name:'ELSS Mutual Fund',return:'14–18% p.a.',desc:'Tax-saving equity linked fund. Lock-in 3 years. Best for long-term wealth & Section 80C benefit.',risk:'Medium',riskClass:'si-md',cardClass:'teal-card',match:'Boosts credit profile via stable asset growth'},
+    {icon:'🏠',name:'REITs (Real Estate)',return:'8–12% p.a.',desc:'Invest in commercial real estate without owning property. Quarterly dividends, regulated by SEBI.',risk:'Medium',riskClass:'si-md',cardClass:'gold-card',match:'Fixed income alternative to diversify'},
+    {icon:'📊',name:'Nifty 50 Index Fund',return:'12–15% p.a.',desc:'Low-cost passive fund tracking top 50 Indian companies. Ideal SIP of ₹2,000–5,000/mo.',risk:'Low-Med',riskClass:'si-hi',cardClass:'sky-card',match:'Strong equity base reduces default score ~2%'},
+    {icon:'🏦',name:'RBI Floating Rate Bonds',return:'8.05% p.a.',desc:'Government-backed, zero credit risk. 7-year tenure. Interest resets every 6 months linked to NSC.',risk:'Very Low',riskClass:'si-hi',cardClass:'violet-card',match:'Fixed income weight ↑ = risk score ↓'},
+    {icon:'📈',name:'Corporate Bond Fund',return:'9–11% p.a.',desc:'Invest in AAA-rated corporate debt. Better returns than FD, moderate risk. Monthly income option.',risk:'Low',riskClass:'si-hi',cardClass:'teal-card',match:'Fixed income weighted most positively by LR model'},
+    {icon:'💹',name:'SGB (Gold Bonds)',return:'2.5% + gold price',desc:'Sovereign Gold Bonds by RBI. Tax-free on maturity. 8-year tenure with 2.5% annual interest.',risk:'Low-Med',riskClass:'si-md',cardClass:'gold-card',match:'Safe haven asset, diversifies portfolio'},
+    {icon:'🌱',name:'NPS (Pension Scheme)',return:'10–12% p.a.',desc:'National Pension Scheme — mix of equity & debt. Tax benefit up to ₹2L. Long-term retirement fund.',risk:'Low-Med',riskClass:'si-hi',cardClass:'sky-card',match:'Long-tenure investing lowers DTI over time'},
+    {icon:'🔐',name:'Post Office MIS',return:'7.4% p.a.',desc:'Monthly income scheme by Post Office. ₹9L max (single), fully guaranteed. Ideal for stable income.',risk:'Very Low',riskClass:'si-hi',cardClass:'violet-card',match:'Guaranteed income reduces income risk signal'},
+  ];
+  const grid=document.getElementById('invSuggestGrid');
+  if(!grid)return;
+  grid.innerHTML=suggestions.map((s,i)=>`
+    <div class="inv-sug-card ${s.cardClass}" style="animation-delay:${i*0.06}s;animation:fadeUp .4s ease both">
+      <div class="inv-sug-icon">${s.icon}</div>
+      <div class="inv-sug-name">${s.name}</div>
+      <div class="inv-sug-return" style="color:var(--teal)">↑ ${s.return}</div>
+      <div class="inv-sug-desc">${s.desc}</div>
+      <span class="inv-sug-risk ${s.riskClass}">Risk: ${s.risk}</span>
+      <div class="inv-sug-match">✦ ${s.match}</div>
+    </div>`).join('');
+}
+
+/* ═══ STOCK INVESTMENTS (BORROWER) ═══ */
+// Indian stocks with fallback static data — uses Yahoo Finance for live quotes
+const STOCK_UNIVERSE = [
+  {ticker:'RELIANCE.NS',display:'RELIANCE',name:'Reliance Industries',sector:'Energy',action:'BUY',reason:'Diversified conglomerate with strong Jio & retail tailwinds. Consistent dividend payer.'},
+  {ticker:'TCS.NS',display:'TCS',name:'Tata Consultancy Services',sector:'IT',action:'BUY',reason:'India\'s largest IT firm. Consistent buybacks, high ROE, and stable dollar revenues.'},
+  {ticker:'HDFCBANK.NS',display:'HDFC BANK',name:'HDFC Bank',sector:'Banking',action:'BUY',reason:'Best-in-class Indian private bank. Strong loan growth, low NPA, improving margins.'},
+  {ticker:'INFY.NS',display:'INFOSYS',name:'Infosys',sector:'IT',action:'BUY',reason:'Strong deal pipeline, consistent margin guidance, and attractive valuation vs peers.'},
+  {ticker:'ICICIBANK.NS',display:'ICICI BANK',name:'ICICI Bank',sector:'Banking',action:'BUY',reason:'ROE recovery, retail credit expansion, and tech-led banking transformation.'},
+  {ticker:'BAJFINANCE.NS',display:'BAJAJ FINANCE',name:'Bajaj Finance',sector:'NBFC',action:'HOLD',reason:'Premium NBFC with exceptional AUM growth. Valuation rich, but quality franchise.'},
+  {ticker:'HINDUNILVR.NS',display:'HUL',name:'Hindustan Unilever',sector:'FMCG',action:'HOLD',reason:'Defensive FMCG play. Volume recovery underway as rural demand revives.'},
+  {ticker:'SUNPHARMA.NS',display:'SUN PHARMA',name:'Sun Pharmaceutical',sector:'Pharma',action:'BUY',reason:'Strong specialty pipeline, US biz recovery, and growing branded generics in India.'},
+];
+const FALLBACK_PRICES = {
+  'RELIANCE.NS':{price:2941,chg:+0.82},'TCS.NS':{price:3456,chg:-0.41},
+  'HDFCBANK.NS':{price:1621,chg:+1.15},'INFY.NS':{price:1478,chg:-0.28},
+  'ICICIBANK.NS':{price:1234,chg:+0.93},'BAJFINANCE.NS':{price:8920,chg:+0.55},
+  'HINDUNILVR.NS':{price:2380,chg:-0.19},'SUNPHARMA.NS':{price:1698,chg:+1.42},
+};
+
+async function loadStockSuggestions(){
+  const btn=document.getElementById('stockRefreshBtn');
+  const icon=document.getElementById('stockRefreshIcon');
+  const grid=document.getElementById('stockCardsGrid');
+  const loading=document.getElementById('stockLoadingState');
+  const aiBox=document.getElementById('stockAIInsight');
+  const updatedEl=document.getElementById('stockLastUpdated');
+  btn.disabled=true;icon.style.animation='rotateIn 1s linear infinite';
+  grid.style.display='none';loading.style.display='block';
+  aiBox.innerHTML='<div style="text-align:center;padding:28px 0;color:var(--text3)"><div style="font-size:28px;margin-bottom:8px;animation:floatBob 3s ease-in-out infinite">🤖</div><div style="font-size:12px">Analyzing stocks…</div></div>';
+  let prices={};
+  try{
+    const symbols=STOCK_UNIVERSE.map(s=>s.ticker).join(',');
+    const res=await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice,regularMarketChangePercent`);
+    if(res.ok){const data=await res.json();(data?.quoteResponse?.result||[]).forEach(q=>{prices[q.symbol]={price:q.regularMarketPrice,chg:q.regularMarketChangePercent};});}
+  }catch(e){}
+  STOCK_UNIVERSE.forEach(s=>{if(!prices[s.ticker])prices[s.ticker]=FALLBACK_PRICES[s.ticker];});
+  let niftyData={val:'24,323',chg:'+0.64%',pos:true},sensexData={val:'79,841',chg:'+0.57%',pos:true};
+  try{
+    const iRes=await fetch('https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5ENSEI,%5EBSESN&fields=regularMarketPrice,regularMarketChangePercent');
+    if(iRes.ok){const iData=await iRes.json();(iData?.quoteResponse?.result||[]).forEach(q=>{const chg=(q.regularMarketChangePercent>=0?'+':'')+q.regularMarketChangePercent.toFixed(2)+'%';const v=q.regularMarketPrice.toLocaleString('en-IN');if(q.symbol==='^NSEI')niftyData={val:v,chg,pos:q.regularMarketChangePercent>=0};if(q.symbol==='^BSESN')sensexData={val:v,chg,pos:q.regularMarketChangePercent>=0};});}
+  }catch(e){}
+  document.getElementById('kpiNifty').textContent=niftyData.val;
+  document.getElementById('kpiNiftyChg').innerHTML=`<span class="${niftyData.pos?'up':'dn'}">${niftyData.chg} today</span>`;
+  document.getElementById('kpiSensex').textContent=sensexData.val;
+  document.getElementById('kpiSensexChg').innerHTML=`<span class="${sensexData.pos?'up':'dn'}">${sensexData.chg} today</span>`;
+  document.getElementById('kpiStockCount').textContent=STOCK_UNIVERSE.length;
+  const buyCount=STOCK_UNIVERSE.filter(s=>s.action==='BUY').length;
+  document.getElementById('kpiAvgRating').textContent=`${buyCount}/${STOCK_UNIVERSE.length} Buy`;
+  loading.style.display='none';grid.style.display='grid';
+  grid.innerHTML=STOCK_UNIVERSE.map((s,i)=>{
+    const q=prices[s.ticker]||{price:0,chg:0};
+    const posChg=q.chg>=0;
+    const badge=s.action==='BUY'?'buy':s.action==='HOLD'?'hold':'watch';
+    const badgeLabel=s.action==='BUY'?'✅ Buy':s.action==='HOLD'?'⏸ Hold':'👁 Watch';
+    const cardCls=s.action==='BUY'?'sc-buy':s.action==='HOLD'?'sc-hold':'sc-watch';
+    const p52h=Math.round(q.price*1.22),p52l=Math.round(q.price*0.78);
+    return`<div class="stock-card ${cardCls} fade-up" style="animation-delay:${i*0.06}s">
+      <div class="sc-header"><div><div class="sc-ticker">${s.display}</div><div class="sc-name">${s.name}</div></div><span class="sc-badge ${badge}">${badgeLabel}</span></div>
+      <div class="sc-price">₹${(+q.price).toLocaleString('en-IN',{maximumFractionDigits:2})}</div>
+      <div class="sc-change ${posChg?'pos':'neg'}">${posChg?'▲':'▼'} ${Math.abs(q.chg).toFixed(2)}% today</div>
+      <div class="sc-divider"></div>
+      <div class="sc-meta"><span>52W High (est.)</span><span class="sc-meta-val">₹${p52h.toLocaleString('en-IN')}</span></div>
+      <div class="sc-meta"><span>52W Low (est.)</span><span class="sc-meta-val">₹${p52l.toLocaleString('en-IN')}</span></div>
+      <div class="sc-reason">${s.reason}</div>
+      <div class="sc-sector">🏷 ${s.sector}</div>
+    </div>`;
+  }).join('');
+  updatedEl.textContent='Updated '+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  const alloc=[{label:'Large Cap Equity',pct:55,color:'var(--sky)'},{label:'NBFC / Banking',pct:25,color:'var(--teal)'},{label:'Pharma',pct:12,color:'var(--violet)'},{label:'FMCG',pct:8,color:'var(--gold)'}];
+  document.getElementById('stockAllocationChart').innerHTML=alloc.map(a=>`<div class="alloc-row"><div class="alloc-label"><span>${a.label}</span><span>${a.pct}%</span></div><div class="alloc-bar"><div class="alloc-fill" style="width:${a.pct}%;background:${a.color}"></div></div></div>`).join('');
+  btn.disabled=false;icon.style.animation='';
+  callStockAI(prices);
+}
+
+async function callStockAI(prices){
+  const aiBox=document.getElementById('stockAIInsight');
+  const summary=STOCK_UNIVERSE.map(s=>{const q=prices[s.ticker];return`${s.display}(${s.sector}):₹${q?.price?.toFixed(0)||'N/A'} ${q?.chg>=0?'+':''}${q?.chg?.toFixed(2)||0}% ${s.action}`;}).join(', ');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:'You are a SEBI-compliant Indian stock market analyst for GroundZero. Provide a concise 3-4 sentence market commentary. Focus on: (1) overall sentiment, (2) best risk-reward pick, (3) a sector to watch. Use ₹. Be specific. End with one risk caveat.',messages:[{role:'user',content:`NSE stock data: ${summary}. Give a brief market analysis and top pick.`}]})});
+    const data=await res.json();
+    const text=data.content?.[0]?.text||'Analysis unavailable.';
+    aiBox.innerHTML=`<div style="font-size:13px;color:var(--text2);line-height:1.7">${text.replace(/\n/g,'<br>')}</div><div style="margin-top:10px;font-size:11px;color:var(--text3);padding:8px;background:rgba(56,201,176,0.04);border-radius:8px;border:1px solid rgba(56,201,176,0.12)">🤖 Powered by Claude AI · ${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  }catch(e){
+    aiBox.innerHTML=`<div style="font-size:13px;color:var(--text2);line-height:1.7">Indian markets are showing resilience with IT and banking sectors leading gains. <strong style="color:var(--teal)">ICICI Bank</strong> offers compelling risk-reward with ROE expansion and retail credit growth. Watch the <strong style="color:var(--gold)">Pharma sector</strong> as global generics demand recovers. Note: Markets are subject to volatility — diversify across sectors and maintain a 3-year+ horizon.</div><div style="margin-top:10px;font-size:11px;color:var(--text3);padding:8px;background:rgba(56,201,176,0.04);border-radius:8px;border:1px solid rgba(56,201,176,0.12)">📡 Offline mode · Cached analysis</div>`;
+  }
+}
+
+/* ═══ AI ASSISTANT ═══ */
+let aiOpen=false;
+let aiUserInitials='U';
+let aiConversation=[];
+
+const AI_KNOWLEDGE=`You are Artha, GroundZero's intelligent financial AI assistant. You help borrowers understand loan risk, investment options, and credit improvement strategies. You have access to the GroundZero LR model data: ROC-AUC 0.760, 255,347 records, 29 features. Key facts:
+- Top risk factors: Age (coef -0.599), Loan/Income ratio (+0.470), Interest Rate (+0.459), Months Employed (-0.339)
+- Low risk threshold: <30% default probability | Medium: 30-60% | High: >60%
+- Average default rate in dataset: 11.6%
+- Best investment for risk score: Fixed Income instruments (FD, PPF, Bonds) reduce default probability by ~3-5%
+- Credit score 700+ reduces risk significantly
+- Respond in 2-3 sentences, be specific and actionable. Use ₹ for rupees. Use real numbers from the model.`;
+
+function toggleAI(){
+  aiOpen=!aiOpen;
+  const panel=document.getElementById('aiPanel');
+  const badge=document.getElementById('aiFabBadge');
+  panel.classList.toggle('open',aiOpen);
+  badge.classList.remove('show');
+  if(aiOpen&&aiConversation.length===0){
+    setTimeout(()=>aiGreet(),300);
+  }
+}
+
+function aiGreet(){
+  const name=currentUser?currentUser.first:'there';
+  const greetings=[
+    `Hi ${name}! 👋 I'm Artha, your GroundZero AI. I can help you understand your risk score, suggest investments to improve eligibility, or explain any part of the LR model. What would you like to know?`,
+    `Hello ${name}! I'm Artha — I know the GroundZero model inside out. Ask me about improving your credit profile, investment options that reduce default risk, or what your risk score means.`
+  ];
+  addAIMessage('bot', greetings[Math.floor(Math.random()*greetings.length)]);
+}
+
+function addAIMessage(role, text){
+  aiConversation.push({role,text});
+  const container=document.getElementById('aiMessages');
+  const isBot=role==='bot';
+  const div=document.createElement('div');
+  div.className=`ai-msg ${role}`;
+  const avContent=isBot?'🤖':aiUserInitials;
+  div.innerHTML=`
+    <div class="ai-msg-av">${avContent}</div>
+    <div class="ai-msg-bubble">${text}</div>`;
+  container.appendChild(div);
+  container.scrollTop=container.scrollHeight;
+}
+
+function showAITyping(){
+  const container=document.getElementById('aiMessages');
+  const div=document.createElement('div');
+  div.className='ai-msg bot';div.id='ai-typing-indicator';
+  div.innerHTML=`<div class="ai-msg-av">🤖</div><div class="ai-typing"><span></span><span></span><span></span></div>`;
+  container.appendChild(div);
+  container.scrollTop=container.scrollHeight;
+  return div;
+}
+
+function removeAITyping(){
+  const el=document.getElementById('ai-typing-indicator');
+  if(el)el.remove();
+}
+
+async function sendAI(){
+  const input=document.getElementById('aiInput');
+  const text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  addAIMessage('user',text);
+  const typing=showAITyping();
+
+  // Build conversation history
+  const messages=aiConversation.slice(-8).filter(m=>m.role!=='system').map(m=>({
+    role:m.role==='bot'?'assistant':'user',
+    content:m.text
+  }));
+  messages[messages.length-1]={role:'user',content:text};
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:AI_KNOWLEDGE,
+        messages
+      })
+    });
+    const data=await res.json();
+    removeAITyping();
+    const reply=data.content?.[0]?.text||'I had trouble processing that. Please try again.';
+    addAIMessage('bot',reply);
+  }catch(e){
+    removeAITyping();
+    // Fallback to smart local responses if API unavailable
+    const reply=getLocalAIResponse(text);
+    addAIMessage('bot',reply);
+  }
+}
+
+function getLocalAIResponse(q){
+  const lower=q.toLowerCase();
+  if(lower.includes('credit')||lower.includes('score'))
+    return'To improve your credit score: keep utilization below 30%, pay all EMIs on time for 3+ months, and avoid multiple loan applications. The LR model assigns a coefficient of -0.121 to credit score — every 50-point improvement reduces your default probability by ~1.5%.';
+  if(lower.includes('invest')||lower.includes('portfolio'))
+    return'Based on your portfolio, consider increasing Fixed Income allocation. The GroundZero model weights FD, PPF, and bonds most positively — a 10% shift toward fixed income can reduce your assessed default probability by ~3-5%. ELSS funds also provide 14-18% returns with tax benefits.';
+  if(lower.includes('risk')||lower.includes('score')||lower.includes('probability'))
+    return'Your default probability is calculated using σ(wᵀx+b) — the sigmoid of a weighted sum of 29 features. The biggest factors are your Loan/Income ratio (+0.470 coef), Interest Rate (+0.459), and Months Employed (-0.339). Reducing your loan amount and negotiating a lower rate have the most impact.';
+  if(lower.includes('emi')||lower.includes('loan'))
+    return'For loan approval, keep your EMI below 40% of monthly income. The Loan/Income Ratio is the strongest positive predictor (coef: +0.470). For a ₹5L loan, an annual income of at least ₹3.3L is ideal for a low-risk assessment.';
+  if(lower.includes('interest')||lower.includes('rate'))
+    return'Interest rate is the 2nd strongest risk predictor (coef: +0.459). Even a 1% reduction can meaningfully lower your default probability. Adding a co-signer with 720+ credit score is the most effective way to negotiate a lower rate from lenders.';
+  if(lower.includes('employ')||lower.includes('job'))
+    return'Employment tenure (MonthsEmployed) has a coefficient of -0.339 — the 4th strongest predictor. Avoid switching jobs within 6 months of your application. Borrowers with 48+ months at the same employer see significantly lower default probabilities.';
+  if(lower.includes('sip')||lower.includes('mutual fund'))
+    return'For SIP investments: Nifty 50 Index Funds offer 12-15% returns with low costs (expense ratio ~0.1%). ELSS funds give 14-18% plus Section 80C tax benefits. Both contribute to your fixed income profile — start with ₹2,000-5,000/month for measurable portfolio impact within 12 months.';
+  if(lower.includes('approve')||lower.includes('eligible'))
+    return'To maximize approval chances: (1) Credit score 700+, (2) Loan/Income ratio below 1.5×, (3) DTI below 0.35, (4) Employment tenure 24+ months, (5) Add a co-signer. Meeting all five criteria typically brings default probability below 15% — well within the "Low Risk" approved category.';
+  return'Great question! Based on the GroundZero model, the most impactful factors are your Loan/Income ratio, Interest Rate, and Employment tenure. Would you like specific advice on any of these, or shall I explain your current risk profile in detail?';
+}
+
+function aiQuick(q){
+  document.getElementById('aiInput').value=q;
+  sendAI();
+  // Hide suggestion chips after use
+  document.getElementById('aiSuggestions').style.display='none';
+}
+
+function initAI(){
+  const badge=document.getElementById('aiFabBadge');
+  badge.classList.add('show');
+  setTimeout(()=>badge.classList.remove('show'),5000);
+}
+
+</script>
+</body>
+</html>
