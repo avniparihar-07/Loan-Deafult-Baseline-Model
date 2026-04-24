@@ -66,7 +66,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     };
 
     try {
-      const res = await fetch('http://localhost:5000/api/predict', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

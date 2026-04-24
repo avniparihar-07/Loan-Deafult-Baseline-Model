@@ -25,7 +25,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v }));
 
   const fetchApps = () => {
-    fetch('http://localhost:5000/api/applications')
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    fetch(`${apiUrl}/api/applications`)
       .then(r => r.json())
       .then(data => setApps(Array.isArray(data) ? data : []))
       .catch(e => console.error("Error fetching apps:", e));
@@ -80,7 +81,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
     };
 
     try {
-      const res = await fetch('http://localhost:5000/api/predict', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
