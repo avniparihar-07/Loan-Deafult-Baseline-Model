@@ -9,16 +9,103 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     age: '', credit: '', income: '', loanAmt: '', dti: '', lines: '',
     purpose: 'other', term: 24, rate: '', empType: 'full', empl: '',
     edu: 'bach', marital: 'married', state: '', extLoanAmt: '', extEmi: '',
-    customPurpose: '', customTerm: '', extBank: '', extLoanType: 'personal'
+    customPurpose: '', customTerm: '', extBank: '', extLoanType: 'personal',
+    jobChanges: ''
   });
   const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
   const [result, setResult] = useState(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [expandSched, setExpandSched] = useState(false);
+  const [myApps, setMyApps] = useState([]);
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
-  const update = (k, v) => setFormData(prev => ({ ...prev, [k]: v }));
-  const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v }));
+  const eduMap = { hs: "High School", bach: "Bachelor's", mast: "Master's", phd: "PhD" };
+  const empMap = { full: "Full-time", part: "Part-time", self: "Self-employed", unemployed: "Unemployed" };
+  const maritalMap = { single: "Single", married: "Married", divorced: "Divorced" };
+  const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", other: "Other", custom: "Other", medical: "Other", personal: "Other" };
+
+  const effectiveTerm = formData.term === 'custom' ? (parseInt(formData.customTerm) || 24) : (parseInt(formData.term) || 24);
+  const displayPurpose = formData.purpose === 'custom' ? formData.customPurpose : (purposeMap[formData.purpose] || formData.purpose);
+
+  const update = (k, v) => !isReadOnly && setFormData(prev => ({ ...prev, [k]: v }));
+  const tog = (k, v) => !isReadOnly && setFlags(prev => ({ ...prev, [k]: v }));
+
+  const fetchMyApps = async () => {
+    if (!user?.email) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/my-applications?email=${user.email}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMyApps(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch my applications:', err);
+    }
+  };
+
+  useEffect(() => {
+    resetForm();
+    fetchMyApps();
+  }, [user.email]);
+
+  const handleViewApp = (app) => {
+    const stdTerms = [12, 24, 36, 48, 60];
+    const stdPurposes = ['home', 'auto', 'education', 'business', 'medical', 'personal', 'other'];
+    const isCustomTerm = !stdTerms.includes(parseInt(app.term));
+    const isCustomPurp = !stdPurposes.includes(app.loan_purpose?.toLowerCase());
+
+    setFormData({
+      age: app.age, credit: app.credit_score, income: app.income, loanAmt: app.loan_amount,
+      dti: app.dti, lines: app.num_credit_lines, 
+      purpose: isCustomPurp ? 'custom' : app.loan_purpose?.toLowerCase(),
+      customPurpose: isCustomPurp ? app.loan_purpose : '',
+      term: isCustomTerm ? 'custom' : parseInt(app.term), 
+      customTerm: isCustomTerm ? app.term : '',
+      rate: app.interest_rate, 
+      empType: app.employment_type === "Full-time" ? "full" : app.employment_type === "Part-time" ? "part" : app.employment_type === "Self-employed" ? "self" : "unemployed",
+      empl: app.months_employed, 
+      edu: app.education === "High School" ? "hs" : app.education === "Bachelor's" ? "bach" : app.education === "Master's" ? "mast" : "phd",
+      marital: app.marital_status?.toLowerCase(), state: app.state,
+      extLoanAmt: 0, extEmi: 0, extBank: '', extLoanType: 'personal',
+      jobChanges: app.job_changes || 0
+    });
+    setFlags({
+      mort: app.has_mortgage === 'Yes' ? 'Y' : 'N',
+      dep: app.has_dependents === 'Yes' ? 'Y' : 'N',
+      co: app.has_cosigner === 'Yes' ? 'Y' : 'N',
+      extloan: app.has_existing_loan === 'Yes' ? 'Y' : 'N'
+    });
+    
+    const sched = buildSched(app.loan_amount, app.interest_rate, app.term);
+    setResult({
+      pct: Math.round(app.probability * 100),
+      level: app.risk_category?.toLowerCase() || 'low',
+      sched,
+      prob: app.probability,
+      hasExtLoan: app.has_existing_loan === 'Yes',
+      extAmt: 0,
+      extEmi: 0,
+      pctWithout: null,
+      riskDelta: 0,
+      adjustedD: { ...app }
+    });
+    setIsReadOnly(true);
+    setPage('bpg-view-app'); // New page for dual view
+  };
+
+  const resetForm = () => {
+    setIsReadOnly(false);
+    setResult(null);
+    setFormData({
+      age: '', credit: '', income: '', loanAmt: '', dti: '', lines: '',
+      purpose: 'other', term: 24, rate: '', empType: 'full', empl: '',
+      edu: 'bach', marital: 'married', state: '', extLoanAmt: '', extEmi: '',
+      customPurpose: '', customTerm: '', extBank: '', extLoanType: 'personal',
+      jobChanges: ''
+    });
+    setFlags({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
+  };
 
   const handleSubmit = async () => {
     if (!formData.loanAmt) { alert('Please enter a Loan Amount'); return; }
@@ -34,10 +121,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       adjustedD.lines = formData.lines + 1;
     }
 
-    const eduMap = { hs: "High School", bach: "Bachelor's", mast: "Master's", phd: "PhD" };
-    const empMap = { full: "Full-time", part: "Part-time", self: "Self-employed", unemployed: "Unemployed" };
-    const maritalMap = { single: "Single", married: "Married", divorced: "Divorced" };
-    const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", other: "Other", custom: "Other" };
+    const effectivePurpose = formData.purpose === 'custom' ? (formData.customPurpose || "Other") : (formData.purpose || "other");
 
     const payload = {
       Age: adjustedD.age,
@@ -47,14 +131,14 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       MonthsEmployed: adjustedD.empl,
       NumCreditLines: adjustedD.lines,
       InterestRate: adjustedD.rate,
-      LoanTerm: parseInt(adjustedD.term) || 24,
+      LoanTerm: effectiveTerm,
       DTIRatio: adjustedD.dti,
       Education: eduMap[adjustedD.edu] || "Bachelor's",
       EmploymentType: empMap[adjustedD.empType] || "Full-time",
       MaritalStatus: maritalMap[adjustedD.marital] || "Single",
       HasMortgage: flags.mort === 'Y' ? "Yes" : "No",
       HasDependents: flags.dep === 'Y' ? "Yes" : "No",
-      LoanPurpose: purposeMap[adjustedD.purpose] || "Other",
+      LoanPurpose: purposeMap[effectivePurpose] || "Other",
       HasCoSigner: flags.co === 'Y' ? "Yes" : "No",
       HasExistingLoan: flags.extloan === 'Y' ? "Yes" : "No",
       ExistingBank: formData.bank === 'custom' ? formData.customBank : formData.bank,
@@ -62,12 +146,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       ExistingPurpose: formData.extPurpose === 'custom' ? formData.customExtPurpose : formData.extPurpose,
       FullName: `${user?.first} ${user?.last}`.trim() || "Anonymous",
       Email: user?.email,
-      State: formData.state || 'MH'
+      State: formData.state || 'MH',
+      JobChanges: formData.jobChanges || 0
     };
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${apiUrl}/api/predict`, {
+      const res = await fetch('http://localhost:5000/api/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -82,9 +166,10 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
       const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
       const riskDelta = hasExtLoan ? (pct - pctWithout) : 0;
-      const sched = buildSched(formData.loanAmt, formData.rate, formData.term);
+      const sched = buildSched(formData.loanAmt, formData.rate, effectiveTerm);
 
       setResult({ pct, level, sched, prob, hasExtLoan, extAmt, extEmi, pctWithout, riskDelta, adjustedD });
+      if (typeof fetchMyApps === 'function') fetchMyApps();
       setPage('bpg-status');
     } catch (err) {
       // Fallback to local model if API is unavailable
@@ -95,8 +180,9 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
       const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
       const riskDelta = hasExtLoan ? (pct - pctWithout) : 0;
-      const sched = buildSched(formData.loanAmt, formData.rate, formData.term);
+      const sched = buildSched(formData.loanAmt, formData.rate, effectiveTerm);
       setResult({ pct, level, sched, prob, hasExtLoan, extAmt, extEmi, pctWithout, riskDelta, adjustedD });
+      if (typeof fetchMyApps === 'function') fetchMyApps();
       setPage('bpg-status');
     }
   };
@@ -121,7 +207,18 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
 
   return (
     <div className="app-shell active">
-      <Sidebar user={user} activePage={page} setPage={setPage} onLogout={onLogout} type="borrower" theme={theme} toggleTheme={toggleTheme} />
+      <Sidebar 
+        user={user} 
+        activePage={page} 
+        setPage={(p) => {
+          if (p === 'bpg-apply') resetForm();
+          setPage(p);
+        }} 
+        onLogout={onLogout} 
+        type="borrower" 
+        theme={theme} 
+        toggleTheme={toggleTheme} 
+      />
       
       <div className="main-area">
         <div className="topbar">
@@ -134,12 +231,26 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
         </div>
 
         <div className="page-content" style={{ padding: '26px' }}>
-          {page === 'bpg-apply' && (
+          {(page === 'bpg-apply' || page === 'bpg-view-app') && (
             <div className="fade-in">
-            <div style={{ marginBottom: '24px' }}>
-              <p className="pg-sub" style={{ fontSize: '18px' }}>Welcome, <strong style={{color:'var(--gold)'}}>{user?.first} {user?.last}</strong>. Please fill your loan details.</p>
-            </div>
-              <div className="card glass mb18">
+              <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p className="pg-sub" style={{ fontSize: '18px' }}>
+                  {isReadOnly ? (
+                    <span>Viewing Application: <strong style={{color:'var(--sky)'}}>{user?.first} {user?.last}</strong></span>
+                  ) : (
+                    <span>Welcome, <strong style={{color:'var(--gold)'}}>{user?.first} {user?.last}</strong>. Please fill your loan details.</span>
+                  )}
+                </p>
+                {isReadOnly && (
+                  <button className="bp-btn" onClick={resetForm} style={{ padding: '8px 20px', width: 'auto', fontSize: '13px' }}>
+                    + Start New Application
+                  </button>
+                )}
+              </div>
+              
+              <div style={{ display: page === 'bpg-view-app' ? 'grid' : 'block', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                {/* CONTAINER 1: INPUTS */}
+                <div className="card glass mb18">
                 <div className="ch">
                   <div className="ct"><div className="pip pip-sky" />Loan Application Form</div>
                   <div className="mbadge">Real LR Scoring</div>
@@ -150,27 +261,27 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                   <div className="fg-sec"><div className="fg-sec-dot" />Personal Information</div>
                   <div>
                     <div className="flab">Age</div>
-                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} disabled={isReadOnly} />
                   </div>
                   <div>
                     <div className="flab">Credit Score</div>
-                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', +e.target.value)} disabled={isReadOnly} />
                   </div>
                   <div>
                     <div className="flab">Education Level</div>
-                    <select className="fselect" value={formData.edu} onChange={e => update('edu', e.target.value)}>
+                    <select className="fselect" value={formData.edu} onChange={e => update('edu', e.target.value)} disabled={isReadOnly}>
                       <option value="hs">High School</option><option value="bach">Bachelor's</option><option value="mast">Master's</option><option value="phd">PhD</option>
                     </select>
                   </div>
                   <div>
                     <div className="flab">Marital Status</div>
-                    <select className="fselect" value={formData.marital} onChange={e => update('marital', e.target.value)}>
+                    <select className="fselect" value={formData.marital} onChange={e => update('marital', e.target.value)} disabled={isReadOnly}>
                       <option value="single">Single</option><option value="married">Married</option><option value="divorced">Divorced</option>
                     </select>
                   </div>
                   <div>
                     <div className="flab">State / Region</div>
-                    <select className="fselect" value={formData.state} onChange={e => update('state', e.target.value)}>
+                    <select className="fselect" value={formData.state} onChange={e => update('state', e.target.value)} disabled={isReadOnly}>
                       <option value="">Select State / UT…</option>
                       <optgroup label="States">
                         <option value="AP">Andhra Pradesh</option>
@@ -216,40 +327,41 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                   </div>
                   <div>
                     <div className="flab">Annual Income (₹)</div>
-                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', +e.target.value)} disabled={isReadOnly} />
                   </div>
                   <div>
                     <div className="flab">Loan Amount (₹)</div>
-                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} disabled={isReadOnly} />
                   </div>
                   <div>
                     <div className="flab">DTI Ratio</div>
-                    <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', +e.target.value)} />
+                    <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', +e.target.value)} disabled={isReadOnly} />
                   </div>
                   <div>
                     <div className="flab">Credit Lines</div>
-                    <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', +e.target.value)} disabled={isReadOnly} />
                   </div>
 
                   <div className="fg-sec"><div className="fg-sec-dot" />Loan Requirement</div>
                   <div>
                     <div className="flab">Purpose <span className="combo-tag">+ Custom</span></div>
                     <div className="combo-field">
-                      <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)}>
-                        <option value="home">🏠 Home</option><option value="auto">🚗 Auto</option><option value="education">🎓 Education</option><option value="business">🏢 Business</option><option value="other">📦 Other</option><option value="custom">✏️ Write your own…</option>
+                      <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)} disabled={isReadOnly}>
+                        <option value="home">🏠 Home</option><option value="auto">🚗 Auto</option><option value="education">🎓 Education</option><option value="business">🏢 Business</option><option value="medical">🏥 Medical</option><option value="personal">👤 Personal Loan</option><option value="other">📦 Other</option><option value="custom">✏️ Write your own…</option>
                       </select>
                       <input 
                         className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} 
                         placeholder="e.g. Wedding, Medical, Machinery…" 
                         value={formData.customPurpose}
                         onChange={e => update('customPurpose', e.target.value)}
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
                   <div>
                     <div className="flab">Term <span className="combo-tag">+ Custom</span></div>
                     <div className="combo-field">
-                      <select className="combo-select" value={formData.term} onChange={e => update('term', e.target.value)}>
+                      <select className="combo-select" value={formData.term} onChange={e => update('term', e.target.value)} disabled={isReadOnly}>
                         <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="48">48 months</option><option value="60">60 months</option><option value="custom">✏️ Enter months manually…</option>
                       </select>
                       <input 
@@ -258,6 +370,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         placeholder="e.g. 18, 42, 72 months…" 
                         value={formData.customTerm}
                         onChange={e => update('customTerm', e.target.value)}
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -270,19 +383,24 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       placeholder="e.g. 10.5" 
                       value={formData.rate} 
                       onChange={e => update('rate', e.target.value)} 
+                      disabled={isReadOnly}
                     />
                   </div>
 
                   <div className="fg-sec"><div className="fg-sec-dot" />Employment</div>
                   <div>
                     <div className="flab">Employment Type</div>
-                    <select className="fselect" value={formData.empType} onChange={e => update('empType', e.target.value)}>
+                    <select className="fselect" value={formData.empType} onChange={e => update('empType', e.target.value)} disabled={isReadOnly}>
                       <option value="full">Full-time</option><option value="part">Part-time</option><option value="self">Self-employed</option><option value="unemployed">Unemployed</option>
                     </select>
                   </div>
                   <div>
                     <div className="flab">Months Employed</div>
-                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', +e.target.value)} disabled={isReadOnly} />
+                  </div>
+                  <div>
+                    <div className="flab">Job Changes (Last 5 Years)</div>
+                    <input type="number" className="finput" value={formData.jobChanges} onChange={e => update('jobChanges', +e.target.value)} disabled={isReadOnly} />
                   </div>
 
                   <div className="fg-sec"><div className="fg-sec-dot" />Additional Flags</div>
@@ -322,20 +440,20 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       <div style={{gridColumn:'1/-1',fontSize:'11px',color:'var(--rose)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.8px',marginBottom:'4px'}}>⚠️ This information affects your risk score — it increases your DTI and credit obligation burden</div>
                       <div>
                         <div className="flab">Outstanding Loan Amount (₹)</div>
-                        <input type="number" className="finput" value={formData.extLoanAmt} onChange={e => update('extLoanAmt', +e.target.value)} />
+                        <input type="number" className="finput" value={formData.extLoanAmt} onChange={e => update('extLoanAmt', +e.target.value)} disabled={isReadOnly} />
                       </div>
                       <div>
                         <div className="flab">Monthly EMI Being Paid (₹)</div>
-                        <input type="number" className="finput" value={formData.extEmi} onChange={e => update('extEmi', +e.target.value)} />
+                        <input type="number" className="finput" value={formData.extEmi} onChange={e => update('extEmi', +e.target.value)} disabled={isReadOnly} />
                       </div>
                       <div>
                         <div className="flab">Interest Rate (% p.a.)</div>
-                        <input type="number" step="0.01" className="finput" placeholder="e.g. 10.5" value={formData.extRate || ''} onChange={e => update('extRate', e.target.value)} />
+                        <input type="number" step="0.01" className="finput" placeholder="e.g. 10.5" value={formData.extRate || ''} onChange={e => update('extRate', e.target.value)} disabled={isReadOnly} />
                       </div>
                       <div>
                         <div className="flab">Bank Name <span className="combo-tag">+ Custom</span></div>
                         <div className="combo-field">
-                          <select className="combo-select" value={formData.extBank} onChange={e => update('extBank', e.target.value)}>
+                          <select className="combo-select" value={formData.extBank} onChange={e => update('extBank', e.target.value)} disabled={isReadOnly}>
                             <option value="">Select bank...</option>
                             <option value="SBI">SBI</option>
                             <option value="HDFC Bank">HDFC Bank</option>
@@ -356,13 +474,14 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             placeholder="Enter bank name..."
                             value={formData.extBankCustom || ''}
                             onChange={e => update('extBankCustom', e.target.value)}
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
                       <div>
                         <div className="flab">Loan Purpose <span className="combo-tag">+ Custom</span></div>
                         <div className="combo-field">
-                          <select className="combo-select" value={formData.extLoanType} onChange={e => update('extLoanType', e.target.value)}>
+                          <select className="combo-select" value={formData.extLoanType} onChange={e => update('extLoanType', e.target.value)} disabled={isReadOnly}>
                             <option value="personal">Personal Loan</option>
                             <option value="home">Home Loan</option>
                             <option value="auto">Auto/Vehicle Loan</option>
@@ -392,12 +511,75 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                     </div>
                   )}
 
-                  <div className="fg-full mt18">
-                    <button className="btn-assess" onClick={handleSubmit}>
-                      📤 Submit Loan Application
-                    </button>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="fg-full mt18">
+                      <button className="btn-assess" onClick={handleSubmit}>
+                        📤 Submit Loan Application
+                      </button>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* CONTAINER 2: RESULT (Shown in bpg-view-app) */}
+              {page === 'bpg-view-app' && result && (
+                  <div className="fade-in">
+                    <div className="bstatus-hero" style={{ padding: '24px', borderRadius: '16px', marginBottom: '24px', background: result.level === 'low' ? 'linear-gradient(135deg, rgba(38,166,154,0.1) 0%, transparent 100%)' : result.level === 'med' ? 'linear-gradient(135deg, rgba(201,151,60,0.1) 0%, transparent 100%)' : 'linear-gradient(135deg, rgba(232,84,117,0.1) 0%, transparent 100%)' }}>
+                      <div className="bsh-t" style={{ fontSize: '24px', marginBottom: '4px' }}>Assessment Result</div>
+                      <div className="bsh-s" style={{ fontSize: '12px' }}>Risk analysis snapshot for this historical application.</div>
+                      <div className="bsh-chips" style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className={`bpill ${result.level==='low'?'bp-teal':result.level==='med'?'bp-gold':'bp-rose'}`} style={{ padding: '6px 14px', fontSize: '12px' }}>
+                          {result.level==='low'?'✅ Approved':result.level==='med'?'⚠️ Under Review':'❌ High Risk'}
+                        </span>
+                        <span className="bpill bp-sky" style={{ padding: '6px 14px', fontSize: '12px' }}>
+                          ₹{fmt(formData.loanAmt)} · {effectiveTerm} months · {displayPurpose}
+                        </span>
+                        <span className="mbadge" style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: '20px', padding: '6px 14px', fontSize: '12px', fontWeight: 600 }}>
+                          Risk: {result.pct}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="g2" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '18px' }}>
+                      <div className="card glass">
+                        <div className="ch"><div className="ct"><div className={`pip pip-${result.level==='low'?'teal':result.level==='med'?'gold':'rose'}`} />Risk Probability</div></div>
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                          <div style={{ fontFamily: "'Fraunces',serif", fontSize: '56px', fontWeight: 700, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }}>{result.pct}%</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' }}>Probability of Default</div>
+                          <div style={{ height: '8px', borderRadius: '4px', background: 'var(--bg3)', margin: '18px 0', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="card glass">
+                        <div className="ch"><div className="ct"><div className="pip pip-sky" />Monthly Installment</div></div>
+                        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                          <div style={{ fontFamily: "'Fraunces',serif", fontSize: '42px', fontWeight: 700, color: 'var(--gold)' }}>₹{fmt(Math.round(result.sched.emi))}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '6px' }}>Monthly EMI for {effectiveTerm} months</div>
+                        </div>
+                      </div>
+
+                      <div className="card glass">
+                        <div className="ch"><div className="ct"><div className="pip pip-sky" />Repayment Summary</div></div>
+                        <div style={{ padding: '10px 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+                            <span style={{ color: 'var(--text2)' }}>Principal Amount</span>
+                            <span style={{ fontWeight: 600 }}>₹{fmt(formData.loanAmt)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+                            <span style={{ color: 'var(--text2)' }}>Total Interest</span>
+                            <span style={{ fontWeight: 600, color: 'var(--rose)' }}>₹{fmt(Math.round(result.sched.tI))}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
+                            <span style={{ color: 'var(--text)' }}>Total Payable</span>
+                            <span style={{ color: 'var(--teal)' }}>₹{fmt(Math.round(result.sched.tPay))}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -417,7 +599,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                     <div className="bsh-s">Assessed by GroundZero LR Model · ROC-AUC 0.760 · {new Date().toLocaleString()}</div>
                     <div className="bsh-chips">
                       <span className={`bpill ${result.level==='low'?'bp-teal':result.level==='med'?'bp-gold':'bp-rose'}`}>{result.level==='low'?'✅ Likely Approved':result.level==='med'?'⚠️ Under Review':'❌ High Risk'}</span>
-                      <span className="bpill bp-sky">₹{fmt(formData.loanAmt)} · {formData.purpose === 'custom' ? formData.customPurpose : formData.purpose}</span>
+                        <span className="bpill bp-sky">₹{fmt(formData.loanAmt)} · {effectiveTerm} months · {displayPurpose}</span>
                       <span className="mbadge">σ(wᵀx+b) = {result.pct}%</span>
                       {result.hasExtLoan && <span className="bpill bp-rose">⚠️ Existing Loan Factored</span>}
                     </div>
@@ -440,7 +622,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       <div className="ch"><div className="ct"><div className="pip pip-sky" />Monthly EMI</div></div>
                       <div style={{textAlign:'center',padding:'12px 0'}}>
                         <div style={{fontFamily:"'Fraunces',serif",fontSize:'48px',fontWeight:700,color:'var(--gold)'}}>₹{fmt(Math.round(result.sched.emi))}</div>
-                        <div style={{fontSize:'11px',color:'var(--text3)',marginTop:'6px'}}>per month for {formData.term} months</div>
+                        <div style={{fontSize:'11px',color:'var(--text3)',marginTop:'6px'}}>per month for {effectiveTerm} months</div>
                         
                         {(() => {
                           const moIncome = formData.income / 12 || 1;
@@ -489,7 +671,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
 
                     <div style={{marginTop:'24px'}}>
                       <div className="br-row" style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid var(--border)',paddingBottom:'12px',marginBottom:'12px'}}><span style={{color:'var(--text2)'}}>Rate (indicative)</span><span>{formData.rate}% p.a.</span></div>
-                      <div className="br-row" style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid var(--border)',paddingBottom:'12px',marginBottom:'12px'}}><span style={{color:'var(--text2)'}}>Term</span><span>{formData.term} months ({formData.purpose === 'custom' ? formData.customPurpose : formData.purpose})</span></div>
+                      <div className="br-row" style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid var(--border)',paddingBottom:'12px',marginBottom:'12px'}}><span style={{color:'var(--text2)'}}>Term</span><span>{effectiveTerm} months ({displayPurpose})</span></div>
                       <div className="br-row" style={{display:'flex',justifyContent:'space-between'}}><span style={{color:'var(--text2)'}}>Loan / Annual Income</span><span>{formData.income > 0 ? (formData.loanAmt / formData.income).toFixed(2) : 0}x</span></div>
                     </div>
                   </div>
@@ -781,6 +963,49 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                     <div style={{fontWeight:700,color:'var(--text)',marginBottom:'4px',fontSize:'15px'}}>Purpose: Home Loans are Safest</div>
                     <div style={{color:'var(--text2)',fontSize:'13px',lineHeight:'1.5'}}>LoanPurpose_Home coef: -0.078. Home loans have the lowest default rate (10.2%). Business loans carry the highest risk coefficient.</div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {page === 'bpg-history' && (
+            <div className="fade-in">
+              <div className="ct" style={{marginBottom:'24px',fontFamily:"'Fraunces',serif",fontSize:'20px',fontWeight:700,color:'var(--text)'}}><div className="pip pip-sky" />Application History</div>
+              <div className="card glass">
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
+                    <thead>
+                      <tr style={{borderBottom:'1px solid var(--border)',textAlign:'left'}}>
+                        <th style={{padding:'12px',color:'var(--text2)'}}>Date</th>
+                        <th style={{padding:'12px',color:'var(--text2)'}}>Amount</th>
+                        <th style={{padding:'12px',color:'var(--text2)'}}>Purpose</th>
+                        <th style={{padding:'12px',color:'var(--text2)'}}>Term</th>
+                        <th style={{padding:'12px',color:'var(--text2)'}}>Result</th>
+                        <th style={{padding:'12px',color:'var(--text2)'}}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {myApps.map((a, i) => (
+                        <tr key={i} style={{borderBottom:'1px solid var(--border)'}}>
+                          <td style={{padding:'12px'}}>{new Date(a.created_at).toLocaleDateString()}</td>
+                          <td style={{padding:'12px',fontWeight:700}}>₹{fmt(a.loan_amount)}</td>
+                          <td style={{padding:'12px'}}>{a.loan_purpose}</td>
+                          <td style={{padding:'12px'}}>{a.term} mo</td>
+                          <td style={{padding:'12px'}}>
+                            <span className={`bpill ${a.risk_category.toLowerCase()==='low'?'bp-teal':a.risk_category.toLowerCase()==='medium'?'bp-gold':'bp-rose'}`}>
+                              {a.risk_category} Risk
+                            </span>
+                          </td>
+                          <td style={{padding:'12px'}}>
+                            <button onClick={() => handleViewApp(a)} style={{background:'var(--bg3)',border:'1px solid var(--border)',padding:'4px 12px',borderRadius:'6px',fontSize:'11px',cursor:'pointer'}}>View Details</button>
+                          </td>
+                        </tr>
+                      ))}
+                      {myApps.length === 0 && (
+                        <tr><td colSpan="6" style={{padding:'40px',textAlign:'center',color:'var(--text3)'}}>No previous applications found.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

@@ -25,8 +25,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v }));
 
   const fetchApps = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    fetch(`${apiUrl}/api/applications`)
+    fetch('http://localhost:5000/api/applications')
       .then(r => r.json())
       .then(data => setApps(Array.isArray(data) ? data : []))
       .catch(e => console.error("Error fetching apps:", e));
@@ -58,6 +57,19 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
       }
     }
     
+    if (formData.term === 'custom' && !formData.customTerm) {
+      alert('Please enter a custom loan term');
+      return;
+    }
+    if (formData.purpose === 'custom' && !formData.customPurpose) {
+      alert('Please enter a custom loan purpose');
+      return;
+    }
+    
+    const effectiveTerm = formData.term === 'custom' ? (parseInt(formData.customTerm) || 24) : (parseInt(formData.term) || 24);
+    const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", medical: "Other", personal: "Other", other: "Other", custom: "Other" };
+    const effectivePurpose = formData.purpose === 'custom' ? (formData.customPurpose || "Other") : (formData.purpose || "other");
+    
     const payload = {
       Age: formData.age,
       Income: formData.income,
@@ -66,23 +78,23 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
       MonthsEmployed: formData.empl,
       NumCreditLines: formData.lines,
       InterestRate: formData.rate,
-      LoanTerm: formData.term,
+      LoanTerm: effectiveTerm,
       DTIRatio: formData.dti,
       Education: formData.edu === 'hs' ? 'High School' : formData.edu === 'bach' ? "Bachelor's" : formData.edu === 'mast' ? "Master's" : "PhD",
       EmploymentType: formData.empType === 'full' ? 'Full-time' : formData.empType === 'part' ? 'Part-time' : formData.empType === 'self' ? 'Self-employed' : 'Unemployed',
       MaritalStatus: formData.marital === 'married' ? 'Married' : formData.marital === 'single' ? 'Single' : 'Divorced',
       HasMortgage: flags.mort === 'Y' ? 'Yes' : 'No',
       HasDependents: flags.dep === 'Y' ? 'Yes' : 'No',
-      LoanPurpose: formData.purpose.charAt(0).toUpperCase() + formData.purpose.slice(1),
+      LoanPurpose: purposeMap[effectivePurpose] || "Other",
       HasCoSigner: flags.co === 'Y' ? 'Yes' : 'No',
       FullName: formData.fullName || "Bank Manual Entry",
       Email: formData.fullName ? `${formData.fullName.replace(/\s/g, '').toLowerCase()}@manual.bank` : "manual@bank.com",
-      State: formData.state || 'MH'
+      State: formData.state || 'MH',
+      JobChanges: formData.jobChanges || 0
     };
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${apiUrl}/api/predict`, {
+      const res = await fetch('http://localhost:5000/api/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -100,7 +112,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
         }));
 
         const emi = apiData.input_summary.estimated_emi;
-        const totalRepay = emi * formData.term;
+        const totalRepay = emi * effectiveTerm;
         const totalInt = totalRepay - formData.loanAmt;
 
         setResult({
@@ -112,7 +124,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           pPct: totalRepay > 0 ? (formData.loanAmt / totalRepay) * 100 : 0,
           iPct: totalRepay > 0 ? (totalInt / totalRepay) * 100 : 0,
           features: apiFeatures,
-          sched: buildSched(formData.loanAmt, formData.rate, formData.term)
+          sched: buildSched(formData.loanAmt, formData.rate, effectiveTerm)
         });
         return; // Exit here as we've handled everything with real API data
       }
@@ -120,11 +132,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
       console.error("Failed to save assessment to DB:", e);
     }
 
-    const prob = calcRisk(formData, flags);
+    const prob = calcRisk({...formData, term: effectiveTerm, purpose: effectivePurpose}, flags);
     const pct = Math.round(prob * 100);
     const level = prob < 0.3 ? 'low' : prob < 0.6 ? 'med' : 'high';
     
-    const sched = buildSched(formData.loanAmt, formData.rate, formData.term);
+    const sched = buildSched(formData.loanAmt, formData.rate, effectiveTerm);
     const emi = sched.emi;
     const totalInt = sched.tI;
     const totalRepay = sched.tPay;
@@ -611,11 +623,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                      <input type="text" className="finput" placeholder="Enter name" value={formData.fullName} onChange={e => update('fullName', e.target.value)} />
                    </div>
                    <div>
-                     <div className="flab">AGE (18-69)</div>
+                     <div className="flab">AGE</div>
                      <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} />
                    </div>
                    <div>
-                     <div className="flab">CREDIT SCORE (300-850)</div>
+                     <div className="flab">CREDIT SCORE</div>
                      <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', +e.target.value)} />
                    </div>
                    <div>
@@ -645,7 +657,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                      <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} />
                    </div>
                    <div>
-                     <div className="flab">DTI RATIO (0-1)</div>
+                     <div className="flab">DTI RATIO</div>
                      <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', +e.target.value)} />
                    </div>
                    <div>
@@ -658,7 +670,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                      <div className="flab">LOAN PURPOSE <span className="combo-tag">+ CUSTOM</span></div>
                      <div className="combo-field">
                        <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)}>
-                         <option value="home">🏠 Home</option><option value="auto">🚗 Auto</option><option value="education">🎓 Education</option><option value="business">🏢 Business</option><option value="other">📦 Other</option><option value="custom">✏️ Custom</option>
+                         <option value="home">🏠 Home</option><option value="auto">🚗 Auto</option><option value="education">🎓 Education</option><option value="business">🏢 Business</option><option value="medical">🏥 Medical</option><option value="personal">👤 Personal Loan</option><option value="other">📦 Other</option><option value="custom">✏️ Custom</option>
                        </select>
                        <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
                      </div>
@@ -673,7 +685,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                      </div>
                    </div>
                    <div>
-                     <div className="flab">INTEREST RATE % (2-25)</div>
+                     <div className="flab">INTEREST RATE %</div>
                      <input type="number" step="0.01" className="finput" value={formData.rate} onChange={e => update('rate', +e.target.value)} />
                    </div>
 
@@ -685,7 +697,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                      </select>
                    </div>
                    <div>
-                     <div className="flab">MONTHS EMPLOYED (0-119)</div>
+                     <div className="flab">MONTHS EMPLOYED</div>
                      <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', +e.target.value)} />
                    </div>
                    <div>
@@ -1174,9 +1186,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                   </div>
                   <div style={{ background: 'var(--bg2)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                     <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px' }}>
-                      {apps.length > 0 ? (apps.reduce((s,a)=>s+(a.job_changes||0),0)/apps.length/3).toFixed(1) : 0}
+                      {apps.length > 0 ? (apps.reduce((s,a)=>s+(a.job_changes||0),0)/apps.length).toFixed(1) : 0}
                     </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text2)' }}>Changes/yr</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text2)' }}>Avg Changes</div>
                   </div>
                   <div style={{ background: 'rgba(75,168,224,0.06)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
                     <div style={{ fontFamily: "'Fraunces',serif", fontSize: '24px', fontWeight: 700, color: '#4BA8E0', marginBottom: '4px' }}>
@@ -1193,7 +1205,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                         <span style={{ fontWeight: 700, fontSize: '13px' }}>{a.full_name || 'Manual Entry'}</span>
                         <span style={{ fontSize: '10px', background: a.months_employed > 24 ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: a.months_employed > 24 ? 'var(--teal)' : 'var(--rose)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>{a.months_employed}mo</span>
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'JetBrains Mono',monospace" }}>{a.employment_type || 'Full-time'}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'JetBrains Mono',monospace" }}>{a.employment_type || 'Full-time'} · {a.job_changes || 0} changes</div>
                     </div>
                   ))}
                 </div>

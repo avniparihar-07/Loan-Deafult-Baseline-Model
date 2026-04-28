@@ -42,25 +42,34 @@ export function calcRisk(d, f) {
 }
 
 export function calcEMI(p, r, t) {
-  const mr = r / 12 / 100;
-  if (mr === 0) return p / t;
+  const rate = parseFloat(r);
+  const mr = rate / 12 / 100;
+  if (mr <= 0) return p / t;
   return (p * mr * Math.pow(1 + mr, t)) / (Math.pow(1 + mr, t) - 1);
 }
 
 export function buildSched(p, r, t) {
   const emi = calcEMI(p, r, t);
-  const mr = r / 12 / 100;
+  const mr = parseFloat(r) / 12 / 100;
   let bal = p;
   const rows = [];
   let tP = 0, tI = 0;
+  
   for (let i = 1; i <= t; i++) {
     const int = bal * mr;
-    const prn = emi - int;
+    let prn = emi - int;
+    
+    // Adjust last payment to exactly clear balance
+    if (i === t) {
+      prn = bal;
+    }
+    
     bal = Math.max(0, bal - prn);
     tP += prn;
     tI += int;
-    rows.push({ m: i, emi, p: prn, i: int, bal });
+    rows.push({ m: i, emi: prn + int, p: prn, i: int, bal });
   }
+  
   return { rows, emi, tP, tI, tPay: tP + tI };
 }
 

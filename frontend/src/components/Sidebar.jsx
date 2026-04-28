@@ -14,6 +14,7 @@ export default function Sidebar({ user, activePage, setPage, onLogout, type, tog
   const borPages = [
     { id: 'bpg-status', icon: '📄', label: 'My Application' },
     { id: 'bpg-apply', icon: '✏️', label: 'Submit Details' },
+    { id: 'bpg-history', icon: '📋', label: 'Past Applications' },
     { id: 'bpg-tips', icon: '💡', label: 'Improve Score' },
     { id: 'bpg-stocks', icon: '📈', label: 'Stock Investments' },
   ];
@@ -32,9 +33,9 @@ export default function Sidebar({ user, activePage, setPage, onLogout, type, tog
     <aside className="sidebar">
       <div className="sb-top">
         <div className="sb-brand">
-          <div className="sb-mark">L</div>
+          <div className="sb-mark">G</div>
           <div>
-            <div className="sb-nm">Loan<em>Guard</em></div>
+            <div className="sb-nm">Ground<em>Zero</em></div>
             <div className={`sb-bdg ${type === 'bank' ? 'sbb-bank' : 'sbb-bor'}`}>
               {type === 'bank' ? 'Bank Analyst' : 'Borrower'}
             </div>

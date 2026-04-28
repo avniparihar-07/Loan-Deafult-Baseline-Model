@@ -47,6 +47,7 @@ class PredictionRecord(Base):
     existing_bank = Column(String)
     existing_rate = Column(Float)
     existing_purpose = Column(String)
+    job_changes = Column(Integer, default=0)
     
     # Output features
     prediction = Column(Integer)

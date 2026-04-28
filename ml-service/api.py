@@ -309,6 +309,7 @@ def predict():
                     existing.existing_bank = str(data.get('ExistingBank', ''))
                     existing.existing_rate = float(data.get('ExistingRate', 0))
                     existing.existing_purpose = str(data.get('ExistingPurpose', ''))
+                    existing.job_changes = int(data.get('JobChanges', 0))
                     existing.prediction = prediction
                     existing.default_probability = float(probability)
                     existing.risk_category = risk_category
@@ -339,6 +340,7 @@ def predict():
                         existing_bank=str(data.get('ExistingBank', '')),
                         existing_rate=float(data.get('ExistingRate', 0)),
                         existing_purpose=str(data.get('ExistingPurpose', '')),
+                        job_changes=int(data.get('JobChanges', 0)),
                         prediction=prediction,
                         default_probability=float(probability),
                         risk_category=risk_category
@@ -393,6 +395,7 @@ def get_applications():
                 'interest_rate': r.interest_rate,
                 'employment_type': r.employment_type,
                 'months_employed': r.months_employed,
+                'job_changes': r.job_changes,
                 'has_cosigner': r.has_cosigner
             })
         return jsonify(result)
@@ -400,6 +403,38 @@ def get_applications():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'Database query failed: {str(e)}'}), 500
+    finally:
+        db.close()
+
+
+@app.route('/api/my-applications', methods=['GET'])
+def get_my_applications():
+    email = request.args.get('email')
+    if not email:
+        return jsonify({'error': 'Email required'}), 400
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+    try:
+        records = db.query(PredictionRecord).filter(PredictionRecord.email == email).order_by(PredictionRecord.created_at.desc()).all()
+        result = []
+        for r in records:
+            result.append({
+                'id': r.id, 'full_name': r.full_name, 'email': r.email, 'state': r.state,
+                'age': r.age, 'income': r.income, 'loan_amount': r.loan_amount, 'credit_score': r.credit_score,
+                'loan_purpose': r.loan_purpose, 'risk_category': r.risk_category, 'probability': r.default_probability,
+                'created_at': r.created_at.isoformat() if r.created_at else None,
+                'has_existing_loan': r.has_existing_loan, 'existing_bank': r.existing_bank,
+                'existing_rate': r.existing_rate, 'existing_purpose': r.existing_purpose,
+                'dti': r.dti_ratio, 'term': r.loan_term, 'interest_rate': r.interest_rate,
+                'employment_type': r.employment_type, 'months_employed': r.months_employed,
+                'job_changes': r.job_changes, 'has_cosigner': r.has_cosigner,
+                'education': r.education, 'marital_status': r.marital_status,
+                'has_mortgage': r.has_mortgage, 'has_dependents': r.has_dependents,
+                'prediction': r.prediction
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         db.close()
 
@@ -467,18 +502,8 @@ def serve_frontend():
 
 # --- Run Server ---
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    is_production = os.environ.get('FLASK_ENV') == 'production'
-    
     print("\n" + "=" * 60)
     print("  Loan Default Prediction API")
-    print(f"  http://localhost:{port}")
-    print(f"  Environment: {'Production' if is_production else 'Development'}")
+    print("  http://localhost:5000")
     print("=" * 60 + "\n")
-    
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=not is_production,
-        threaded=True
-    )
+    app.run(debug=True, port=5000)
