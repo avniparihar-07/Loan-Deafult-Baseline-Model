@@ -462,7 +462,6 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
 
                   <div style={{ padding: '32px' }}>
                     <div style={{ background: 'var(--ice)', padding: '20px 24px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '32px', display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-                      <div style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800 }}>01</div>
                       <div>
                         <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--navy)', marginBottom: '4px' }}>
                           {page === 'bpg-apply' ? 'Loan Application Form' : 'Loan Eligibility Check'}
