@@ -4248,9 +4248,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme}){
                           <div style={{ fontSize: '48px', fontWeight: 900, color: selectedApp.probability < 0.3 ? 'var(--teal)' : selectedApp.probability < 0.6 ? 'var(--gold)' : 'var(--rose)', letterSpacing: '-2px'}}>
 
                            {Math.round((selectedApp.probability || 0.1) * 100)}%
-
                           </div>
-
                           <div style={{ height: '6px', background: 'var(--border-light)', borderRadius: '3px', marginTop: '20px', overflow: 'hidden'}}>
 
                             <div style={{ height: '100%', width: `${(selectedApp.probability || 0.1) * 100}%`, background: selectedApp.probability < 0.3 ? 'var(--teal)' : selectedApp.probability < 0.6 ? 'var(--gold)' : 'var(--rose)'}}></div>
@@ -4261,15 +4259,15 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme}){
 
                         <div className="decision-btns" style={{ display: 'flex', flexDirection: 'column', gap: '12px'}}>
 
-                          <button className="d-btn b-approve" style={{ width: '100%', padding: '20px'}} onClick={() => setDecisionMode('approve')}>
+                          <button className="d-btn b-approve" onClick={() => setDecisionMode('approve')}>
 
-                            <span style={{ fontSize: '20px'}}></span> Approve Application
+                             Approve Application
 
                           </button>
 
-                          <button className="d-btn b-reject" style={{ width: '100%', padding: '20px'}} onClick={() => setDecisionMode('reject')}>
+                          <button className="d-btn b-reject" onClick={() => setDecisionMode('reject')}>
 
-                            <span style={{ fontSize: '20px'}}></span> Reject Application
+                             Reject Application
 
                           </button>
 
@@ -4297,7 +4295,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme}){
 
                             <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)'}}>EMPLOYMENT SECTOR</label>
 
-                            <select className="f-inp" value={industry} onChange={e => setIndustry(e.target.value)}>
+                            <select className="f-inp f-select" value={industry} onChange={e => setIndustry(e.target.value)}>
 
                               <option>IT & Software</option><option>Healthcare</option><option>Manufacturing</option><option>Finance</option>
 
@@ -4408,9 +4406,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme}){
                         <div className="f-row">
                           <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px', display: 'block' }}>Email Template</label>
                           <select 
-                            className="f-inp" 
+                            className="f-inp f-select" 
                             style={{ 
-                              background: '#f8fafc', 
+                              background: '#ffffff', 
                               border: '1.5px solid #e2e8f0', 
                               borderRadius: '14px', 
                               padding: '14px 18px', 

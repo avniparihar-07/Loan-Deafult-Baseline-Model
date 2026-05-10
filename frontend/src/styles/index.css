@@ -647,6 +647,54 @@ input[type=number] {
   background: #fff;
 }
 
+/* ═══ UNDERWRITING & COMMUNICATION ═══ */
+.d-btn {
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: none;
+}
+
+.b-approve {
+  background: var(--teal);
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
+}
+
+.b-approve:hover {
+  background: #0f766e;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.3);
+}
+
+.b-reject {
+  background: #fff;
+  color: var(--rose) !important;
+  border: 1.5px solid var(--rose) !important;
+}
+
+.b-reject:hover {
+  background: var(--rose);
+  color: #fff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(225, 29, 72, 0.2);
+}
+
+.f-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 16px;
+  padding-right: 48px !important;
+}
+
 .modal-body {
   padding: 40px;
   overflow-y: auto;
