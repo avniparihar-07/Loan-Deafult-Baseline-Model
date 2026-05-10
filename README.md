@@ -1,71 +1,66 @@
 # GroundZero: Loan Default Risk Intelligence
 
-GroundZero is a loan default prediction platform built for borrowers and bank
-analysts. It uses a trained Logistic Regression model to estimate loan default
-probability and present risk insights through a React dashboard.
+GroundZero is an institutional-grade loan default prediction platform designed for both borrowers and bank analysts. Utilizing advanced Logistic Regression models, it provides real-time default probability estimates and behavioral risk insights through a high-performance React dashboard.
 
-## Portals
+## 🚀 Portals
 
-- **Borrower Portal**: Create an account, submit loan details, view risk score,
-  repayment schedule, application status, and improvement suggestions.
-- **Bank Analyst Portal**: Review applications, run manual assessments, monitor
-  portfolio risk, and view dashboard analytics.
+- **Borrower Portal**: Secure entry for loan applications, risk simulation, repayment scheduling, and AI-driven financial health suggestions.
+- **Bank Analyst Portal**: Centralized hub for application underwriting, manual risk assessment, portfolio-wide monitoring, and institutional analytics.
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 ### Frontend
+- **React 18** (Vite-powered)
+- **Chart.js** (Institutional Analytics)
+- **Vanilla CSS** (Custom Design System)
 
-- React
-- Vite
-- Chart.js
-- CSS custom styling
+### Backend & ML
+- **Flask** (REST API)
+- **SQLAlchemy** (ORM)
+- **scikit-learn** (Risk Intelligence)
+- **PostgreSQL** (Production Database)
 
-### Backend
+### Infrastructure
+- **Vercel**: Frontend Hosting
+- **Railway**: Backend & Database
+- **Resend**: Transactional Communication
 
-- Flask
-- SQLAlchemy
-- PostgreSQL
-- scikit-learn
-- pandas
-- NumPy
-- joblib
-
-### Deployment
-
-- Frontend: Vercel
-- Backend: Railway
-- Database: PostgreSQL
-
-## Project Structure
+## 📁 Project Structure
 
 ```text
-Loan-Deafult-Baseline-Model/
-|-- frontend/
-|   |-- src/
-|   |-- package.json
-|   `-- vite.config.js
-|-- ml-service/
-|   |-- api.py
-|   |-- database.py
-|   |-- requirements.txt
-|   `-- model_artifacts/
-|-- .env.example
-|-- vercel.json
-|-- railway.json
-`-- README.md
+GroundZero/
+├── frontend/                # React + Vite Frontend
+│   ├── src/
+│   │   ├── components/      # Reusable UI components (Auth, Sidebar, AI)
+│   │   ├── pages/           # Main portal views (Dashboards, Landing)
+│   │   ├── services/        # API and external integration layers
+│   │   ├── utils/           # Business logic and risk models
+│   │   ├── styles/          # Global and component styling
+│   │   └── assets/          # Static assets and media
+│   └── package.json
+├── ml-service/              # Flask + ML Risk Service
+│   ├── core/                # Database models and core engine
+│   ├── services/            # Business logic (Mailer, Predictions)
+│   ├── scripts/             # Internal DB & training scripts
+│   ├── model_artifacts/     # Serialized model binaries (joblib)
+│   ├── api.py               # Main Service Entry Point
+│   └── requirements.txt
+├── scripts/                 # Global utility and maintenance scripts
+├── archive/                 # Legacy backups and development history
+├── data/                    # Raw and processed datasets
+├── notebooks/               # Research and development notebooks
+├── docs/                    # Project documentation
+└── README.md
 ```
 
-## Features
+## ✨ Key Features
 
-- User signup and login
-- Borrower and bank role selection
-- Loan default probability prediction
-- Risk category classification: Low, Medium, High
-- EMI and repayment schedule calculation
-- Borrower application history
-- Bank dashboard with application analytics
-- PostgreSQL database storage
-- SQLite in-memory fallback when PostgreSQL is unavailable locally
+- **Multi-Tenant Architecture**: Dedicated portals for borrowers and institutional officers.
+- **ML-Driven Predictions**: Real-time logistic regression assessment of default probability.
+- **Risk Categorization**: Instant classification into Low, Medium, and High risk tiers.
+- **Financial Engineering**: Automated EMI calculation and repayment amortization.
+- **Communication CRM**: Integrated email dispatch for loan approvals and status updates.
+- **Persistence Layer**: Robust PostgreSQL integration with multi-environment support.
 
 ## Environment Variables
 

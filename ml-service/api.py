@@ -12,8 +12,13 @@ import joblib
 import os
 from datetime import datetime
 import logging
+from dotenv import load_dotenv
 
-from database import get_db, PredictionRecord, User
+# Load environment variables from .env
+load_dotenv()
+
+from core.database import get_db, PredictionRecord, User
+from services.mailer import send_loan_email
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +232,9 @@ def signup():
             last_name=data.get('last_name'),
             email=data.get('email'),
             password=data.get('password'), # In production, hash this!
-            role=data.get('role', 'borrower')
+            role=data.get('role', 'borrower'),
+            bank_name=data.get('bank_name'),
+            officer_role=data.get('officer_role')
         )
         db.add(new_user)
         db.commit()
@@ -253,7 +260,9 @@ def login():
             'first': user.first_name,
             'last': user.last_name,
             'email': user.email,
-            'type': user.role
+            'type': user.role,
+            'bank_name': user.bank_name or '',
+            'officer_role': user.officer_role or ''
         })
     finally:
         db.close()
@@ -324,7 +333,6 @@ def predict():
             }
         }
 
-        # Always INSERT a new record for each submission — never update
         db = get_db()
         if db:
             try:
@@ -334,45 +342,9 @@ def predict():
                 job_changes = int(data.get('JobChanges', 0))
                 created_at = datetime.utcnow()
 
-                logger.info(f"Inserting new record: Name='{full_name}', Email='{email}'")
-
-                # Use SQLAlchemy ORM instead of raw SQL
-                new_record = PredictionRecord(
-                    full_name=full_name,
-                    email=email,
-                    state=str(data.get('State', 'MH')),
-                    created_at=created_at,
-                    age=int(data.get('Age', 0)),
-                    income=float(data.get('Income', 0)),
-                    loan_amount=float(data.get('LoanAmount', 0)),
-                    credit_score=int(data.get('CreditScore', 0)),
-                    months_employed=int(data.get('MonthsEmployed', 0)),
-                    num_credit_lines=int(data.get('NumCreditLines', 0)),
-                    interest_rate=float(data.get('InterestRate', 0)),
-                    loan_term=int(data.get('LoanTerm', 0)),
-                    dti_ratio=float(data.get('DTIRatio', 0)),
-                    education=str(data.get('Education', '')),
-                    employment_type=str(data.get('EmploymentType', '')),
-                    marital_status=str(data.get('MaritalStatus', '')),
-                    has_mortgage=str(data.get('HasMortgage', '')),
-                    has_dependents=str(data.get('HasDependents', '')),
-                    loan_purpose=str(data.get('LoanPurpose', '')),
-                    has_cosigner=str(data.get('HasCoSigner', '')),
-                    has_existing_loan=str(data.get('HasExistingLoan', 'No')),
-                    existing_bank=str(data.get('ExistingBank', '')),
-                    existing_rate=float(data.get('ExistingRate', 0)),
-                    existing_purpose=str(data.get('ExistingPurpose', '')),
-                    job_changes=job_changes,
-                    prediction=prediction,
-                    default_probability=float(probability),
-                    risk_category=risk_category,
-                )
-                db.add(new_record)
-                db.commit()
-                logger.info(f"New record inserted successfully for {email}")
+                logger.info(f"[Simulation] NOT saving to DB — simulation only")
             except Exception as db_e:
-                logger.error(f"Failed to save prediction: {db_e}", exc_info=True)
-                db.rollback()
+                logger.error(f"Simulation log error: {db_e}", exc_info=True)
             finally:
                 db.close()
 
@@ -382,18 +354,190 @@ def predict():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/apply', methods=['POST'])
+def submit_application():
+    """Official borrower application submission — no interest rate, no ML yet."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No input data provided'}), 400
+
+    required = ['FullName', 'Email', 'Age', 'Income', 'LoanAmount', 'LoanTerm',
+                'Education', 'EmploymentType', 'MaritalStatus',
+                'HasMortgage', 'HasDependents', 'LoanPurpose', 'HasCoSigner']
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        return jsonify({'error': f'Missing fields: {", ".join(missing)}'}), 400
+
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB offline'}), 500
+
+    try:
+        record = PredictionRecord(
+            full_name=str(data.get('FullName', '')).strip(),
+            email=str(data.get('Email', '')).strip(),
+            state=str(data.get('State', 'MH')),
+            created_at=datetime.utcnow(),
+            age=int(data.get('Age', 0)),
+            income=float(data.get('Income', 0)),
+            loan_amount=float(data.get('LoanAmount', 0)),
+            credit_score=int(data.get('CreditScore', 0)) if data.get('CreditScore') else 0,
+            months_employed=int(data.get('MonthsEmployed', 0)),
+            num_credit_lines=int(data.get('NumCreditLines', 0)),
+            interest_rate=None,            # NOT set by borrower
+            loan_term=int(data.get('LoanTerm', 24)),
+            dti_ratio=float(data.get('DTIRatio', 0)),
+            education=str(data.get('Education', '')),
+            employment_type=str(data.get('EmploymentType', '')),
+            marital_status=str(data.get('MaritalStatus', '')),
+            has_mortgage=str(data.get('HasMortgage', 'No')),
+            has_dependents=str(data.get('HasDependents', 'No')),
+            loan_purpose=str(data.get('LoanPurpose', 'Other')),
+            has_cosigner=str(data.get('HasCoSigner', 'No')),
+            has_existing_loan=str(data.get('HasExistingLoan', 'No')),
+            existing_bank=str(data.get('ExistingBank', '')),
+            existing_rate=float(data.get('ExistingRate', 0)),
+            existing_purpose=str(data.get('ExistingPurpose', '')),
+            job_changes=int(data.get('JobChanges', 0)),
+            target_bank=str(data.get('TargetBank', '')),
+            application_type='official',
+            status='Pending',
+            prediction=None,
+            default_probability=None,
+            risk_category=None,
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        logger.info(f"Official application saved: id={record.id}, email={record.email}")
+        
+        # Send confirmation email
+        try:
+            send_loan_email('update', record.full_name, record.id, {
+                'message': f"We have received your loan application for ₹{record.loan_amount:,.2f}. Our team is currently reviewing your profile."
+            })
+        except Exception as e:
+            logger.error(f"Failed to send application confirmation email: {e}")
+
+        return jsonify({'message': 'Application submitted successfully', 'id': record.id})
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save application: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@app.route('/api/applications/<int:app_id>/review', methods=['POST'])
+def review_application(app_id):
+    """Bank analyst: run ML risk assessment, assign rate, set decision status."""
+    if not MODEL_LOADED:
+        return jsonify({'error': 'Model not loaded'}), 503
+
+    data = request.get_json() or {}
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB offline'}), 500
+
+    try:
+        record = db.query(PredictionRecord).filter(PredictionRecord.id == app_id).first()
+        if not record:
+            return jsonify({'error': 'Application not found'}), 404
+
+        assigned_rate = data.get('assigned_rate')
+        decision = data.get('decision')  # 'Approved' | 'Rejected' | 'Under Review'
+        note = data.get('note', '')
+
+        # Run ML if we haven't yet or if rate has been assigned
+        if assigned_rate is not None:
+            rate = float(assigned_rate)
+            ml_data = {
+                'Age': record.age, 'Income': record.income,
+                'LoanAmount': record.loan_amount, 'CreditScore': record.credit_score or 600,
+                'MonthsEmployed': record.months_employed, 'NumCreditLines': record.num_credit_lines or 1,
+                'InterestRate': rate,
+                'LoanTerm': record.loan_term, 'DTIRatio': record.dti_ratio or 0,
+                'Education': record.education or "Bachelor's",
+                'EmploymentType': record.employment_type or 'Full-time',
+                'MaritalStatus': record.marital_status or 'Single',
+                'HasMortgage': record.has_mortgage or 'No',
+                'HasDependents': record.has_dependents or 'No',
+                'LoanPurpose': record.loan_purpose or 'Other',
+                'HasCoSigner': record.has_cosigner or 'No',
+            }
+            try:
+                features_df = prepare_features(ml_data)
+                features_scaled = scaler.transform(features_df)
+                probability = float(model.predict_proba(features_scaled)[0][1])
+                risk_cat = get_risk_category(probability)
+                record.default_probability = round(probability, 4)
+                record.prediction = int(probability >= 0.5)
+                record.risk_category = risk_cat
+            except Exception as ml_err:
+                logger.warning(f"ML assessment failed for app {app_id}: {ml_err}")
+
+            record.assigned_rate = rate
+            record.interest_rate = rate
+
+        if decision:
+            record.status = decision
+        else:
+            record.status = 'Under Review'
+
+        if note:
+            record.bank_decision_note = note
+        if industry:
+            record.industry = industry
+
+        db.commit()
+        db.refresh(record)
+
+        # Send status update email if decision made
+        if decision in ['Approved', 'Rejected']:
+            try:
+                email_type = 'approved' if decision == 'Approved' else 'rejected'
+                send_loan_email(email_type, record.full_name, record.id, {'reason': note})
+            except Exception as e:
+                logger.error(f"Failed to send decision email: {e}")
+
+        return jsonify({
+            'id': record.id,
+            'status': record.status,
+            'assigned_rate': record.assigned_rate,
+            'default_probability': record.default_probability,
+            'risk_category': record.risk_category,
+            'bank_decision_note': record.bank_decision_note,
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Review failed for app {app_id}: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
 @app.route('/api/applications', methods=['GET'])
 def get_applications():
     db = get_db()
     if not db: return jsonify({'error': 'DB offline'}), 500
-    
+
+    # Bank officers can only see OFFICIAL applications targeted at their bank
+    bank_filter = request.args.get('bank_name', '').strip()
+
     try:
-        records = db.query(PredictionRecord).order_by(PredictionRecord.created_at.desc()).all()
+        query = db.query(PredictionRecord).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank != None,
+            PredictionRecord.target_bank != ''
+        ).order_by(PredictionRecord.created_at.desc())
+        if bank_filter:
+            query = query.filter(PredictionRecord.target_bank == bank_filter)
+        records = query.all()
         result = []
         for r in records:
             result.append({
                 'id': r.id,
-                'full_name': r.full_name, # Standardized name
+                'full_name': r.full_name,
                 'email': r.email,
                 'state': r.state,
                 'age': r.age,
@@ -411,10 +555,20 @@ def get_applications():
                 'dti': r.dti_ratio,
                 'term': r.loan_term,
                 'interest_rate': r.interest_rate,
+                'assigned_rate': r.assigned_rate,
+                'status': r.status or 'Pending',
+                'bank_decision_note': r.bank_decision_note,
                 'employment_type': r.employment_type,
                 'months_employed': r.months_employed,
                 'job_changes': r.job_changes,
-                'has_cosigner': r.has_cosigner
+                'has_cosigner': r.has_cosigner,
+                'education': r.education,
+                'marital_status': r.marital_status,
+                'has_mortgage': r.has_mortgage,
+                'has_dependents': r.has_dependents,
+                'prediction': r.prediction,
+                'target_bank': r.target_bank,
+                'num_credit_lines': r.num_credit_lines,
             })
         return jsonify(result)
     except Exception as e:
@@ -433,7 +587,12 @@ def get_my_applications():
     db = get_db()
     if not db: return jsonify({'error': 'DB offline'}), 500
     try:
-        records = db.query(PredictionRecord).filter(PredictionRecord.email == email).order_by(PredictionRecord.created_at.desc()).all()
+        records = db.query(PredictionRecord).filter(
+            PredictionRecord.email == email,
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank != None,
+            PredictionRecord.target_bank != ''
+        ).order_by(PredictionRecord.created_at.desc()).all()
         result = []
         for r in records:
             result.append({
@@ -443,18 +602,50 @@ def get_my_applications():
                 'created_at': r.created_at.isoformat() if r.created_at else None,
                 'has_existing_loan': r.has_existing_loan, 'existing_bank': r.existing_bank,
                 'existing_rate': r.existing_rate, 'existing_purpose': r.existing_purpose,
-                'dti': r.dti_ratio, 'term': r.loan_term, 'interest_rate': r.interest_rate,
+                'dti': r.dti_ratio, 'term': r.loan_term,
+                'interest_rate': r.interest_rate,
+                'assigned_rate': r.assigned_rate,
+                'status': r.status or 'Pending',
+                'bank_decision_note': r.bank_decision_note,
                 'employment_type': r.employment_type, 'months_employed': r.months_employed,
                 'job_changes': r.job_changes, 'has_cosigner': r.has_cosigner,
                 'education': r.education, 'marital_status': r.marital_status,
                 'has_mortgage': r.has_mortgage, 'has_dependents': r.has_dependents,
-                'prediction': r.prediction
+                'prediction': r.prediction,
+                'target_bank': r.target_bank,
+                'num_credit_lines': r.num_credit_lines,
             })
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
+
+
+@app.route('/api/send-communication', methods=['POST'])
+def send_communication():
+    """Manual communication endpoint for bank officers."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    app_id = data.get('app_id')
+    subject = data.get('subject')
+    body = data.get('body')
+    borrower_name = data.get('borrower_name', 'Applicant')
+
+    if not body:
+        return jsonify({'error': 'Message body is required'}), 400
+
+    try:
+        # We reuse the 'update' template for manual communication
+        send_loan_email('update', borrower_name, app_id or 'N/A', {
+            'message': body
+        })
+        return jsonify({'success': True, 'message': 'Email dispatched successfully'})
+    except Exception as e:
+        logger.error(f"Manual communication failed: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/model-info', methods=['GET'])
@@ -524,4 +715,4 @@ if __name__ == '__main__':
     print("  Loan Default Prediction API")
     print("  http://localhost:5000")
     print("=" * 60 + "\n")
-    app.run(debug=True, port=5000, use_reloader=False)
+    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)

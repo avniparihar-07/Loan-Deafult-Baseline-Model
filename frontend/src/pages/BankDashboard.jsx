@@ -1,0 +1,4572 @@
+import React,{ useState, useEffect} from 'react';
+
+import Sidebar from '../components/Sidebar';
+
+import ArthaAI from '../components/ArthaAI';
+
+import{ calcRisk, buildSched, fmt, fmtK} from '../utils/model';
+
+import{ apiUrl} from '../services/api';
+
+import Chart from 'chart.js/auto';
+
+// --- Behavioral Data Simulation ---
+
+const getBehavioralData = (app) =>{
+
+  const income = app.income || 50000;
+
+  const isHighRisk = app.risk_category === 'High';
+
+  const isLowRisk = app.risk_category === 'Low';
+
+  const dti = app.dti || 0.3;
+
+  // Investment Allocation
+
+  let allocation = [25, 5, 10, 30, 20, 10]; // Stocks, Crypto, Gold, MF, Savings, FD
+
+  if (isHighRisk) allocation = [10, 45, 5, 10, 10, 20]; // Heavy Crypto
+
+  if (isLowRisk) allocation = [35, 2, 15, 30, 10, 8]; // Heavy Stocks/MF
+
+  // Monthly Trend (Income vs Spending)
+
+  const monthlyIncome = income / 12;
+
+  const incomeTrend = Array(12).fill(monthlyIncome).map(v => v * (0.95 + Math.random() * 0.1));
+
+  const spendTrend = incomeTrend.map(v => v * (isHighRisk ? 0.85 + Math.random() * 0.15 : isLowRisk ? 0.5 + Math.random() * 0.2 : 0.7 + Math.random() * 0.15));
+
+  // Spending Categories
+
+  const categories = [
+
+    monthlyIncome * 0.25, // Rent
+
+    monthlyIncome * (isHighRisk ? 0.2 : 0.1), // Food
+
+    monthlyIncome * (isHighRisk ? 0.15 : 0.05), // Travel
+
+    monthlyIncome * (isHighRisk ? 0.25 : 0.1), // Shopping
+
+    app.loan_amount / 24, // EMI
+
+    monthlyIncome * (isHighRisk ? 0.15 : 0.05), // Leisure
+
+    monthlyIncome * (isLowRisk ? 0.3 : 0.1) // Savings
+
+  ];
+
+  // Transactions
+
+  const txs = [
+
+   { date: '04 May', category: 'Grocery Store', amount: 1200 + Math.random() * 1000, type: 'Debit'},
+
+   { date: '02 May', category: 'Monthly Salary', amount: monthlyIncome, type: 'Credit'},
+
+   { date: '28 Apr', category: 'SIP Investment', amount: isLowRisk ? 15000 : 5000, type: 'Debit'},
+
+   { date: '25 Apr', category: 'Amazon.in', amount: isHighRisk ? 8500 : 1200, type: 'Debit'},
+
+   { date: '20 Apr', category: 'Credit Card EMI', amount: isHighRisk ? 12000 : 4500, type: 'Debit'},
+
+   { date: '15 Apr', category: 'Restaurant', amount: isHighRisk ? 4500 : 800, type: 'Debit'},
+
+  ];
+
+  // Observations
+
+  const insights = [];
+
+  if (isHighRisk){
+
+    insights.push({ type: 'neg', text: "Borrower spends ~45% income on discretionary/luxury items."});
+
+    insights.push({ type: 'neg', text: "Excessive exposure to volatile assets (Crypto)."});
+
+ } else if (isLowRisk){
+
+    insights.push({ type: 'pos', text: "Consistent monthly savings rate >30% observed."});
+
+    insights.push({ type: 'pos', text: "Diversified investment portfolio with stable SIPs."});
+
+ } else{
+
+    insights.push({ type: 'pos', text: "Stable income-to-spending ratio maintained."});
+
+    insights.push({ type: 'neg', text: "Occasional spikes in impulsive shopping detected."});
+
+ }
+
+  if (dti > 0.5) insights.push({ type: 'neg', text: "Current debt obligations exceed 50% of monthly take-home."});
+
+  // Recommendation
+
+  let recommendation ={ title: "Approve with Standard Terms", desc: "Stable behavioral pattern supports loan repayment capability.", color: 'var(--teal)'};
+
+  if (isHighRisk) recommendation ={ title: "Manual Review / Reject", desc: "Erratic spending habits and high-risk investments pose significant repayment risk.", color: 'var(--rose)'};
+
+  if (isLowRisk) recommendation ={ title: "Fast-Track Approval", desc: "Excellent financial discipline and strong asset base. Low probability of default.", color: 'var(--teal)'};
+
+  // Flags
+
+  const flags = [];
+
+  if (allocation[1] > 30) flags.push("Excessive Crypto");
+
+  if (spendTrend.some((s, i) => s > incomeTrend[i])) flags.push("Unstable Spending");
+
+  if (categories[6] < monthlyIncome * 0.05) flags.push("Low Savings Ratio");
+
+  if (dti > 0.45) flags.push("Heavy Debt Burden");
+
+  return{ allocation, incomeTrend, spendTrend, categories, transactions: txs, insights, recommendation, flags};
+
+};
+
+export default function BankDashboard({ user, onLogout, theme, toggleTheme}){
+
+  const [page, setPage] = useState('bd-overview');
+
+  const [isAiOpen, setIsAiOpen] = useState(false);
+
+  useEffect(() =>{
+    window.scrollTo({ top: 0, behavior: 'smooth'});
+ }, [page]);
+
+  const [apps, setApps] = useState([]);
+
+  const [selectedApp, setSelectedApp] = useState(null);
+
+  const [reviewNote, setReviewNote] = useState('');
+
+  const [assignedRate, setAssignedRate] = useState('');
+
+  const [industry, setIndustry] = useState('IT & Software');
+
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const [decisionMode, setDecisionMode] = useState(null); // 'approve' | 'reject' | null
+
+  const [toast, setToast] = useState(null); //{ message, type}
+
+  const [behData, setBehData] = useState(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [emailType, setEmailType] = useState('General Update');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState(null); // 'success' | 'error'
+
+  const handleEmailTypeChange = (type, currentApp) => {
+    const app = currentApp || selectedApp;
+    setEmailType(type);
+    let subject = '';
+    let body = '';
+    const name = app ? (app.full_name || 'Applicant') : 'Applicant';
+    
+    switch (type) {
+      case 'Loan Approved':
+        subject = 'Your Loan Application Has Been Approved';
+        body = `Dear ${name},\n\nWe are pleased to inform you that your loan application has been approved.\n\nOur team will be in touch shortly with the next steps for disbursement.\n\nBest regards,\nGroundZero Underwriting Team`;
+        break;
+      case 'Loan Rejected':
+        subject = 'Update Regarding Your Loan Request';
+        body = `Dear ${name},\n\nThank you for applying with GroundZero. After careful review, we are unable to approve your loan application at this time.\n\nReason: [Specify reason here]\n\nBest regards,\nGroundZero Underwriting Team`;
+        break;
+      case 'Additional Documents Required':
+        subject = 'Action Required: Additional Verification Documents';
+        body = `Dear ${name},\n\nTo proceed with your application, we require the following documents:\n\n1. [Document Name 1]\n2. [Document Name 2]\n\nPlease upload these through your portal at your earliest convenience.\n\nBest regards,\nGroundZero Underwriting Team`;
+        break;
+      case 'Under Review':
+        subject = 'Your Application is Under Review';
+        body = `Dear ${name},\n\nWe are currently reviewing your loan application. We will notify you as soon as a final decision is made.\n\nBest regards,\nGroundZero Underwriting Team`;
+        break;
+      case 'General Update':
+        subject = 'Update on Your Loan Application';
+        body = `Dear ${name},\n\n[Write your custom update here]\n\nBest regards,\nGroundZero Underwriting Team`;
+        break;
+    }
+    setEmailSubject(subject);
+    setEmailBody(body);
+  };
+
+  const sendActualEmail = async () => {
+    if (!selectedApp) return;
+    setEmailSending(true);
+    try {
+      const resp = await fetch(`${apiUrl}/api/send-communication`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          app_id: selectedApp.id,
+          subject: emailSubject,
+          body: emailBody,
+          borrower_name: selectedApp.full_name || 'Applicant'
+        })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        setEmailStatus('success');
+        setTimeout(() => setEmailStatus(null), 4000);
+      } else {
+        alert(data.error || 'Failed to send email. Verify RESEND_API_KEY in backend.');
+        setEmailStatus('error');
+      }
+    } catch (err) {
+      console.error(err);
+      setEmailStatus('error');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedApp) {
+      handleEmailTypeChange('General Update', selectedApp);
+      setEmailStatus(null);
+    }
+  }, [selectedApp]);
+
+  const [formData, setFormData] = useState({
+
+    fullName: '', age: '', credit: '', income: '', loanAmt: '', dti: '', lines: '',
+
+    purpose: 'other', term: '24', rate: '', empType: 'full', empl: '', jobChanges: '',
+
+    edu: 'bach', marital: 'single', state: 'MH', customPurpose: '', customTerm: '',
+
+    bank: 'SBI', customBank: '', extRate: '', extPurpose: 'home', customExtPurpose: ''
+
+ });
+
+  const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N'});
+
+  const [result, setResult] = useState(null);
+
+  const [opt, setOpt] = useState({ loanAmt: 130000, credit: 575, dti: 0.35, empType: 'full'});
+
+  const optProb = calcRisk({ ...formData, loanAmt: opt.loanAmt, credit: opt.credit, dti: opt.dti, empType: opt.empType}, flags);
+
+  const update = (k, v) => setFormData(prev => ({ ...prev, [k]: v}));
+
+  const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v}));
+
+  const fetchApps = () =>{
+
+    // Bank officers only see applications directed at their bank
+
+    const bankParam = user?.bank_name ? `?bank_name=${encodeURIComponent(user.bank_name)}` : '';
+
+    fetch(apiUrl(`/api/applications${bankParam}`))
+
+      .then(r => r.json())
+
+      .then(data => setApps(Array.isArray(data) ? data : []))
+
+      .catch(e => console.error("Error fetching apps:", e));
+
+ };
+
+  useEffect(() =>{
+
+    fetchApps();
+
+    const interval = setInterval(fetchApps, 10000);
+
+    return () => clearInterval(interval);
+
+ }, [user?.bank_name]);
+
+  useEffect(() =>{
+
+    let mAssetC = null, mTrendC = null, mSpendC = null;
+
+    if (selectedApp && behData){
+
+      // Need a small timeout to ensure modal DOM is ready
+
+      const timer = setTimeout(() =>{
+
+        const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+        const lineC = theme === 'dark' ? '#ECF0F8' : '#0C1428';
+
+        const ctxAsset = document.getElementById('modal-cht-asset');
+
+        if (ctxAsset){
+
+          mAssetC = new Chart(ctxAsset,{
+
+            type: 'doughnut',
+
+            data:{
+
+              labels: ['Stocks', 'Crypto', 'Gold', 'MF', 'Savings', 'FD'],
+
+              datasets: [{ data: behData.allocation, backgroundColor: ['#38C9B0', '#E85475', '#C9973C', '#4BA8E0', '#0C1428', '#A4B0C8'], borderWidth: 0}]
+
+           },
+
+            options:{ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins:{ legend:{ display: false}}}
+
+         });
+
+       }
+
+        const ctxTrend = document.getElementById('modal-cht-trend');
+
+        if (ctxTrend){
+
+          mTrendC = new Chart(ctxTrend,{
+
+            type: 'line',
+
+            data:{
+
+              labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+
+              datasets: [
+
+               { label: 'Income', data: behData.incomeTrend, borderColor: '#38C9B0', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true, backgroundColor: 'rgba(56,201,176,0.05)'},
+
+               { label: 'Spending', data: behData.spendTrend, borderColor: '#E85475', borderWidth: 2, pointRadius: 0, tension: 0.4},
+
+               { label: 'Savings', data: behData.incomeTrend.map((v, i) => v - behData.spendTrend[i]), borderColor: 'var(--gold)', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, tension: 0.4}
+
+              ]
+
+           },
+
+            options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}, ticks:{ callback: v => '₹' + v / 1000 + 'K'}}}}
+
+         });
+
+       }
+
+        const ctxSpend = document.getElementById('modal-cht-spend');
+
+        if (ctxSpend){
+
+          mSpendC = new Chart(ctxSpend,{
+
+            type: 'bar',
+
+            data:{
+
+              labels: ['Rent', 'Food', 'Travel', 'Shop', 'EMI', 'Leisure', 'Savings'],
+
+              datasets: [{ data: behData.categories, backgroundColor: '#4BA8E0', borderRadius: 4}]
+
+           },
+
+            options:{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ color: g}}, y:{ grid:{ display: false}}}}
+
+         });
+
+       }
+
+     }, 100);
+
+      return () =>{
+
+        clearTimeout(timer);
+
+        [mAssetC, mTrendC, mSpendC].forEach(c => c && c.destroy());
+
+     };
+
+   }
+
+ }, [selectedApp, behData, theme]);
+
+  useEffect(() =>{
+
+    if (selectedApp){
+
+      setBehData(getBehavioralData(selectedApp));
+
+   } else{
+
+      setBehData(null);
+
+   }
+
+ }, [selectedApp]);
+
+  const showToast = (message, type = 'success') =>{
+
+    setToast({ message, type});
+
+    setTimeout(() => setToast(null), 3000);
+
+ };
+
+  // Also fetch when page changes to ensure fresh data
+
+  useEffect(() =>{
+
+    if (page === 'bd-underwriting' || page === 'bd-overview' || page === 'bd-insights'){
+
+      fetchApps();
+
+   }
+
+    if (page === 'bd-assess'){
+
+      setResult(null);
+
+   }
+
+ }, [page]);
+
+  const handleReviewSubmit = async (decision) =>{
+
+    if (decision === 'Approved' && !assignedRate){
+
+      showToast("Please assign an interest rate.", "error");
+
+      return;
+
+   }
+
+    if (decision === 'Approved' && !industry){
+
+      showToast("Please select an industry sector.", "error");
+
+      return;
+
+   }
+
+    setReviewSubmitting(true);
+
+    try{
+
+      const res = await fetch(apiUrl(`/api/applications/${selectedApp.id}/review`),{
+
+        method: 'POST',
+
+        headers:{ 'Content-Type': 'application/json'},
+
+        body: JSON.stringify({
+
+          assigned_rate: parseFloat(assignedRate) || null,
+
+          decision: decision,
+
+          note: reviewNote,
+
+          industry: industry
+
+       })
+
+     });
+
+      if (res.ok){
+
+        showToast(decision === 'Approved' ? "Loan Approved Successfully!" : "Application Rejected", decision === 'Approved' ? 'success' : 'error');
+
+        fetchApps();
+
+        // Auto close modal
+
+        setTimeout(() =>{
+
+          setSelectedApp(null);
+
+          setDecisionMode(null);
+
+       }, 500);
+
+     } else{
+
+        const err = await res.json();
+
+        showToast(err.error || "Failed to submit review", "error");
+
+     }
+
+   } catch (e){
+
+      console.error(e);
+
+      showToast("Failed to submit review", "error");
+
+   } finally{
+
+      setReviewSubmitting(false);
+
+   }
+
+ };
+
+  const handleSubmit = async () =>{
+
+    const required = ['age', 'income', 'loanAmt', 'credit', 'empl', 'lines', 'rate', 'term'];
+
+    for (let f of required){
+
+      if (formData[f] === '' || formData[f] === null || formData[f] === undefined){
+
+        alert(`Please enter a value for ${f.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
+
+        return;
+
+     }
+
+   }
+
+    if (formData.term === 'custom' && !formData.customTerm){
+
+      alert('Please enter a custom loan term');
+
+      return;
+
+   }
+
+    if (formData.purpose === 'custom' && !formData.customPurpose){
+
+      alert('Please enter a custom loan purpose');
+
+      return;
+
+   }
+
+    const effectiveTerm = formData.term === 'custom' ? (parseInt(formData.customTerm) || 24) : (parseInt(formData.term) || 24);
+
+    const purposeMap ={ home: "Home", auto: "Auto", education: "Education", business: "Business", medical: "Other", personal: "Other", other: "Other", custom: "Other"};
+
+    const effectivePurpose = formData.purpose === 'custom' ? (formData.customPurpose || "Other") : (formData.purpose || "other");
+
+    const payload ={
+
+      Age: formData.age,
+
+      Income: formData.income,
+
+      LoanAmount: formData.loanAmt,
+
+      CreditScore: formData.credit,
+
+      MonthsEmployed: formData.empl,
+
+      NumCreditLines: formData.lines,
+
+      InterestRate: formData.rate,
+
+      LoanTerm: effectiveTerm,
+
+      DTIRatio: formData.dti,
+
+      Education: formData.edu === 'hs' ? 'High School' : formData.edu === 'bach' ? "Bachelor's" : formData.edu === 'mast' ? "Master's" : "PhD",
+
+      EmploymentType: formData.empType === 'full' ? 'Full-time' : formData.empType === 'part' ? 'Part-time' : formData.empType === 'self' ? 'Self-employed' : 'Unemployed',
+
+      MaritalStatus: formData.marital === 'married' ? 'Married' : formData.marital === 'single' ? 'Single' : 'Divorced',
+
+      HasMortgage: flags.mort === 'Y' ? 'Yes' : 'No',
+
+      HasDependents: flags.dep === 'Y' ? 'Yes' : 'No',
+
+      LoanPurpose: purposeMap[effectivePurpose] || "Other",
+
+      HasCoSigner: flags.co === 'Y' ? 'Yes' : 'No',
+
+      FullName: formData.fullName || "Bank Manual Entry",
+
+      Email: formData.fullName ? `${formData.fullName.replace(/\s/g, '').toLowerCase()}@manual.bank` : "manual@bank.com",
+
+      State: formData.state || 'MH',
+
+      JobChanges: formData.jobChanges || 0
+
+   };
+
+    try{
+
+      const res = await fetch(apiUrl('/api/predict'),{
+
+        method: 'POST',
+
+        headers:{ 'Content-Type': 'application/json'},
+
+        body: JSON.stringify(payload)
+
+     });
+
+      if (res.ok){
+
+        const apiData = await res.json();
+
+        // Refresh apps list after saving
+
+        fetchApps();
+
+        // Update local result with real API data
+
+        const apiFeatures = (apiData.top_risk_factors || []).map(f => ({
+
+          name: f.feature,
+
+          val: parseFloat(f.impact.toFixed(3)),
+
+          type: f.impact > 0 ? 'pos' : 'neg'
+
+       }));
+
+        const sched = buildSched(formData.loanAmt, formData.rate, effectiveTerm);
+
+        const emi = sched.emi;
+
+        const totalRepay = sched.tPay;
+
+        const totalInt = sched.tI;
+
+        setResult({
+
+          pct: Math.round(apiData.default_probability * 100),
+
+          level: apiData.risk_category.toLowerCase(),
+
+          emi: emi,
+
+          totalInt: totalInt,
+
+          totalRepay: totalRepay,
+
+          pPct: totalRepay > 0 ? (formData.loanAmt / totalRepay) * 100 : 0,
+
+          iPct: totalRepay > 0 ? (totalInt / totalRepay) * 100 : 0,
+
+          features: apiFeatures,
+
+          sched: sched
+
+       });
+
+        return; // Exit here as we've handled everything with real API data
+
+     }
+
+   } catch (e){
+
+      console.error("Failed to save assessment to DB:", e);
+
+   }
+
+    const prob = calcRisk({ ...formData, term: effectiveTerm, purpose: effectivePurpose}, flags);
+
+    const pct = Math.round(prob * 100);
+
+    const level = prob < 0.3 ? 'low' : prob < 0.6 ? 'med' : 'high';
+
+    const sched = buildSched(formData.loanAmt, formData.rate, effectiveTerm);
+
+    const emi = sched.emi;
+
+    const totalInt = sched.tI;
+
+    const totalRepay = sched.tPay;
+
+    const pPct = (formData.loanAmt / totalRepay) * 100;
+
+    const iPct = (totalInt / totalRepay) * 100;
+
+    const features = [
+
+     { name: 'Married', val: -0.188, type: 'neg'},
+
+     { name: 'Has CoSigner_Yes', val: -0.142, type: 'neg'},
+
+     { name: 'Loan_Income_Ratio', val: +0.470, type: 'pos'},
+
+     { name: 'Has Dependents_Yes', val: -0.123, type: 'neg'},
+
+     { name: 'Unemployed', val: +0.201, type: 'pos'},
+
+     { name: 'Has Mortgage_Yes', val: -0.074, type: 'neg'},
+
+     { name: 'Part-time', val: +0.125, type: 'pos'},
+
+     { name: 'Self-employed', val: -0.091, type: 'neg'},
+
+     { name: 'NumCreditLines', val: +0.165, type: 'pos'},
+
+     { name: 'PhD', val: -0.075, type: 'neg'}
+
+    ];
+
+    setResult({ pct, level, prob, sched, emi, totalInt, totalRepay, pPct, iPct, features});
+
+ };
+
+  useEffect(() =>{
+
+    let trendChart = null, distChart = null, purposeChart = null, creditChart = null, empChart = null, dtiChart = null, coefChart = null;
+
+    let emiChart = null, stackedChart = null, trend18Chart = null, sectorChart = null, geoChart = null, stressChart = null, rocChart = null;
+
+    let portPurposeChart = null, portRiskChart = null;
+
+    const getDist = (arr, key) =>{
+
+      const counts ={};
+
+      arr.forEach(a =>{ counts[a[key]] = (counts[a[key]] || 0) + 1;});
+
+      return counts;
+
+   };
+
+    if (page === 'bd-overview'){
+
+      const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+      const lineC = theme === 'dark' ? '#ECF0F8' : '#0C1428';
+
+      const bgC = theme === 'dark' ? '#0C1428' : '#fff';
+
+      Chart.defaults.color = theme === 'dark' ? '#A4B0C8' : '#5E6E88';
+
+      Chart.defaults.font.family = "'Inter',sans-serif";
+
+      const ctxTrend = document.getElementById('cht-trend');
+
+      if (ctxTrend){
+
+        trendChart = new Chart(ctxTrend,{
+
+          type: 'line',
+
+          data:{
+
+            labels: apps.length > 0 ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] : ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+
+            datasets: [
+
+             { label: 'Assessments', data: apps.length > 0 ? Array(12).fill(0).map((_, i) => apps.filter(a => a.created_at && new Date(a.created_at).getMonth() === i).length || (i < 4 ? 5 + i : 0)) : [98, 112, 125, 108, 134, 141, 119, 128, 145, 158], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.4, yAxisID: 'y'},
+
+             {
+
+                label: 'Default Rate %', data: apps.length > 0 ? Array(12).fill(0).map((_, i) =>{
+
+                  const filtered = apps.filter(a => a.created_at && new Date(a.created_at).getMonth() === i);
+
+                  return filtered.length > 0 ? (filtered.reduce((s, a) => s + a.probability, 0) / filtered.length) * 100 : (i < 4 ? 12 - i : 0);
+
+               }) : [12.1, 11.8, 11.5, 11.9, 11.4, 11.2, 11.7, 11.6, 11.3, 11.6], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.4, yAxisID: 'y1'
+
+             }
+
+            ]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ position: 'top', labels:{ usePointStyle: true, boxWidth: 8}}}, scales:{ x:{ grid:{ color: g}}, y:{ grid:{ color: g}, title:{ display: true, text: 'Assessments'}}, y1:{ position: 'right', grid:{ drawOnChartArea: false}, title:{ display: true, text: 'Default %'}, ticks:{ callback: v => v + '%'}}}}
+
+       });
+
+     }
+
+      const ctxDist = document.getElementById('cht-dist');
+
+      if (ctxDist){
+
+        const d = getDist(apps, 'risk_category');
+
+        distChart = new Chart(ctxDist,{
+
+          type: 'doughnut',
+
+          data:{ labels: ['Low Risk (<30%)', 'Medium Risk', 'High Risk (>60%)'], datasets: [{ data: [d.Low || 0, d.Medium || 0, d.High || 0], backgroundColor: ['#38C9B0', '#C9973C', '#E85475'], borderColor: theme === 'dark' ? '#162030' : '#fff', borderWidth: 3, hoverOffset: 8}]},
+
+          options:{ responsive: true, maintainAspectRatio: false, cutout: '65%', plugins:{ legend:{ position: 'top', labels:{ usePointStyle: true, boxWidth: 8}}}}
+
+       });
+
+     }
+
+      const ctxPurpose = document.getElementById('cht-purpose');
+
+      if (ctxPurpose){
+
+        purposeChart = new Chart(ctxPurpose,{
+
+          type: 'bar',
+
+          data:{
+
+            labels: ['Home', 'Other', 'Education', 'Auto', 'Business'],
+
+            datasets: [{
+
+              data: ['Home', 'Other', 'Education', 'Auto', 'Business'].map(l => apps.filter(a => a.loan_purpose === l).length),
+
+              backgroundColor: ['#38C9B0', '#A072F0', '#4BA8E0', '#C9973C', '#E85475'],
+
+              borderRadius: 4
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}, ticks:{ callback: v => v + '%'}}}}
+
+       });
+
+     }
+
+      const ctxCredit = document.getElementById('cht-credit');
+
+      if (ctxCredit){
+
+        creditChart = new Chart(ctxCredit,{
+
+          type: 'line',
+
+          data:{
+
+            labels: ['300-400', '400-500', '500-600', '600-700', '700-800', '800+'],
+
+            datasets: [{
+
+              label: 'Users',
+
+              data: [300, 400, 500, 600, 700, 800].map((low, i) =>{
+
+                const high = i === 5 ? 1000 : low + 100;
+
+                return apps.filter(a => a.credit_score >= low && a.credit_score < high).length;
+
+             }),
+
+              borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}, ticks:{ callback: v => v + '%'}}}}
+
+       });
+
+     }
+
+      const ctxEmp = document.getElementById('cht-emp');
+
+      if (ctxEmp){
+
+        empChart = new Chart(ctxEmp,{
+
+          type: 'bar',
+
+          data:{
+
+            labels: ['Full-time', 'Self-empl', 'Part-time', 'Unemployed'],
+
+            datasets: [{
+
+              data: ['Full-time', 'Self-employed', 'Part-time', 'Unemployed'].map(l => apps.filter(a => a.employment_type === l).length),
+
+              backgroundColor: ['#38C9B0', '#4BA8E0', '#C9973C', '#E85475'],
+
+              borderRadius: 4
+
+           }]
+
+         },
+
+          options:{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ color: g}, ticks:{ callback: v => v + '%'}}, y:{ grid:{ display: false}}}}
+
+       });
+
+     }
+
+      const ctxDti = document.getElementById('cht-dti');
+
+      if (ctxDti){
+
+        dtiChart = new Chart(ctxDti,{
+
+          type: 'line',
+
+          data:{
+
+            labels: ['0—œ0.2', '0.2—œ0.4', '0.4—œ0.6', '0.6—œ0.8', '0.8—œ1.0'],
+
+            datasets: [{
+
+              label: 'Users',
+
+              data: [0, 0.2, 0.4, 0.6, 0.8].map((low, i) =>{
+
+                const high = low + 0.2;
+
+                return apps.filter(a => a.dti >= low && a.dti < high).length;
+
+             }),
+
+              borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}, ticks:{ callback: v => v + '%'}}}}
+
+       });
+
+     }
+
+      const ctxCoef = document.getElementById('cht-coef');
+
+      if (ctxCoef){
+
+        const coefs = [
+
+         { name: 'Age', val: -0.60},
+
+         { name: 'Income', val: -0.45},
+
+         { name: 'LoanAmt', val: 0.38},
+
+         { name: 'CreditScore', val: -0.52},
+
+         { name: 'DTI', val: 0.25}
+
+        ];
+
+        coefChart = new Chart(ctxCoef,{
+
+          type: 'bar',
+
+          data:{
+
+            labels: coefs.map(c => c.name),
+
+            datasets: [{ data: coefs.map(c => c.val), backgroundColor: coefs.map(c => c.val < 0 ? '#38C9B0' : '#E85475'), borderRadius: 4}]
+
+         },
+
+          options:{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ color: g}}, y:{ grid:{ display: false}}}}
+
+       });
+
+     }
+
+   } else if (page === 'bd-underwriting'){
+
+      const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+      Chart.defaults.color = theme === 'dark' ? '#A4B0C8' : '#5E6E88';
+
+      Chart.defaults.font.family = "'Inter',sans-serif";
+
+      const ctxEmi = document.getElementById('cht-emi-reg');
+
+      if (ctxEmi){
+
+        emiChart = new Chart(ctxEmi,{
+
+          type: 'bar',
+
+          data:{
+
+            labels: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+
+            datasets: [{
+
+              data: [18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000],
+
+              backgroundColor: ['#38C9B0', '#38C9B0', '#38C9B0', '#38C9B0', '#38C9B0', '#C9973C', '#38C9B0', '#38C9B0', '#38C9B0', '#38C9B0', '#C9973C', '#38C9B0'],
+
+              borderRadius: 4
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}, beginAtZero: true, ticks:{ callback: v => v.toLocaleString()}}}}
+
+       });
+
+     }
+
+   } else if (page === 'bd-insights' || page === 'bd-reports'){
+
+      const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+      const lineC = theme === 'dark' ? '#ECF0F8' : '#0C1428';
+
+      const bgC = theme === 'dark' ? '#0C1428' : '#fff';
+
+      Chart.defaults.color = theme === 'dark' ? '#A4B0C8' : '#5E6E88';
+
+      Chart.defaults.font.family = "'Inter',sans-serif";
+
+      const ctxStacked = document.getElementById('cht-stacked-risk');
+
+      if (ctxStacked){
+
+        stackedChart = new Chart(ctxStacked,{
+
+          type: 'bar',
+
+          data:{
+
+            labels: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+
+            datasets: [
+
+             { label: 'Low', data: [60, 62, 63, 61, 62, 61, 61], backgroundColor: '#38C9B0'},
+
+             { label: 'Medium', data: [28, 26, 26, 27, 26, 27, 27], backgroundColor: '#C9973C'},
+
+             { label: 'High', data: [12, 12, 11, 12, 12, 12, 12], backgroundColor: '#E85475'}
+
+            ]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ stacked: true, grid:{ display: false}}, y:{ stacked: true, grid:{ color: g}, max: 100, ticks:{ callback: v => v + '%'}}}}
+
+       });
+
+     }
+
+      const ctxTrend18 = document.getElementById('cht-trend-18');
+
+      if (ctxTrend18){
+
+        trend18Chart = new Chart(ctxTrend18,{
+
+          type: 'line',
+
+          data:{
+
+            labels: ['Oct 23', 'Dec', 'Feb', 'Apr', 'Jun', 'Aug', 'Oct', 'Dec', 'Feb'],
+
+            datasets: [{ data: [12.8, 12.1, 11.9, 11.8, 11.5, 11.6, 11.2, 11.3, 11.0], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2}]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ color: g}}, y:{ grid:{ color: g}, min: 10, ticks:{ callback: v => v + '%'}}}}
+
+       });
+
+     }
+
+      const ctxSector = document.getElementById('cht-sector-doughnut');
+
+      if (ctxSector){
+
+        sectorChart = new Chart(ctxSector,{
+
+          type: 'doughnut',
+
+          data:{
+
+            labels: ['Home', 'Education', 'Auto', 'Other', 'Business'],
+
+            datasets: [{
+
+              data: ['Home', 'Education', 'Auto', 'Other', 'Business'].map(l => apps.filter(a => a.loan_purpose === l).length),
+
+              backgroundColor: ['#E85475', '#4BA8E0', '#38C9B0', '#A072F0', '#C9973C'],
+
+              borderWidth: 0
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, cutout: '60%', plugins:{ legend:{ display: false}}}
+
+       });
+
+     }
+
+      const ctxGeo = document.getElementById('cht-geo-bar');
+
+      if (ctxGeo){
+
+        geoChart = new Chart(ctxGeo,{
+
+          type: 'bar',
+
+          data:{
+
+            labels: ['Maharashtra', 'Karnataka', 'Tamil Nadu', 'Delhi', 'Gujarat', 'Others'],
+
+            datasets: [{
+
+              data: ['MH', 'KA', 'TN', 'DL', 'GJ', 'Other'].map(s => apps.filter(a => (a.state || 'MH') === s).length),
+
+              backgroundColor: '#4BA8E0',
+
+              borderRadius: 4
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}}}}
+
+       });
+
+     }
+
+      const ctxStress = document.getElementById('cht-stress-bar');
+
+      if (ctxStress){
+
+        stressChart = new Chart(ctxStress,{
+
+          type: 'bar',
+
+          data:{
+
+            labels: ['Low Risk', 'Medium Risk', 'High Risk'],
+
+            datasets: [{
+
+              data: ['Low', 'Medium', 'High'].map(r => apps.filter(a => a.risk_category === r).length),
+
+              backgroundColor: ['#38C9B0', '#C9973C', '#E85475'],
+
+              borderRadius: 4
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}, ticks:{ callback: v => v + '%'}}}}
+
+       });
+
+     }
+
+      const ctxRoc = document.getElementById('cht-roc-curve');
+
+      if (ctxRoc){
+
+        rocChart = new Chart(ctxRoc,{
+
+          type: 'line',
+
+          data:{
+
+            labels: ['0', '0.2', '0.4', '0.6', '0.8', '1.0'],
+
+            datasets: [
+
+             { label: 'GroundZero LR', data: [0, 0.35, 0.62, 0.81, 0.92, 1.0], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.4},
+
+             { label: 'Random', data: [0, 0.2, 0.4, 0.6, 0.8, 1.0], borderColor: '#E85475', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0}
+
+            ]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ color: g}, title:{ display: true, text: 'False Positive Rate'}}, y:{ grid:{ color: g}, title:{ display: true, text: 'True Positive Rate'}}}}
+
+       });
+
+     }
+
+   } else if (page === 'bd-assess' && result){
+
+      const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+      const lineC = theme === 'dark' ? '#ECF0F8' : '#0C1428';
+
+      Chart.defaults.color = theme === 'dark' ? '#A4B0C8' : '#5E6E88';
+
+      Chart.defaults.font.family = "'Inter',sans-serif";
+
+      const ctxAmort = document.getElementById('cht-amort-assess');
+
+      if (ctxAmort){
+
+        let labels = [], pData = [], iData = [], bData = [];
+
+        let step = Math.max(1, Math.floor(result.sched.rows.length / 24));
+
+        result.sched.rows.forEach((m, i) =>{
+
+          if (i % step === 0 || i === result.sched.rows.length - 1){
+
+            labels.push(`M${m.m}`);
+
+            pData.push(m.p);
+
+            iData.push(m.i);
+
+            bData.push(m.bal);
+
+         }
+
+       });
+
+        rocChart = new Chart(ctxAmort,{
+
+          type: 'bar',
+
+          data:{
+
+            labels,
+
+            datasets: [
+
+             { type: 'line', label: 'Balance', data: bData, borderColor: lineC, borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: 'y1'},
+
+             { type: 'bar', label: 'Principal', data: pData, backgroundColor: '#4BA8E0', stacked: true, yAxisID: 'y'},
+
+             { type: 'bar', label: 'Interest', data: iData, backgroundColor: '#E85475', stacked: true, yAxisID: 'y'}
+
+            ]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ stacked: true, grid:{ display: false}}, y:{ stacked: true, grid:{ color: g}, ticks:{ callback: v => v >= 1000 ? fmtK(v) : v}}, y1:{ position: 'right', grid:{ display: false}, ticks:{ callback: v => v >= 1000 ? fmtK(v) : v}}}}
+
+       });
+
+     }
+
+   } else if (page === 'bd-behaviour'){
+
+      const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+      Chart.defaults.color = theme === 'dark' ? '#A4B0C8' : '#5E6E88';
+
+      Chart.defaults.font.family = "'Inter',sans-serif";
+
+      const ctxRadar = document.getElementById('cht-radar-behavior');
+
+      if (ctxRadar){
+
+        trendChart = new Chart(ctxRadar,{
+
+          type: 'radar',
+
+          data:{
+
+            labels: ['Income Health', 'Credit History', 'Employment', 'DTI Health', 'Stability', 'Risk Profile'],
+
+            datasets: [{
+
+              label: 'Applicant Aggregate Profile',
+
+              data: [
+
+                apps.length > 0 ? (apps.reduce((s, a) => s + a.income, 0) / apps.length / 2000) : 70,
+
+                apps.length > 0 ? (apps.reduce((s, a) => s + a.credit_score, 0) / apps.length / 10) : 65,
+
+                apps.length > 0 ? (apps.reduce((s, a) => s + a.months_employed, 0) / apps.length) : 80,
+
+                apps.length > 0 ? (100 - (apps.reduce((s, a) => s + a.dti, 0) / apps.length * 100)) : 75,
+
+                apps.length > 0 ? (apps.filter(a => a.months_employed > 24).length / apps.length * 100) : 85,
+
+                apps.length > 0 ? (100 - (apps.reduce((s, a) => s + a.probability, 0) / apps.length * 100)) : 70
+
+              ],
+
+              backgroundColor: 'rgba(56,201,176,0.15)',
+
+              borderColor: '#38C9B0',
+
+              pointBackgroundColor: theme === 'dark' ? '#0C1428' : '#fff',
+
+              pointBorderColor: '#38C9B0',
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ r:{ angleLines:{ color: g}, grid:{ color: g}, pointLabels:{ color: theme === 'dark' ? '#A4B0C8' : '#5E6E88', font:{ family: "'Inter',sans-serif"}}, ticks:{ display: false, beginAtZero: true, max: 100}}}}
+
+       });
+
+     }
+
+      const ctxSpend = document.getElementById('cht-spend-behavior');
+
+      if (ctxSpend){
+
+        distChart = new Chart(ctxSpend,{
+
+          type: 'line',
+
+          data:{
+
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+
+            datasets: [
+
+             { label: 'Avg User Spending', data: Array(12).fill(0).map(() => (apps.reduce((s, a) => s + a.income, 0) / (apps.length || 1) / 12) * (0.6 + Math.random() * 0.2)), borderColor: theme === 'dark' ? '#ECF0F8' : '#0C1428', borderWidth: 2.5, pointBackgroundColor: '#38C9B0', pointBorderColor: theme === 'dark' ? '#ECF0F8' : '#0C1428', pointBorderWidth: 2, pointRadius: 4, tension: 0.4},
+
+             { label: 'Avg Monthly Income', data: Array(12).fill(apps.reduce((s, a) => s + a.income, 0) / (apps.length || 1) / 12), borderColor: theme === 'dark' ? '#A4B0C8' : '#5E6E88', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0}
+
+            ]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ color: g}}, y:{ grid:{ color: g}, beginAtZero: false, min: 40000, ticks:{ callback: v => v.toLocaleString()}}}}
+
+       });
+
+     }
+
+   } else if (page === 'bd-portfolio'){
+
+      const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+      Chart.defaults.color = theme === 'dark' ? '#A4B0C8' : '#5E6E88';
+
+      Chart.defaults.font.family = "'Outfit',sans-serif";
+
+      const ctxAsset = document.getElementById('cht-asset-alloc');
+
+      if (ctxAsset){
+
+        purposeChart = new Chart(ctxAsset,{ // assetChart
+
+          type: 'doughnut',
+
+          data:{
+
+            labels: ['Fixed Income', 'Equity MF', 'Direct Equity', 'Govt Bonds'],
+
+            datasets: [{ data: [35, 30, 20, 15], backgroundColor: ['#38C9B0', '#4BA8E0', '#C9973C', '#A072F0'], borderWidth: 0}]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, cutout: '65%', plugins:{ legend:{ display: false}}}
+
+       });
+
+     }
+
+      const ctxValue = document.getElementById('cht-value-invest');
+
+      if (ctxValue){
+
+        creditChart = new Chart(ctxValue,{ // valueChart
+
+          type: 'line',
+
+          data:{
+
+            labels: ['2019', '2020', '2021', '2022', '2023', '2024'],
+
+            datasets: [{
+
+              label: 'Portfolio Value',
+
+              data: [320000, 345000, 390000, 410000, 480000, 516200],
+
+              borderColor: '#38C9B0', borderWidth: 2, tension: 0.4, fill: true, backgroundColor: 'rgba(56,201,176,0.1)'
+
+           }]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ grid:{ display: false}}, y:{ grid:{ color: g}, ticks:{ callback: v => '₹' + v / 1000 + 'K'}}}}
+
+       });
+
+     }
+
+   } else if (page === 'bd-risk' && result){
+
+      const g = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+
+      const lineC = theme === 'dark' ? '#ECF0F8' : '#0C1428';
+
+      Chart.defaults.color = theme === 'dark' ? '#A4B0C8' : '#5E6E88';
+
+      Chart.defaults.font.family = "'Outfit',sans-serif";
+
+      const ctxAmort = document.getElementById('cht-amort-assess');
+
+      if (ctxAmort){
+
+        let labels = [], pData = [], iData = [], bData = [];
+
+        let step = Math.max(1, Math.floor(result.sched.rows.length / 24));
+
+        result.sched.rows.forEach((m, i) =>{
+
+          if (i % step === 0 || i === result.sched.rows.length - 1){
+
+            labels.push(`M${m.m}`);
+
+            pData.push(m.p);
+
+            iData.push(m.i);
+
+            bData.push(m.bal);
+
+         }
+
+       });
+
+        rocChart = new Chart(ctxAmort,{ // Reusing rocChart variable to hold amortChart temporarily for cleanup
+
+          type: 'bar',
+
+          data:{
+
+            labels,
+
+            datasets: [
+
+             { type: 'line', label: 'Balance', data: bData, borderColor: lineC, borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: 'y1'},
+
+             { type: 'bar', label: 'Principal', data: pData, backgroundColor: '#4BA8E0', stacked: true, yAxisID: 'y'},
+
+             { type: 'bar', label: 'Interest', data: iData, backgroundColor: '#E85475', stacked: true, yAxisID: 'y'}
+
+            ]
+
+         },
+
+          options:{ responsive: true, maintainAspectRatio: false, plugins:{ legend:{ display: false}}, scales:{ x:{ stacked: true, grid:{ display: false}}, y:{ stacked: true, grid:{ color: g}, ticks:{ callback: v => v >= 1000 ? fmtK(v) : v}}, y1:{ position: 'right', grid:{ display: false}, ticks:{ callback: v => v >= 1000 ? fmtK(v) : v}}}}
+
+       });
+
+     }
+
+   }
+
+    return () =>{
+
+      [trendChart, distChart, purposeChart, creditChart, empChart, dtiChart, coefChart, emiChart, stackedChart, trend18Chart, sectorChart, geoChart, stressChart, rocChart, portPurposeChart, portRiskChart].forEach(c => c && c.destroy());
+
+   };
+
+ }, [page, theme, result, apps]);
+
+  return (
+
+    <div className="app-shell active">
+
+      <Sidebar
+
+        user={user}
+
+        activePage={page}
+
+        setPage={setPage}
+
+        onLogout={onLogout}
+
+        role="bank"
+
+        theme={theme}
+
+        toggleTheme={toggleTheme}
+
+      />
+
+      <div className="main-area">
+
+        <div className="page-content">
+
+         {page === 'bd-overview' && (
+
+            <div className="fade-in">
+
+              <div className="section-header">
+
+                <div>
+
+                  <h1 className="section-title">Institutional <span style={{ color: 'var(--gold)'}}>Dashboard</span></h1>
+
+                  <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px'}}>Real-time risk metrics and application pipeline.</p>
+
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px'}}>
+
+                  <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px'}}>
+
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--teal)', boxShadow: '0 0 10px var(--teal)'}}></div>
+
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--navy)'}}>System Active</span>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="kpi-row">
+
+                <div className="kpi sky fade-up">
+
+                  <div className="kpi-lbl">Total Applications</div>
+
+                  <div className="kpi-val">{apps.length.toLocaleString()}</div>
+
+                  <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600}}>Active in Pipeline</div>
+
+                </div>
+
+                <div className="kpi teal fade-up fade-up-d1">
+
+                  <div className="kpi-lbl">Approved</div>
+
+                  <div className="kpi-val">{apps.filter(a => a.risk_category === 'Low').length.toLocaleString()}</div>
+
+                  <div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600}}>● Low risk baseline</div>
+
+                </div>
+
+                <div className="kpi rose fade-up fade-up-d2">
+
+                  <div className="kpi-lbl">High Risk</div>
+
+                  <div className="kpi-val">{apps.filter(a => a.risk_category === 'High').length.toLocaleString()}</div>
+
+                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600}}>● Requires urgent review</div>
+
+                </div>
+
+                <div className="kpi gold fade-up fade-up-d3">
+
+                  <div className="kpi-lbl">Review Queue</div>
+
+                  <div className="kpi-val">{apps.filter(a => a.risk_category === 'Medium').length.toLocaleString()}</div>
+
+                  <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600}}>● Manual review pending</div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px'}}>
+
+                <div className="card fade-up fade-up-d1">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Monthly Volume & Default Rate</div></div>
+
+                  <div style={{ height: '300px', position: 'relative'}}><canvas id="cht-trend"></canvas></div>
+
+                </div>
+
+                <div className="card fade-up fade-up-d2">
+
+                  <div className="ch"><div className="ct">Risk Distribution</div></div>
+
+                  <div style={{ height: '220px', position: 'relative'}}><canvas id="cht-dist"></canvas></div>
+
+                  <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap'}}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px'}}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38C9B0'}}></div>
+                      <span style={{ color: 'var(--slate)', fontWeight: 600}}>Low Risk</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px'}}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#C9973C'}}></div>
+                      <span style={{ color: 'var(--slate)', fontWeight: 600}}>Medium Risk</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px'}}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#E85475'}}></div>
+                      <span style={{ color: 'var(--slate)', fontWeight: 600}}>High Risk</span>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginTop: '16px'}}>Thresholds from notebook cell 47: [0, 0.3, 0.6, 1]</div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px'}}>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-teal"></div>Default Rate by Loan Purpose</div></div>
+
+                  <div style={{ height: '260px', position: 'relative'}}><canvas id="cht-purpose"></canvas></div>
+
+                  <div style={{ fontSize: '13px', color: 'var(--text)', marginTop: '12px'}}>Home: 10.2% · Business: 12.3% · Auto: 11.9%</div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Credit Score vs Default Rate</div></div>
+
+                  <div style={{ height: '260px', position: 'relative'}}><canvas id="cht-credit"></canvas></div>
+
+                  <div style={{ fontSize: '13px', color: 'var(--text)', marginTop: '12px'}}>Actual rates from 255K records</div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr', gap: '20px', marginBottom: '20px'}}>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-gold"></div>By Employment Type</div></div>
+
+                  <div style={{ height: '200px', position: 'relative'}}><canvas id="cht-emp"></canvas></div>
+
+                  <div style={{ fontSize: '13px', color: 'var(--text)', marginTop: '12px'}}>Unemployed 13.6% - Full-time 9.5%</div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div style={{ height: '200px', position: 'relative', background: 'var(--gold-glow)', borderRadius: '8px', padding: '10px'}}><canvas id="cht-dti"></canvas></div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-rose"></div>Top Feature Coefficients</div></div>
+
+                  <div style={{ height: '200px', position: 'relative'}}><canvas id="cht-coef"></canvas></div>
+
+                  <div style={{ fontSize: '13px', color: 'var(--text)', marginTop: '12px'}}>From actual LogReg model coefficients</div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
+
+         {page === 'bd-assess' && (
+
+            <div className="fade-in">
+
+              <div className="card glass mb18">
+
+                <div className="ch">
+
+                  <div className="ct" style={{ fontSize: '18px', fontWeight: 800}}><div className="pip pip-sky" />Manual Underwriting Intelligence</div>
+
+                  <div className="mbadge mbadge-gold">Algorithmic Risk Unit · LR-B1</div>
+
+                </div>
+
+                <div className="form-grid">
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />BORROWER INFORMATION</div>
+
+                  <div className="fg-full">
+
+                    <div className="flab">BORROWER FULL NAME</div>
+
+                    <input type="text" className="finput" placeholder="Enter name" value={formData.fullName} onChange={e => update('fullName', e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">AGE</div>
+
+                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">CREDIT SCORE</div>
+
+                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">EDUCATION</div>
+
+                    <select className="fselect" value={formData.edu} onChange={e => update('edu', e.target.value)}>
+
+                      <option value="hs">High School</option><option value="bach">Bachelor's</option><option value="mast">Master's</option><option value="phd">PhD</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">MARITAL STATUS</div>
+
+                    <select className="fselect" value={formData.marital} onChange={e => update('marital', e.target.value)}>
+
+                      <option value="single">Single</option><option value="married">Married</option><option value="divorced">Divorced</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">STATE</div>
+
+                    <select className="fselect" value={formData.state} onChange={e => update('state', e.target.value)}>
+
+                      <option value="MH">Maharashtra</option><option value="DL">Delhi</option><option value="KA">Karnataka</option><option value="TN">Tamil Nadu</option><option value="GJ">Gujarat</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">ANNUAL INCOME (₹)</div>
+
+                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">LOAN AMOUNT (₹)</div>
+
+                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">DTI RATIO</div>
+
+                    <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">CREDIT LINES</div>
+
+                    <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', +e.target.value)} />
+
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />LOAN DETAILS</div>
+
+                  <div>
+
+                    <div className="flab">LOAN PURPOSE <span className="combo-tag">+ CUSTOM</span></div>
+
+                    <div className="combo-field">
+
+                      <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)}>
+
+                        <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="medical">Medical</option><option value="personal">Personal Loan</option><option value="other">Other</option><option value="custom">Custom</option>
+
+                      </select>
+
+                      <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">LOAN TERM <span className="combo-tag">+ CUSTOM</span></div>
+
+                    <div className="combo-field">
+
+                      <select className="combo-select" value={formData.term} onChange={e => update('term', e.target.value)}>
+
+                        <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">60 months</option><option value="custom">Custom</option>
+
+                      </select>
+
+                      <input type="number" className={`combo-manual ${formData.term === 'custom' ? 'show' : ''}`} value={formData.customTerm} onChange={e => update('customTerm', e.target.value)} />
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">INTEREST RATE %</div>
+
+                    <input type="number" step="0.01" className="finput" value={formData.rate} onChange={e => update('rate', +e.target.value)} />
+
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />EMPLOYMENT</div>
+
+                  <div>
+
+                    <div className="flab">EMPLOYMENT TYPE</div>
+
+                    <select className="fselect" value={formData.empType} onChange={e => update('empType', e.target.value)}>
+
+                      <option value="full">Full-time</option><option value="part">Part-time</option><option value="self">Self-employed</option><option value="unemployed">Unemployed</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">MONTHS EMPLOYED</div>
+
+                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">JOB CHANGES (LAST 5 YRS)</div>
+
+                    <input type="number" className="finput" value={formData.jobChanges} onChange={e => update('jobChanges', +e.target.value)} />
+
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />BINARY FLAGS</div>
+
+                  <div>
+
+                    <div className="flab">HAS MORTGAGE?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.mort === 'Y' ? 'on' : ''}`} onClick={() => tog('mort', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.mort === 'N' ? 'on' : ''}`} onClick={() => tog('mort', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">HAS DEPENDENTS?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.dep === 'Y' ? 'on' : ''}`} onClick={() => tog('dep', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.dep === 'N' ? 'on' : ''}`} onClick={() => tog('dep', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">HAS CO-SIGNER?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.co === 'Y' ? 'on' : ''}`} onClick={() => tog('co', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.co === 'N' ? 'on' : ''}`} onClick={() => tog('co', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />EXISTING LOAN (EXTERNAL)</div>
+
+                  <div>
+
+                    <div className="flab">OTHER BANK LOAN?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.extloan === 'Y' ? 'on' : ''}`} onClick={() => tog('extloan', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.extloan === 'N' ? 'on' : ''}`} onClick={() => tog('extloan', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                 {flags.extloan === 'Y' && (
+
+                    <>
+
+                      <div>
+
+                        <div className="flab">BANK NAME</div>
+
+                        <div className="combo-field">
+
+                          <select className="combo-select" value={formData.bank} onChange={e => update('bank', e.target.value)}>
+
+                            <option value="SBI">State Bank of India</option><option value="HDFC">HDFC Bank</option><option value="ICICI">ICICI Bank</option><option value="custom">Manual Entry</option>
+
+                          </select>
+
+                          <input className={`combo-manual ${formData.bank === 'custom' ? 'show' : ''}`} placeholder="Enter bank name" value={formData.customBank} onChange={e => update('customBank', e.target.value)} />
+
+                        </div>
+
+                      </div>
+
+                      <div>
+
+                        <div className="flab">INTEREST RATE (%)</div>
+
+                        <input type="number" className="finput" placeholder="e.g. 8.5" value={formData.extRate} onChange={e => update('extRate', e.target.value)} />
+
+                      </div>
+
+                      <div>
+
+                        <div className="flab">LOAN PURPOSE</div>
+
+                        <div className="combo-field">
+
+                          <select className="combo-select" value={formData.extPurpose} onChange={e => update('extPurpose', e.target.value)}>
+
+                            <option value="home">Home Loan</option><option value="auto">Auto Loan</option><option value="education">Education</option><option value="custom">Manual Entry</option>
+
+                          </select>
+
+                          <input className={`combo-manual ${formData.extPurpose === 'custom' ? 'show' : ''}`} placeholder="Enter purpose" value={formData.customExtPurpose} onChange={e => update('customExtPurpose', e.target.value)} />
+
+                        </div>
+
+                      </div>
+
+                    </>
+
+                  )}
+
+                  <div className="fg-full" style={{ marginTop: '10px'}}>
+
+                    <button className="btn-main" onClick={handleSubmit}>Assess Default Risk</button>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+             {result && (
+
+                <div className="fade-in" style={{ marginTop: '30px'}}>
+
+                 {/* VERDICT BANNER */}
+
+                  <div style={{
+
+                    background: result.level === 'low' ? 'linear-gradient(135deg, #0D9488 0%, #10B981 100%)' : result.level === 'med' ? 'linear-gradient(135deg, #997D30 0%, #C3A44F 100%)' : 'linear-gradient(135deg, #BE123C 0%, #E11D48 100%)',
+
+                    padding: '24px 32px', borderRadius: '16px', marginBottom: '24px', color: '#fff',
+
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+
+                 }}>
+
+                    <div>
+
+                      <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', opacity: 0.8, letterSpacing: '2px', marginBottom: '4px'}}>UNDERWRITING VERDICT</div>
+
+                      <div style={{ fontSize: '24px', fontWeight: 900}}>
+
+                       {result.level === 'low' ? 'Recommended for Approval' : result.level === 'med' ? 'Manual Underwriter Review Required' : 'High Probability of Default - Reject'}
+
+                      </div>
+
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.2)', padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: 800, backdropFilter: 'blur(10px)'}}>
+
+                      CONFIDENCE:{(100 - (Math.abs(50 - result.pct) * 0.5)).toFixed(1)}%
+
+                    </div>
+
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1.1fr', gap: '24px'}}>
+
+                   {/* RISK GAUGE */}
+
+                    <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center'}}>
+
+                      <div className="ch" style={{ width: '100%'}}>
+
+                        <div className="ct"><div className="pip pip-sky" />Risk Probability</div>
+
+                        <div className="mbadge mbadge-sky">σ(wᵀx+b)</div>
+
+                      </div>
+
+                      <div style={{ position: 'relative', margin: '30px 0'}}>
+
+                        <svg width="180" height="180" viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)'}}>
+
+                          <circle cx="90" cy="90" r="80" fill="none" stroke="var(--bg2)" strokeWidth="12" />
+
+                          <circle cx="90" cy="90" r="80" fill="none" stroke={result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'} strokeWidth="12"
+
+                            strokeDasharray={`${(result.pct / 100) * 502} 502`}
+
+                            strokeLinecap="round"
+
+                            style={{ transition: 'stroke-dasharray 1s ease'}}
+
+                          />
+
+                        </svg>
+
+                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center'}}>
+
+                          <div style={{ fontSize: '42px', fontWeight: 900, color: 'var(--navy)', lineHeight: 1}}>{result.pct}%</div>
+
+                          <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginTop: '4px'}}>DEFAULT RISK</div>
+
+                        </div>
+
+                      </div>
+
+                      <div style={{ width: '100%', padding: '16px', background: 'var(--ice)', borderRadius: '12px', textAlign: 'left'}}>
+
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--navy)', marginBottom: '4px'}}>
+
+                         {result.level === 'low' ? 'Low Exposure' : result.level === 'med' ? 'Elevated Concern' : 'Critical Risk'}
+
+                        </div>
+
+                        <div style={{ fontSize: '11px', color: 'var(--slate)', lineHeight: 1.4}}>
+
+                         {result.level === 'low' ? 'Financial indicators demonstrate strong stability.' : result.level === 'med' ? 'Several features indicate potential instability.' : 'Significant default indicators detected across multiple variables.'}
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                   {/* REPAYMENT */}
+
+                    <div className="card">
+
+                      <div className="ch">
+
+                        <div className="ct"><div className="pip pip-teal" />Repayment Structure</div>
+
+                        <div className="mbadge mbadge-teal">Amortization Summary</div>
+
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '30px'}}>
+
+                        <div style={{ background: 'var(--ice)', padding: '20px 12px', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
+
+                          <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--sky)', marginBottom: '4px'}}>₹{fmt(result.emi)}</div>
+
+                          <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase'}}>Monthly EMI</div>
+
+                        </div>
+
+                        <div style={{ background: 'var(--ice)', padding: '20px 12px', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
+
+                          <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--teal)', marginBottom: '4px'}}>₹{fmt(formData.loanAmt)}</div>
+
+                          <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase'}}>Principal</div>
+
+                        </div>
+
+                        <div style={{ background: 'var(--ice)', padding: '20px 12px', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center'}}>
+
+                          <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--rose)', marginBottom: '4px'}}>₹{fmt(result.totalInt)}</div>
+
+                          <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase'}}>Interest</div>
+
+                        </div>
+
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px'}}>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '12px'}}>
+
+                          <span style={{ fontSize: '13px', color: 'var(--slate)'}}>Total Repayment Amount</span>
+
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy)'}}>₹{fmt(result.totalRepay)}</span>
+
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '12px'}}>
+
+                          <span style={{ fontSize: '13px', color: 'var(--slate)'}}>Interest to Principal Ratio</span>
+
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--rose)'}}>{((result.totalInt / formData.loanAmt) * 100).toFixed(1)}%</span>
+
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '12px'}}>
+
+                          <span style={{ fontSize: '13px', color: 'var(--slate)'}}>Affordability (EMI/Income)</span>
+
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: (result.emi / (formData.income / 12) > 0.5) ? 'var(--rose)' : 'var(--teal)'}}>
+
+                           {formData.income > 0 ? ((result.emi / (formData.income / 12)) * 100).toFixed(1) + '%' : 'N/A'}
+
+                          </span>
+
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between'}}>
+
+                          <span style={{ fontSize: '13px', color: 'var(--slate)'}}>Assigned Interest Rate</span>
+
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy)'}}>{formData.rate}% p.a.</span>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                   {/* FEATURE INFLUENCE */}
+
+                    <div className="card">
+
+                      <div className="ch">
+
+                        <div className="ct"><div className="pip pip-gold" />Feature Influence</div>
+
+                        <div className="mbadge mbadge-gold">Model Coefficients</div>
+
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px'}}>
+
+                       {(() =>{
+
+                          const maxVal = Math.max(...result.features.map(f => Math.abs(f.val)), 1.0);
+
+                          return result.features.map(f => (
+
+                            <div key={f.name} style={{ display: 'flex', flexDirection: 'column', gap: '6px'}}>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800}}>
+
+                                <span style={{ color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: '0.5px'}}>{f.name}</span>
+
+                                <span style={{ color: f.type === 'pos' ? 'var(--rose)' : 'var(--teal)'}}>{f.type === 'pos' ? '+ RISK' : '- RISK'}</span>
+
+                              </div>
+
+                              <div style={{ width: '100%', height: '6px', background: 'var(--bg2)', borderRadius: '3px', position: 'relative'}}>
+
+                                <div style={{
+
+                                  position: 'absolute', height: '100%', borderRadius: '3px',
+
+                                  background: f.type === 'pos' ? 'var(--rose)' : 'var(--teal)',
+
+                                  width: `${(Math.abs(f.val) / maxVal) * 50}%`,
+
+                                  ...(f.type === 'pos' ?{ left: '50%'} :{ right: '50%'})
+
+                               }} />
+
+                              </div>
+
+                            </div>
+
+                          ));
+
+                       })()}
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                 {/* AMORTIZATION SCHEDULE */}
+
+                  <div className="card fade-up" style={{ marginTop: '24px', animationDelay: '0.3s'}}>
+
+                    <div className="ch">
+
+                      <div className="ct"><div className="pip pip-sky"></div>Full Amortization Schedule</div>
+
+                      <div className="mbadge mbadge-sky">₹{fmt(result.totalRepay)} ·{formData.rate}% ·{formData.term}mo</div>
+
+                    </div>
+
+                    <div style={{ maxHeight: '350px', overflowY: 'auto', marginBottom: '30px', border: '1px solid var(--border)', borderRadius: '12px'}}>
+
+                      <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse'}}>
+
+                        <thead style={{ position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 1, boxShadow: '0 1px 0 var(--border)'}}>
+
+                          <tr style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>
+
+                            <th style={{ padding: '16px 24px'}}>Month</th>
+
+                            <th style={{ padding: '16px 24px', textAlign: 'right'}}>EMI Amount</th>
+
+                            <th style={{ padding: '16px 24px', textAlign: 'right'}}>Principal</th>
+
+                            <th style={{ padding: '16px 24px', textAlign: 'right'}}>Interest</th>
+
+                            <th style={{ padding: '16px 24px', textAlign: 'right'}}>Balance</th>
+
+                          </tr>
+
+                        </thead>
+
+                        <tbody style={{ fontSize: '13px'}}>
+
+                         {result.sched.rows.map(m => (
+
+                            <tr key={m.m} style={{ borderBottom: '1px solid var(--border)'}}>
+
+                              <td style={{ padding: '12px 20px', color: 'var(--text2)'}}>Mo{m.m}</td>
+
+                              <td style={{ padding: '12px 20px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace", color: '#4BA8E0'}}>₹{fmt(m.p)}</td>
+
+                              <td style={{ padding: '12px 20px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace", color: 'var(--rose)'}}>₹{fmt(m.i)}</td>
+
+                              <td style={{ padding: '12px 20px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text2)'}}>₹{fmt(m.bal)}</td>
+
+                            </tr>
+
+                          ))}
+
+                        </tbody>
+
+                      </table>
+
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: 'var(--text3)', marginBottom: '14px'}}>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', background: '#4BA8E0', borderRadius: '2px'}}></span> Principal</span>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', background: 'var(--rose)', borderRadius: '2px'}}></span> Interest</span>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '16px', height: '2px', background: 'var(--text)'}}></span> Balance</span>
+
+                    </div>
+
+                    <div style={{ height: '300px', position: 'relative'}}><canvas id="cht-amort-assess"></canvas></div>
+
+                  </div>
+
+                </div>
+
+              )}
+
+            </div>
+
+          )}
+
+         {page === 'bd-underwriting' && (
+
+            <div className="fade-in">
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px'}}>
+                <div>
+                  <h1 className="h-serif" style={{ fontSize: '32px'}}>Loan <span style={{ color: 'var(--gold)'}}>History</span></h1>
+                  <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px'}}>Review and manage incoming loan applications.</p>
+                </div>
+                <div style={{ position: 'relative'}}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', opacity: 0.5}}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search history..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ padding: '10px 16px 10px 36px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', width: '280px', background: 'var(--bg)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)'}}
+                  />
+                </div>
+              </div>
+
+              <div className="card mb18 fade-up"><div className="ch"><div className="ct"><div className="pip pip-sky"></div>Recent Loan Assessments</div></div>
+
+                <table className="tbl" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse'}}>
+
+                  <thead>
+
+                    <tr style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--border)'}}>
+
+                      <th style={{ padding: '12px 14px'}}>ID</th>
+
+                      <th style={{ padding: '12px 14px'}}>Borrower Name</th>
+
+                      <th style={{ padding: '12px 14px'}}>Purpose</th>
+
+                      <th style={{ padding: '12px 14px'}}>Bank</th>
+
+                      <th style={{ padding: '12px 14px'}}>State</th>
+
+                      <th style={{ padding: '12px 14px'}}>Loan Amt</th>
+
+                      <th style={{ padding: '12px 14px'}}>Credit</th>
+
+                      <th style={{ padding: '12px 14px'}}>DTI</th>
+
+                      <th style={{ padding: '12px 14px'}}>Prob.</th>
+
+                      <th style={{ padding: '12px 14px'}}>Status</th>
+
+                      <th style={{ padding: '12px 14px'}}>Assigned Rate</th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody style={{ fontSize: '13px', color: 'var(--text)'}}>
+
+                   {(() => {
+                      const filtered = apps.filter(a => 
+                        (a.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (a.id || '').toString().includes(searchQuery) ||
+                        (a.target_bank || '').toLowerCase().includes(searchQuery.toLowerCase())
+                      );
+                      
+                      if (filtered.length === 0) {
+                        return (
+                          <tr><td colSpan="11" style={{ padding: '48px 40px', textAlign: 'center'}}>
+
+                            <div style={{ fontSize: '28px', marginBottom: '12px'}}>📁</div>
+
+                            <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text)', marginBottom: '8px'}}>
+
+                              No matching applications found
+
+                            </div>
+
+                            <div style={{ fontSize: '12px', color: 'var(--text3)', maxWidth: '380px', margin: '0 auto', lineHeight: 1.6}}>
+
+                              Try refining your search query or check the "Customers" tab for all records.
+
+                            </div>
+
+                          </td></tr>
+                        );
+                      }
+
+                      return filtered.map(a => (
+
+                        <tr 
+                          key={a.id} 
+                          style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.2s'}}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(14,165,233,0.02)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          onClick={() =>{
+
+                            setSelectedApp(a);
+
+                            setAssignedRate(a.assigned_rate || '');
+
+                            setReviewNote(a.bank_decision_note || '');
+
+                          }}
+                        >
+
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace", fontSize: '11px', color: 'var(--text2)'}}>#{a.id}</td>
+
+                          <td style={{ padding: '16px 14px', fontWeight: 600}}>{a.full_name || 'Manual Entry'}</td>
+
+                          <td style={{ padding: '16px 14px'}}>{a.loan_purpose}</td>
+
+                          <td style={{ padding: '16px 14px'}}>
+
+                           {a.target_bank ? (
+
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '8px', background: 'rgba(75,168,224,0.1)', color: 'var(--sky)', border: '1px solid rgba(75,168,224,0.2)'}}>
+
+                               {a.target_bank}
+
+                              </span>
+
+                            ) : <span style={{ color: 'var(--text3)', fontSize: '11px'}}>—</span>}
+
+                          </td>
+
+                          <td style={{ padding: '16px 14px', fontWeight: 600}}>{a.state || 'N/A'}</td>
+
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace"}}>₹{fmt(a.loan_amount)}</td>
+
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace"}}>{a.credit_score}</td>
+
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace"}}>{a.dti}</td>
+
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace", fontWeight: 700, color: a.probability < 0.3 ? 'var(--teal)' : a.probability < 0.6 ? 'var(--gold)' : 'var(--rose)'}}>{a.probability != null ? Math.round(a.probability * 100) + '%' : '-'}</td>
+
+                          <td style={{ padding: '16px 14px'}}>
+
+                            <span className={`bpill ${a.status === 'Approved' ? 'bp-teal' : a.status === 'Rejected' ? 'bp-rose' : a.status === 'Under Review' ? 'bp-gold' : 'bp-sky'}`} style={{ padding: '4px 10px'}}>
+
+                             {a.status || 'Pending'}
+
+                            </span>
+
+                          </td>
+
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace"}}>{a.assigned_rate ? `${a.assigned_rate}%` : '-'}</td>
+
+                        </tr>
+
+                      ));
+                    })()}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-teal"></div>Bill Payment History (36 months)</div></div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12,1fr)', gap: '4px', marginBottom: '14px'}}>
+
+                   {Array.from({ length: 36}).map((_, i) =>{
+
+                      const isLate = i === 5 || i === 18 || i === 31;
+
+                      const isMissed = i === 10;
+
+                      return <div key={i} style={{ aspectRatio: '1', borderRadius: '3px', background: isMissed ? '#E85475' : isLate ? '#C9973C' : '#38C9B0', opacity: 0.8}}></div>
+
+                   })}
+
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text3)'}}>
+
+                    <div style={{ display: 'flex', gap: '12px'}}>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38C9B0'}}></span> On-time</span>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#C9973C'}}></span> Late</span>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#E85475'}}></span> Missed</span>
+
+                    </div>
+
+                    <div style={{ fontFamily: "'IBM Plex Mono',monospace"}}>Payment Score: 93/100</div>
+
+                  </div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-gold"></div>EMI Payment Regularity (12 mo)</div></div>
+
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: 'var(--text3)', marginBottom: '10px'}}>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: '#38C9B0'}}></span> On-time</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: '#C9973C'}}></span> Late/Partial</span>
+
+                  </div>
+
+                  <div style={{ height: '180px', position: 'relative'}}><canvas id="cht-emi-reg"></canvas></div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
+
+         {page === 'bd-reports' && (
+
+            <div className="fade-in">
+
+              <div className="card mb18 fade-up" style={{ padding: '30px'}}>
+
+                <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '24px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px'}}>Business Insights</div>
+
+                <div style={{ fontSize: '13px', color: 'var(--text2)', marginBottom: '24px'}}>Portfolio-level analytics and model performance tracking.</div>
+
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap'}}>
+
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 20px', background: 'var(--bg2)', minWidth: '140px'}}>
+
+                    <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '20px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px'}}>₹{apps.length > 0 ? (apps.reduce((s, a) => s + a.loan_amount, 0) / 10000000).toFixed(2) : '0.00'}Cr</div>
+
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>Total Portfolio</div>
+
+                  </div>
+
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 20px', background: 'var(--bg2)', minWidth: '140px'}}>
+
+                    <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '20px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px'}}>{apps.length > 0 ? ((apps.reduce((s, a) => s + a.probability, 0) / apps.length) * 100).toFixed(1) : '0.0'}%</div>
+
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>Overall Default Rate</div>
+
+                  </div>
+
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 20px', background: 'var(--bg2)', minWidth: '140px'}}>
+
+                    <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '20px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px'}}>0.760</div>
+
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>Model ROC-AUC</div>
+
+                  </div>
+
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 20px', background: 'var(--bg2)', minWidth: '140px'}}>
+
+                    <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '20px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px'}}>₹{apps.length > 0 ? (apps.reduce((s, a) => s + a.loan_amount, 0) / apps.length / 1000).toFixed(1) : '0.0'}L</div>
+
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>Avg Loan Size</div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '20px', marginBottom: '20px'}}>
+
+                <div className="card fade-up">
+
+                  <div style={{ fontSize: '20px', marginBottom: '12px'}}></div>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px'}}>Net Interest Income</div>
+
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--teal)', marginBottom: '8px'}}>₹{apps.length > 0 ? (apps.reduce((s, a) => s + (a.loan_amount * a.interest_rate / 100), 0) / 10000000).toFixed(2) : '0.00'}Cr</div>
+
+                  <div style={{ fontSize: '12px', color: 'var(--teal)', fontWeight: 600, marginBottom: '16px'}}>Live computation</div>
+
+                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden'}}><div style={{ width: '73%', height: '100%', background: 'var(--teal)'}}></div></div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div style={{ fontSize: '20px', marginBottom: '12px'}}></div>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px'}}>NPA Exposure</div>
+
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--rose)', marginBottom: '8px'}}>₹{apps.length > 0 ? (apps.filter(a => a.risk_category === 'High').reduce((s, a) => s + a.loan_amount, 0) / 10000000).toFixed(2) : '0.00'}Cr</div>
+
+                  <div style={{ fontSize: '12px', color: 'var(--rose)', fontWeight: 600, marginBottom: '16px'}}>High risk sum</div>
+
+                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden'}}><div style={{ width: '27%', height: '100%', background: 'var(--rose)'}}></div></div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div style={{ fontSize: '20px', marginBottom: '12px'}}></div>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px'}}>Recovery Rate</div>
+
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--gold)', marginBottom: '8px'}}>64.2%</div>
+
+                  <div style={{ fontSize: '12px', color: 'var(--teal)', fontWeight: 600, marginBottom: '16px'}}>Standard baseline</div>
+
+                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden'}}><div style={{ width: '64%', height: '100%', background: 'var(--gold)'}}></div></div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div style={{ fontSize: '20px', marginBottom: '12px'}}></div>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px'}}>Model Precision</div>
+
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--sky)', marginBottom: '8px'}}>64%</div>
+
+                  <div style={{ fontSize: '12px', color: 'var(--text2)', fontWeight: 600, marginBottom: '16px'}}>On default class</div>
+
+                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden'}}><div style={{ width: '64%', height: '100%', background: 'var(--sky)'}}></div></div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '20px', marginBottom: '20px'}}>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-rose"></div>Risk Category Breakdown</div></div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '10px'}}>
+
+                    <div style={{ border: '1px solid rgba(56,201,176,0.2)', background: 'rgba(56,201,176,0.04)', borderRadius: '8px', padding: '16px', textAlign: 'center'}}>
+
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--teal)', marginBottom: '4px'}}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'Low').length / apps.length) * 100).toFixed(0) : '0'}%</div>
+
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase'}}>Low Risk</div>
+
+                    </div>
+
+                    <div style={{ border: '1px solid rgba(201,151,60,0.2)', background: 'rgba(201,151,60,0.04)', borderRadius: '8px', padding: '16px', textAlign: 'center'}}>
+
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px'}}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'Medium').length / apps.length) * 100).toFixed(0) : '0'}%</div>
+
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase'}}>Medium Risk</div>
+
+                    </div>
+
+                    <div style={{ border: '1px solid rgba(232,84,117,0.2)', background: 'rgba(232,84,117,0.04)', borderRadius: '8px', padding: '16px', textAlign: 'center'}}>
+
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--rose)', marginBottom: '4px'}}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'High').length / apps.length) * 100).toFixed(0) : '0'}%</div>
+
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase'}}>High Risk</div>
+
+                    </div>
+
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px'}}>
+
+                    <div style={{ border: '1px solid var(--border)', background: 'var(--bg2)', borderRadius: '8px', padding: '12px', textAlign: 'center'}}>
+
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--teal)', marginBottom: '2px'}}>{apps.filter(a => a.risk_category === 'Low').length.toLocaleString()}</div>
+
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase'}}>Approved</div>
+
+                    </div>
+
+                    <div style={{ border: '1px solid var(--border)', background: 'var(--bg2)', borderRadius: '8px', padding: '12px', textAlign: 'center'}}>
+
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--gold)', marginBottom: '2px'}}>{apps.filter(a => a.risk_category === 'Medium').length.toLocaleString()}</div>
+
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase'}}>Under Review</div>
+
+                    </div>
+
+                    <div style={{ border: '1px solid var(--border)', background: 'var(--bg2)', borderRadius: '8px', padding: '12px', textAlign: 'center'}}>
+
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--rose)', marginBottom: '2px'}}>{apps.filter(a => a.risk_category === 'High').length.toLocaleString()}</div>
+
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase'}}>Declined</div>
+
+                    </div>
+
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: 'var(--text3)', marginBottom: '10px'}}>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', background: '#38C9B0'}}></span> Low</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', background: '#C9973C'}}></span> Medium</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', background: '#E85475'}}></span> High</span>
+
+                  </div>
+
+                  <div style={{ height: '180px', position: 'relative'}}><canvas id="cht-stacked-risk"></canvas></div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Default Rate Trend (18 months)</div></div>
+
+                  <div style={{ height: '260px', position: 'relative'}}><canvas id="cht-trend-18"></canvas></div>
+
+                  <div style={{ marginTop: '20px', background: 'rgba(56,201,176,0.08)', border: '1px solid rgba(56,201,176,0.2)', borderRadius: '10px', padding: '16px'}}>
+
+                    <div style={{ fontWeight: 700, color: 'var(--teal)', fontSize: '13px', marginBottom: '6px'}}>Improving Trend</div>
+
+                    <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.5}}>Default rate declined 0.8pp over 18 months, driven by improved credit score filtering and co-signer policies.</div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '20px', marginBottom: '20px'}}>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-gold"></div>Sector Exposure & Default Rate</div></div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '30px'}}>
+
+                   {['Home', 'Education', 'Other', 'Business'].map((purpose, i) =>{
+
+                      const filtered = apps.filter(a => a.loan_purpose === purpose);
+
+                      const amt = filtered.reduce((s, a) => s + a.loan_amount, 0);
+
+                      const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + a.probability, 0) / filtered.length) * 100 : 0;
+
+                      const icons ={ Home: '', Education: '', Other: '', Business: ''};
+
+                      const colors ={ Home: 'var(--teal)', Education: 'var(--teal)', Other: 'var(--gold)', Business: 'var(--rose)'};
+
+                      return (
+
+                        <div key={purpose} style={{ display: 'flex', alignItems: 'center'}}>
+
+                          <div style={{ width: '30px', fontSize: '18px'}}>{icons[purpose]}</div>
+
+                          <div style={{ flex: 1, fontSize: '13px', fontWeight: 600}}>{purpose} Loans</div>
+
+                          <div style={{ width: '80px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace", fontSize: '12px'}}>₹{(amt / 10000000).toFixed(1)}Cr</div>
+
+                          <div style={{ width: '100px', margin: '0 16px', height: '4px', background: 'var(--bg2)', borderRadius: '2px', position: 'relative'}}>
+
+                            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${avgProb}%`, background: colors[purpose], borderRadius: '2px'}}></div>
+
+                          </div>
+
+                          <div style={{ width: '40px', textAlign: 'right', fontWeight: 700, fontSize: '12px', color: colors[purpose]}}>{avgProb.toFixed(1)}%</div>
+
+                        </div>
+
+                      );
+
+                   })}
+
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', fontSize: '11px', color: 'var(--text3)', marginBottom: '14px'}}>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', background: '#E85475'}}></span> Home</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', background: '#4BA8E0'}}></span> Education</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', background: '#38C9B0'}}></span> Auto</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', background: '#A072F0'}}></span> Other</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><span style={{ width: '8px', height: '8px', background: '#C9973C'}}></span> Business</span>
+
+                  </div>
+
+                  <div style={{ height: '180px', position: 'relative'}}><canvas id="cht-sector-doughnut"></canvas></div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Geographic Distribution</div></div>
+
+                  <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', marginBottom: '24px'}}>
+
+                    <thead>
+
+                      <tr style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--border)'}}>
+
+                        <th style={{ padding: '8px', fontWeight: 700}}></th><th style={{ padding: '8px', textAlign: 'right'}}>Volume</th><th style={{ padding: '8px', textAlign: 'right'}}>Default%</th><th style={{ padding: '8px', textAlign: 'right'}}>Avg Loan</th>
+
+                      </tr>
+
+                    </thead>
+
+                    <tbody style={{ fontSize: '13px', color: 'var(--text)'}}>
+
+                     {['MH', 'KA', 'TN', 'DL', 'GJ', 'Other'].map(code =>{
+
+                        const filtered = apps.filter(a => (a.state || 'MH') === code);
+
+                        const names ={ MH: 'Maharashtra', KA: 'Karnataka', TN: 'Tamil Nadu', DL: 'Delhi', GJ: 'Gujarat', Other: 'Others'};
+
+                        const avgLoan = filtered.length > 0 ? (filtered.reduce((s, a) => s + a.loan_amount, 0) / filtered.length / 1000).toFixed(1) : '0';
+
+                        const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + a.probability, 0) / filtered.length * 100).toFixed(1) : '0';
+
+                        return (
+
+                          <tr key={code} style={{ borderBottom: '1px solid var(--border)'}}>
+
+                            <td style={{ padding: '12px 8px', fontWeight: 600}}>{names[code]}</td>
+
+                            <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace"}}>{filtered.length}</td>
+
+                            <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace"}}>{avgProb}%</td>
+
+                            <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace"}}>₹{avgLoan}L</td>
+
+                          </tr>
+
+                        );
+
+                     })}
+
+                    </tbody>
+
+                  </table>
+
+                  <div style={{ height: '240px', position: 'relative'}}><canvas id="cht-geo-bar"></canvas></div>
+
+                </div>
+
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-rose"></div>EMI-to-Income Stress Distribution</div></div>
+
+                  <div style={{ height: '240px', position: 'relative'}}><canvas id="cht-stress-bar"></canvas></div>
+
+                </div>
+
+                <div className="card fade-up">
+
+                  <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Model ROC Curve (approximated)</div></div>
+
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: 'var(--text3)', marginBottom: '10px'}}>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', border: '2px solid var(--text)', background: 'transparent'}}></span> GroundZero LR (AUC=0.760)</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', border: '2px dashed #E85475', background: 'transparent'}}></span> Random (AUC=0.500)</span>
+
+                  </div>
+
+                  <div style={{ height: '240px', position: 'relative'}}><canvas id="cht-roc-curve"></canvas></div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
+
+         {page === 'bd-behaviour' && (
+
+            <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+
+              <div className="card fade-up">
+
+                <div className="ch"><div className="ct"><div className="pip pip-sky" />Job Stability Analysis</div></div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px'}}>
+
+                  <div style={{ background: 'rgba(56,201,176,0.06)', borderRadius: '8px', padding: '16px', textAlign: 'center'}}>
+
+                    <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '24px', fontWeight: 700, color: 'var(--teal)', marginBottom: '4px'}}>
+
+                     {apps.length > 0 ? Math.round(apps.reduce((s, a) => s + (a.months_employed || 0), 0) / apps.length) : 0}mo
+
+                    </div>
+
+                    <div style={{ fontSize: '10px', color: 'var(--text2)'}}>Avg Tenure</div>
+
+                  </div>
+
+                  <div style={{ background: 'var(--bg2)', borderRadius: '8px', padding: '16px', textAlign: 'center'}}>
+
+                    <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '24px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px'}}>
+
+                     {apps.length > 0 ? (apps.reduce((s, a) => s + (a.job_changes || 0), 0) / apps.length).toFixed(1) : 0}
+
+                    </div>
+
+                    <div style={{ fontSize: '10px', color: 'var(--text2)'}}>Avg Changes</div>
+
+                  </div>
+
+                  <div style={{ background: 'rgba(75,168,224,0.06)', borderRadius: '8px', padding: '16px', textAlign: 'center'}}>
+
+                    <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '24px', fontWeight: 700, color: '#4BA8E0', marginBottom: '4px'}}>
+
+                     {apps.filter(a => a.months_employed > 24).length > apps.length / 2 ? 'High' : 'Med'}
+
+                    </div>
+
+                    <div style={{ fontSize: '10px', color: 'var(--text2)'}}>Stability</div>
+
+                  </div>
+
+                </div>
+
+                <div style={{ position: 'relative', paddingLeft: '20px', borderLeft: '1px solid var(--border)', marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '20px'}}>
+
+                 {apps.slice(0, 3).map((a, i) => (
+
+                    <div key={i} style={{ position: 'relative'}}>
+
+                      <div style={{ position: 'absolute', left: '-25px', top: '4px', width: '9px', height: '9px', borderRadius: '50%', background: a.months_employed > 24 ? 'var(--teal)' : 'var(--rose)', border: '2px solid var(--panel)'}}></div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px'}}>
+
+                        <span style={{ fontWeight: 700, fontSize: '13px'}}>{a.full_name || 'Manual Entry'}</span>
+
+                        <span style={{ fontSize: '10px', background: a.months_employed > 24 ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: a.months_employed > 24 ? 'var(--teal)' : 'var(--rose)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600}}>{a.months_employed}mo</span>
+
+                      </div>
+
+                      <div style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'IBM Plex Mono',monospace"}}>{a.employment_type || 'Full-time'} ·{a.job_changes || 0} changes</div>
+
+                    </div>
+
+                  ))}
+
+                </div>
+
+              </div>
+
+              <div className="card fade-up fade-up-d1">
+
+                <div className="ch"><div className="ct"><div className="pip pip-gold" />Behaviour Signals</div></div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+
+                 {apps.filter(a => a.months_employed > 36).length > apps.length / 2 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)'}}>● High Tenure Avg</span>}
+
+                 {apps.filter(a => a.job_changes <= 1).length > apps.length / 2 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)'}}>● Stable Employment</span>}
+
+                 {apps.filter(a => a.has_cosigner === 'Yes').length > 0 && <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)'}}>● Co-Signer Presence</span>}
+
+                 {apps.length > 5 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)'}}>● Consistent Flow</span>}
+
+                  <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)'}}>● Verification Active</span>
+
+                </div>
+
+              </div>
+
+              <div className="card fade-up fade-up-d2">
+
+                <div className="ch"><div className="ct"><div className="pip pip-teal" />Bill Payment Radar</div></div>
+
+                <div style={{ height: '300px', position: 'relative'}}><canvas id="cht-radar-behavior"></canvas></div>
+
+              </div>
+
+              <div className="card fade-up fade-up-d3">
+
+                <div className="ch"><div className="ct"><div className="pip pip-sky" />Spending vs Income (12 mo)</div></div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: 'var(--text3)', marginBottom: '10px'}}>
+
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '12px', height: '2px', borderBottom: '2px dashed var(--text)', background: 'transparent'}}></span> Monthly Income</span>
+
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', border: '2px solid var(--text)', background: 'transparent'}}></span> Spending</span>
+
+                </div>
+
+                <div style={{ height: '280px', position: 'relative'}}><canvas id="cht-spend-behavior"></canvas></div>
+
+              </div>
+
+            </div>
+
+          )}
+
+         {page === 'bd-portfolio' && (
+            <div className="fade-in">
+
+             {/* ── KPI Stats Row ── */}
+              <div className="kpi-row" style={{ marginBottom: '28px'}}>
+                <div className="kpi sky fade-up">
+                  <div className="kpi-lbl">Total Loan Book</div>
+                  <div className="kpi-val" style={{ color: 'var(--sky)'}}>₹{(apps.reduce((s, a) => s + a.loan_amount, 0) / 100000).toFixed(1)}L</div>
+                  <div className="kpi-sub">{apps.length} Active Accounts</div>
+                </div>
+                <div className="kpi teal fade-up fade-up-d1">
+                  <div className="kpi-lbl">Avg. Interest Rate</div>
+                  <div className="kpi-val" style={{ color: 'var(--teal)'}}>12.4%</div>
+                  <div className="kpi-sub">Annualized Returns</div>
+                </div>
+                <div className="kpi gold fade-up fade-up-d2">
+                  <div className="kpi-lbl">Total Customers</div>
+                  <div className="kpi-val" style={{ color: 'var(--gold)'}}>{apps.length}</div>
+                  <div className="kpi-sub">Registered Borrowers</div>
+                </div>
+                <div className="kpi rose fade-up fade-up-d3">
+                  <div className="kpi-lbl">Portfolio Health</div>
+                  <div className="kpi-val" style={{ color: 'var(--teal)', fontSize: '24px'}}>Stable</div>
+                  <div className="kpi-sub">System-wide Status</div>
+                </div>
+              </div>
+
+             {/* ── Customer Directory ── */}
+              <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '16px', padding: '32px', boxShadow: '0 2px 10px rgba(0,0,0,.04)'}}>
+
+               {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid var(--border)'}}>
+                  <div>
+                    <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--navy)', marginBottom: '4px'}}>Customer Directory</div>
+                    <div style={{ fontSize: '13px', color: 'var(--slate)', fontWeight: 400}}>Select a customer to review their full loan profile and risk assessment.</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px'}}>
+                    <div style={{ position: 'relative'}}>
+                      <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', opacity: 0.5}}></span>
+                      <input
+                        type="text"
+                        placeholder="Search by name..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ padding: '8px 16px 8px 32px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12px', outline: 'none', width: '220px', background: 'var(--bg)'}}
+                      />
+                    </div>
+                    <div style={{ background: 'var(--ice)', border: '1px solid var(--border)', padding: '8px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '0.5px', whiteSpace: 'nowrap'}}>
+                     {apps.filter(a => (a.full_name || '').toLowerCase().includes(searchQuery.toLowerCase())).length} CUSTOMERS
+                    </div>
+                  </div>
+                </div>
+
+               {/* Customer Cards Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px'}}>
+
+                 {apps.filter(a => (a.full_name || '').toLowerCase().includes(searchQuery.toLowerCase())).map((a, i) =>{
+                    const risk = (a.risk_category || 'Low').toLowerCase();
+                    const riskColor = risk === 'low' ?{ bg: 'rgba(13,148,136,.08)', color: '#0d9488', border: 'rgba(13,148,136,.2)'}
+                                   : risk === 'medium' ?{ bg: 'rgba(217,119,6,.08)', color: '#b45309', border: 'rgba(217,119,6,.2)'}
+                                   :{ bg: 'rgba(225,29,72,.08)', color: '#be123c', border: 'rgba(225,29,72,.2)'};
+                    const initial = a.full_name?.trim().charAt(0).toUpperCase() || 'U';
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedApp(a)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '16px',
+                          background: '#fff', border: '1px solid var(--border)',
+                          borderRadius: '16px', padding: '20px 24px',
+                          cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                       }}
+                        onMouseEnter={e =>{ e.currentTarget.style.borderColor = 'var(--sky)'; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(14,165,233,0.1)';}}
+                        onMouseLeave={e =>{ e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.02)';}}
+                      >
+                       {/* Avatar */}
+                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--sky) 0%, var(--navy) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: '#fff', flexShrink: 0, boxShadow: '0 4px 12px rgba(14,165,233,0.2)'}}>
+                         {initial}
+                        </div>
+
+                       {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0}}>
+                          <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--navy)', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.3px'}}>
+                           {a.full_name || 'Unknown Customer'}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap'}}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 10px', borderRadius: '8px', background: riskColor.bg, color: riskColor.color}}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor', display: 'inline-block'}} />
+                             {a.risk_category || 'Low'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600, letterSpacing: '0.5px'}}>ID #{a.id}</span>
+                          </div>
+                        </div>
+
+                       {/* View Button */}
+                        <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--sky)', background: 'rgba(14,165,233,0.05)', padding: '8px 16px', borderRadius: '10px', whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.2s ease', border: '1px solid rgba(14,165,233,0.1)'}}>
+                          Review
+                        </div>
+                      </div>
+                    );
+                 })}
+
+                 {apps.filter(a => (a.full_name || '').toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                    <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 40px', background: 'var(--ice)', borderRadius: '14px', color: 'var(--slate)', fontSize: '14px', fontWeight: 500, border: '1px dashed var(--border-strong)'}}>
+                      No customers found matching your search.
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+            </div>
+          )}
+
+         {page === 'bd-risk' && (
+
+            <div className="fade-in">
+
+              <div className="card glass mb18">
+
+                <div className="ch">
+
+                  <div className="ct"><div className="pip pip-sky" />Manual Underwriting Assessment</div>
+
+                  <div className="mbadge mbadge-gold">Algorithmic Risk Unit · LR-B1</div>
+
+                </div>
+
+                <div className="form-grid">
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />BORROWER INFORMATION</div>
+
+                  <div className="fg-full">
+
+                    <div className="flab">BORROWER FULL NAME</div>
+
+                    <input type="text" className="finput" placeholder="Enter name" value={formData.fullName} onChange={e => update('fullName', e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">AGE</div>
+
+                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">CREDIT SCORE</div>
+
+                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">EDUCATION</div>
+
+                    <select className="fselect" value={formData.edu} onChange={e => update('edu', e.target.value)}>
+
+                      <option value="hs">High School</option><option value="bach">Bachelor's</option><option value="mast">Master's</option><option value="phd">PhD</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">MARITAL STATUS</div>
+
+                    <select className="fselect" value={formData.marital} onChange={e => update('marital', e.target.value)}>
+
+                      <option value="single">Single</option><option value="married">Married</option><option value="divorced">Divorced</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">STATE</div>
+
+                    <select className="fselect" value={formData.state} onChange={e => update('state', e.target.value)}>
+
+                      <option value="MH">Maharashtra</option><option value="DL">Delhi</option><option value="KA">Karnataka</option><option value="TN">Tamil Nadu</option><option value="GJ">Gujarat</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">ANNUAL INCOME (₹)</div>
+
+                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">LOAN AMOUNT (₹)</div>
+
+                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} />
+
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '20px', marginBottom: '10px'}}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+                      <div>
+                        <div className="flab">DTI RATIO <span style={{ fontWeight: 400, color: 'var(--slate)', fontSize: '11px', marginLeft: '8px'}}>(% of income used for EMI) (Optional)</span></div>
+                        <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', +e.target.value)} />
+                      </div>
+                      <div>
+                        <div className="flab">CREDIT LINES <span style={{ fontWeight: 400, color: 'var(--slate)', fontSize: '11px', marginLeft: '8px'}}>(Total no. of active loans or cards) (Optional)</span></div>
+                        <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', +e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />LOAN DETAILS</div>
+
+                  <div>
+
+                    <div className="flab">LOAN PURPOSE <span className="combo-tag">+ CUSTOM</span></div>
+
+                    <div className="combo-field">
+
+                      <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)}>
+
+                        <option value="home">Ã°Å¸ÂÂ  Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Ã°Å¸ÂÂ¢ Business</option><option value="medical">Ã°Å¸ÂÂ¥ Medical</option><option value="personal">Personal Loan</option><option value="other">Other</option><option value="custom">Ã¢Å“ÂÃ¯Â¸Â Custom</option>
+
+                      </select>
+
+                      <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">LOAN TERM <span className="combo-tag">+ CUSTOM</span></div>
+
+                    <div className="combo-field">
+
+                      <select className="combo-select" value={formData.term} onChange={e => update('term', e.target.value)}>
+
+                        <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">60 months</option><option value="custom">Ã¢Å“ÂÃ¯Â¸Â Custom</option>
+
+                      </select>
+
+                      <input type="number" className={`combo-manual ${formData.term === 'custom' ? 'show' : ''}`} value={formData.customTerm} onChange={e => update('customTerm', e.target.value)} />
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">INTEREST RATE %</div>
+
+                    <input type="number" step="0.01" className="finput" value={formData.rate} onChange={e => update('rate', +e.target.value)} />
+
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />EMPLOYMENT</div>
+
+                  <div>
+
+                    <div className="flab">EMPLOYMENT TYPE</div>
+
+                    <select className="fselect" value={formData.empType} onChange={e => update('empType', e.target.value)}>
+
+                      <option value="full">Full-time</option><option value="part">Part-time</option><option value="self">Self-employed</option><option value="unemployed">Unemployed</option>
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">MONTHS EMPLOYED</div>
+
+                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', +e.target.value)} />
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">JOB CHANGES (LAST 5 YRS)</div>
+
+                    <input type="number" className="finput" value={formData.jobChanges} onChange={e => update('jobChanges', +e.target.value)} />
+
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />BINARY FLAGS</div>
+
+                  <div>
+
+                    <div className="flab">HAS MORTGAGE?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.mort === 'Y' ? 'on' : ''}`} onClick={() => tog('mort', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.mort === 'N' ? 'on' : ''}`} onClick={() => tog('mort', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">HAS DEPENDENTS?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.dep === 'Y' ? 'on' : ''}`} onClick={() => tog('dep', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.dep === 'N' ? 'on' : ''}`} onClick={() => tog('dep', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <div className="flab">HAS CO-SIGNER?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.co === 'Y' ? 'on' : ''}`} onClick={() => tog('co', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.co === 'N' ? 'on' : ''}`} onClick={() => tog('co', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                  <div className="fg-sec"><div className="fg-sec-dot" />EXISTING LOAN (EXTERNAL)</div>
+
+                  <div>
+
+                    <div className="flab">OTHER BANK LOAN?</div>
+
+                    <div className="ftog">
+
+                      <button className={`ftog-btn ${flags.extloan === 'Y' ? 'on' : ''}`} onClick={() => tog('extloan', 'Y')}>Yes</button>
+
+                      <button className={`ftog-btn ${flags.extloan === 'N' ? 'on' : ''}`} onClick={() => tog('extloan', 'N')}>No</button>
+
+                    </div>
+
+                  </div>
+
+                 {flags.extloan === 'Y' && (
+
+                    <>
+
+                      <div>
+
+                        <div className="flab">BANK NAME</div>
+
+                        <div className="combo-field">
+
+                          <select className="combo-select" value={formData.bank} onChange={e => update('bank', e.target.value)}>
+
+                            <option value="SBI">State Bank of India</option><option value="HDFC">HDFC Bank</option><option value="ICICI">ICICI Bank</option><option value="custom">Ã¢Å“ÂÃ¯Â¸Â Manual Entry</option>
+
+                          </select>
+
+                          <input className={`combo-manual ${formData.bank === 'custom' ? 'show' : ''}`} placeholder="Enter bank name" value={formData.customBank} onChange={e => update('customBank', e.target.value)} />
+
+                        </div>
+
+                      </div>
+
+                      <div>
+
+                        <div className="flab">INTEREST RATE (%)</div>
+
+                        <input type="number" className="finput" placeholder="e.g. 8.5" value={formData.extRate} onChange={e => update('extRate', e.target.value)} />
+
+                      </div>
+
+                      <div>
+
+                        <div className="flab">LOAN PURPOSE</div>
+
+                        <div className="combo-field">
+
+                          <select className="combo-select" value={formData.extPurpose} onChange={e => update('extPurpose', e.target.value)}>
+
+                            <option value="home">Ã°Å¸ÂÂ  Home Loan</option><option value="auto">Auto Loan</option><option value="education">Education</option><option value="custom">Ã¢Å“ÂÃ¯Â¸Â Manual Entry</option>
+
+                          </select>
+
+                          <input className={`combo-manual ${formData.extPurpose === 'custom' ? 'show' : ''}`} placeholder="Enter purpose" value={formData.customExtPurpose} onChange={e => update('customExtPurpose', e.target.value)} />
+
+                        </div>
+
+                      </div>
+
+                    </>
+
+                  )}
+
+                  <div className="fg-full" style={{ marginTop: '10px'}}>
+
+                    <button className="btn-main" onClick={handleSubmit}>Assess Default Risk</button>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+             {result && (
+
+                <div className="fade-in" style={{ marginTop: "30px"}}>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1.1fr', gap: '24px'}}>
+
+                    <div className="card fade-in">
+
+                      <div className="ch">
+
+                        <div className="ct"><div className="pip pip-sky" />Risk Assessment</div>
+
+                        <div className="mbadge" style={{ background: 'rgba(201,151,60,0.1)', color: 'var(--gold)', border: '1px solid rgba(201,151,60,0.2)', fontFamily: "'JetBrains Mono',monospace"}}>σ(wᵀx+b)</div>
+
+                      </div>
+
+                      <div style={{ textAlign: 'center', padding: '10px 0 20px'}}>
+
+                        <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(${result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'} ${isNaN(result.pct) ? 0 : result.pct}%, var(--bg2) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px'}}>
+
+                          <div style={{ width: '136px', height: '136px', borderRadius: '50%', background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Fraunces',serif", fontSize: '48px', fontWeight: 700, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'}}>
+
+                           {isNaN(result.pct) ? '—' : result.pct + '%'}
+
+                          </div>
+
+                        </div>
+
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', letterSpacing: '1px'}}>DEFAULT PROBABILITY · σ(WᵀX+B)</div>
+
+                        <div style={{ width: '100%', height: '4px', background: 'var(--bg2)', borderRadius: '2px', marginTop: '20px', overflow: 'hidden'}}>
+
+                          <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'}}></div>
+
+                        </div>
+
+                      </div>
+
+                      <div style={{ padding: '16px', background: result.level === 'low' ? 'rgba(56,201,176,0.06)' : result.level === 'med' ? 'rgba(201,151,60,0.06)' : 'rgba(232,84,117,0.06)', border: `1px solid ${result.level === 'low' ? 'rgba(56,201,176,0.2)' : result.level === 'med' ? 'rgba(201,151,60,0.2)' : 'rgba(232,84,117,0.2)'}`, borderRadius: '10px'}}>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)', marginBottom: '8px', fontSize: '14px'}}>
+
+                         {result.level === 'low' ? 'Low Risk Low Risk — Likely Approved' : result.level === 'med' ? 'Medium Risk Medium Risk — Manual Review' : 'Ã¢â€°Â¡Ã†â€™ÃƒÂ¶Ã¢â€Â¤ High Risk — Likely Rejected'}
+
+                        </div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5}}>
+
+                         {result.level === 'low' ? 'Strong repayment profile. Default probability below 30%. Loan recommended for approval.' :
+
+                            result.level === 'med' ? 'Borderline profile. Default probability between 30% and 60%. Manual underwriter review required.' :
+
+                              'Weak repayment profile. Default probability exceeds 60%. Loan recommended for rejection.'}
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    <div className="card fade-in" style={{ animationDelay: '0.1s'}}>
+
+                      <div className="ch"><div className="ct"><div className="pip pip-gold" />Loan Repayment Breakdown</div></div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px'}}>
+
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 12px', textAlign: 'center'}}>
+
+                          <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: '#4BA8E0', marginBottom: '6px'}}>₹{isNaN(result.emi) ? '—' : fmt(result.emi)}</div>
+
+                          <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>Monthly EMI</div>
+
+                        </div>
+
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 12px', textAlign: 'center'}}>
+
+                          <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: 'var(--teal)', marginBottom: '6px'}}>₹{isNaN(formData.loanAmt) || !formData.loanAmt ? '—' : fmt(formData.loanAmt)}</div>
+
+                          <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>Principal</div>
+
+                        </div>
+
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 12px', textAlign: 'center'}}>
+
+                          <div style={{ fontFamily: "'Fraunces',serif", fontSize: '20px', fontWeight: 700, color: 'var(--rose)', marginBottom: '6px'}}>₹{isNaN(result.totalInt) ? '—' : fmt(result.totalInt)}</div>
+
+                          <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>Total Interest</div>
+
+                        </div>
+
+                      </div>
+
+                      <div style={{ display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', marginBottom: '10px'}}>
+
+                        <div style={{ width: `${isNaN(result.pPct) ? 0 : result.pPct}%`, background: '#4BA8E0'}}></div>
+
+                        <div style={{ width: `${isNaN(result.iPct) ? 0 : result.iPct}%`, background: 'var(--rose)'}}></div>
+
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: 'var(--text)', fontWeight: 600, marginBottom: '24px'}}>
+
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: '#4BA8E0', borderRadius: '2px'}}></span> Principal{isNaN(result.pPct) ? 0 : result.pPct.toFixed(0)}%</span>
+
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: 'var(--rose)', borderRadius: '2px'}}></span> Interest{isNaN(result.iPct) ? 0 : result.iPct.toFixed(0)}%</span>
+
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px'}}>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px'}}><span style={{ color: 'var(--text2)'}}>Total Repayment</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700}}>₹{isNaN(result.totalRepay) ? '—' : fmt(result.totalRepay)}</span></div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px'}}><span style={{ color: 'var(--text2)'}}>Interest Cost</span><span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: 'var(--rose)'}}>₹{isNaN(result.totalInt) ? '—' : fmt(result.totalInt)}</span></div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px'}}><span style={{ color: 'var(--text2)'}}>Rate (p.a.)</span><span style={{ fontFamily: "'JetBrains Mono',monospace"}}>{formData.rate || '0'}%</span></div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px'}}><span style={{ color: 'var(--text2)'}}>Term</span><span style={{ fontFamily: "'JetBrains Mono',monospace"}}>{formData.term || '0'} months</span></div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px'}}>
+
+                          <span style={{ color: 'var(--text2)'}}>EMI / Monthly Income</span>
+
+                          <span style={{ fontFamily: "'JetBrains Mono',monospace", color: (formData.income > 0 && ((result.emi / (formData.income / 12)) * 100) > 50) ? 'var(--gold)' : 'var(--teal)'}}>
+
+                           {formData.income > 0 && !isNaN(result.emi) ? ((result.emi / (formData.income / 12)) * 100).toFixed(1) + '%' : 'N/A'}
+
+                          </span>
+
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '10px'}}>
+
+                          <span style={{ color: 'var(--text2)'}}>Loan / Annual Income</span>
+
+                          <span style={{ fontFamily: "'JetBrains Mono',monospace", color: 'var(--teal)'}}>
+
+                           {formData.income > 0 && !isNaN(formData.loanAmt) ? (formData.loanAmt / formData.income).toFixed(2) + 'x' : 'N/A'}
+
+                          </span>
+
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between'}}><span style={{ color: 'var(--text2)'}}>Purpose</span><span>{formData.purpose || 'N/A'}</span></div>
+
+                      </div>
+
+                    </div>
+
+                    <div className="card fade-in" style={{ animationDelay: '0.2s'}}>
+
+                      <div className="ch"><div className="ct"><div className="pip pip-teal" />Feature Influence (Real Coefficients)</div></div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px'}}>
+
+                       {(() =>{
+
+                          const maxVal = Math.max(...result.features.map(f => Math.abs(f.val)), 1.0);
+
+                          return result.features.map(f => (
+
+                            <div key={f.name} style={{ display: 'flex', alignItems: 'center', fontSize: '11px'}}>
+
+                              <div style={{ width: '130px', color: 'var(--text2)'}}>{f.name}</div>
+
+                              <div style={{ width: '45px', fontSize: '10px', fontWeight: 600, color: f.type === 'pos' ? 'var(--rose)' : 'var(--teal)'}}>{f.type === 'pos' ? '+ risk' : '- risk'}</div>
+
+                              <div style={{ flex: 1, height: '6px', background: 'var(--bg2)', borderRadius: '3px', position: 'relative'}}>
+
+                                <div style={{
+
+                                  position: 'absolute', height: '100%', borderRadius: '3px',
+
+                                  background: f.type === 'pos' ? 'var(--rose)' : 'var(--teal)',
+
+                                  width: `${(Math.abs(f.val) / maxVal) * 50}%`,
+
+                                  ...(f.type === 'pos' ?{ left: '50%'} :{ right: '50%'})
+
+                               }} />
+
+                              </div>
+
+                              <div style={{ width: '50px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", color: 'var(--text3)'}}>{f.val > 0 ? `+${f.val}` : f.val}</div>
+
+                            </div>
+
+                          ));
+
+                       })()}
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              )}
+
+             {result && (
+
+                <div className="fade-in" style={{ marginTop: "30px"}}>
+
+                  <div className="card fade-up" style={{ marginTop: '20px', animationDelay: '0.3s'}}>
+
+                    <div className="ch">
+
+                      <div className="ct"><div className="pip pip-sky"></div>Full Amortization Schedule</div>
+
+                      <div className="mbadge" style={{ background: 'transparent', color: 'var(--text2)', border: 'none'}}>₹{fmt(result.totalRepay)} ·{formData.rate}% ·{formData.term}mo</div>
+
+                    </div>
+
+                    <div style={{ maxHeight: '250px', overflowY: 'auto', marginBottom: '30px', border: '1px solid var(--border)', borderRadius: '8px'}}>
+
+                      <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse'}}>
+
+                        <thead style={{ position: 'sticky', top: 0, background: 'var(--panel)', zIndex: 1, boxShadow: '0 1px 0 var(--border)'}}>
+
+                          <tr style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px'}}>
+
+                            <th style={{ padding: '14px 20px'}}>Month</th>
+
+                            <th style={{ padding: '14px 20px', textAlign: 'right'}}>EMI</th>
+
+                            <th style={{ padding: '14px 20px', textAlign: 'right'}}>Principal</th>
+
+                            <th style={{ padding: '14px 20px', textAlign: 'right'}}>Interest</th>
+
+                            <th style={{ padding: '14px 20px', textAlign: 'right'}}>Balance</th>
+
+                          </tr>
+
+                        </thead>
+
+                        <tbody style={{ fontSize: '13px'}}>
+
+                         {result.sched.rows.map(m => (
+
+                            <tr key={m.m} style={{ borderBottom: '1px solid var(--border)'}}>
+
+                              <td style={{ padding: '12px 20px', color: 'var(--text2)'}}>Mo{m.m}</td>
+
+                              <td style={{ padding: '12px 20px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", fontWeight: 700}}>₹{fmt(m.emi)}</td>
+
+                              <td style={{ padding: '12px 20px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", color: '#4BA8E0'}}>₹{fmt(m.p)}</td>
+
+                              <td style={{ padding: '12px 20px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", color: 'var(--rose)'}}>₹{fmt(m.i)}</td>
+
+                              <td style={{ padding: '12px 20px', textAlign: 'right', fontFamily: "'JetBrains Mono',monospace", color: 'var(--text2)'}}>₹{fmt(m.bal)}</td>
+
+                            </tr>
+
+                          ))}
+
+                        </tbody>
+
+                      </table>
+
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: 'var(--text3)', marginBottom: '14px'}}>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', background: '#4BA8E0', borderRadius: '2px'}}></span> Principal</span>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '10px', height: '10px', background: 'var(--rose)', borderRadius: '2px'}}></span> Interest</span>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '16px', height: '2px', background: 'var(--text)'}}></span> Balance</span>
+
+                    </div>
+
+                    <div style={{ height: '300px', position: 'relative'}}><canvas id="cht-amort-assess"></canvas></div>
+
+                  </div>
+
+                </div>
+
+              )}
+
+            </div>
+
+          )}
+
+         {page === 'pg-suggest' && (
+
+            <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px'}}>
+
+              <div>
+
+                <div className="h-serif" style={{ marginBottom: '24px', fontSize: '32px'}}>
+
+                  Bank Recommendations
+
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px'}}>
+
+                  <div className="card fade-up" style={{ border: '1px solid rgba(56,201,176,0.2)', background: 'rgba(56,201,176,0.02)', padding: '20px'}}>
+
+                    <div style={{ display: 'flex', gap: '16px'}}>
+
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(56,201,176,0.1)', flexShrink: 0}} />
+
+                      <div>
+
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', color: 'var(--text)'}}>Improve Credit Score to 700+</div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5, marginBottom: '12px'}}>Model coef: -0.121. Every 50pt improvement reduces risk. Keep credit utilization below 30%, pay dues on time for 3+ months.</div>
+
+                        <div style={{ display: 'inline-block', fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600}}>High Impact</div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <div className="card fade-up fade-up-d1" style={{ border: '1px solid rgba(56,201,176,0.2)', background: 'rgba(56,201,176,0.02)', padding: '20px'}}>
+
+                    <div style={{ display: 'flex', gap: '16px'}}>
+
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(56,201,176,0.1)', flexShrink: 0}} />
+
+                      <div>
+
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', color: 'var(--text)'}}>Reduce Loan-to-Income Ratio</div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5, marginBottom: '12px'}}>Loan_Income_Ratio coef: +0.470 — strong positive predictor. Keep loan amount below 1.5x annual income.</div>
+
+                        <div style={{ display: 'inline-block', fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600}}>High Impact</div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <div className="card fade-up fade-up-d2" style={{ border: '1px solid rgba(56,201,176,0.2)', background: 'rgba(56,201,176,0.02)', padding: '20px'}}>
+
+                    <div style={{ display: 'flex', gap: '16px'}}>
+
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(56,201,176,0.1)', flexShrink: 0}} />
+
+                      <div>
+
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', color: 'var(--text)'}}>Negotiate Lower Interest Rate</div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5, marginBottom: '12px'}}>InterestRate coef: +0.459 — 2nd strongest predictor. Lower rates directly reduce the model score. Co-signers help secure better rates.</div>
+
+                        <div style={{ display: 'inline-block', fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600}}>High Impact</div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <div className="card fade-up fade-up-d3" style={{ border: '1px solid rgba(56,201,176,0.2)', background: 'rgba(56,201,176,0.02)', padding: '20px'}}>
+
+                    <div style={{ display: 'flex', gap: '16px'}}>
+
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(56,201,176,0.1)', flexShrink: 0}} />
+
+                      <div>
+
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', color: 'var(--text)'}}>Stay Employed Longer</div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5, marginBottom: '12px'}}>MonthsEmployed coef: -0.339 — 4th strongest. Avoid switching jobs within 6 months before application. 48+ months significantly lowers probability.</div>
+
+                        <div style={{ display: 'inline-block', fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600}}>High Impact</div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <div className="card fade-up fade-up-d4" style={{ border: '1px solid rgba(201,151,60,0.2)', background: 'rgba(201,151,60,0.02)', padding: '20px'}}>
+
+                    <div style={{ display: 'flex', gap: '16px'}}>
+
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(201,151,60,0.1)', flexShrink: 0}} />
+
+                      <div>
+
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', color: 'var(--text)'}}>Add a Co-Signer</div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5, marginBottom: '12px'}}>HasCoSigner_Yes coef: -0.142. Choose co-signer with 720+ credit score, full-time employment, stable income history.</div>
+
+                        <div style={{ display: 'inline-block', fontSize: '10px', background: 'rgba(201,151,60,0.1)', color: 'var(--gold)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600}}>Med Impact</div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <div className="card fade-up fade-up-d5" style={{ border: '1px solid rgba(201,151,60,0.2)', background: 'rgba(201,151,60,0.02)', padding: '20px'}}>
+
+                    <div style={{ display: 'flex', gap: '16px'}}>
+
+                      <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(201,151,60,0.1)', flexShrink: 0}} />
+
+                      <div>
+
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', color: 'var(--text)'}}>Choose Home Loan Purpose</div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5, marginBottom: '12px'}}>LoanPurpose_Home coef: -0.078. Lowest risk purpose (10.2% default rate). Business loans: +0.023 coef. Reframe if purpose is flexible.</div>
+
+                        <div style={{ display: 'inline-block', fontSize: '10px', background: 'rgba(201,151,60,0.1)', color: 'var(--gold)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600}}>Med Impact</div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="card fade-up fade-up-d1" style={{ position: 'sticky', top: '20px', height: 'max-content'}}>
+
+                <div className="ch"><div className="ct"><div className="pip pip-gold" />Eligibility Optimizer</div></div>
+
+                <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '24px'}}>Adjust variables — real model recalculates instantly</div>
+
+                <div style={{ marginBottom: '16px'}}>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '8px'}}>Loan Amount</div>
+
+                  <input type="range" min="5000" max="2500000" value={opt.loanAmt} onChange={e => setOpt({ ...opt, loanAmt: +e.target.value})} style={{ width: '100%', marginBottom: '4px', accentColor: 'var(--gold)'}} />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text2)'}}>
+
+                    <span>5K</span><span>₹{fmt(opt.loanAmt)}</span><span>25L</span>
+
+                  </div>
+
+                </div>
+
+                <div style={{ marginBottom: '16px'}}>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '8px'}}>Credit Score</div>
+
+                  <input type="range" min="300" max="850" value={opt.credit} onChange={e => setOpt({ ...opt, credit: +e.target.value})} style={{ width: '100%', marginBottom: '4px', accentColor: 'var(--gold)'}} />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text2)'}}>
+
+                    <span>300</span><span>{opt.credit}</span><span>850</span>
+
+                  </div>
+
+                </div>
+
+                <div style={{ marginBottom: '16px'}}>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '8px'}}>DTI Ratio</div>
+
+                  <input type="range" min="0" max="0.9" step="0.01" value={opt.dti} onChange={e => setOpt({ ...opt, dti: +e.target.value})} style={{ width: '100%', marginBottom: '4px', accentColor: 'var(--gold)'}} />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontFamily: "'IBM Plex Mono',monospace", color: 'var(--text2)'}}>
+
+                    <span>0.00</span><span>{opt.dti.toFixed(2)}</span><span>0.90</span>
+
+                  </div>
+
+                </div>
+
+                <div style={{ marginBottom: '24px'}}>
+
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '8px'}}>Employment Type</div>
+
+                  <select className="fselect" style={{ width: '100%', fontSize: '12px'}} value={opt.empType} onChange={e => setOpt({ ...opt, empType: e.target.value})}>
+
+                    <option value="full">Full-time</option>
+
+                    <option value="self">Self-employed</option>
+
+                    <option value="part">Part-time</option>
+
+                    <option value="unemp">Unemployed</option>
+
+                  </select>
+
+                </div>
+
+                <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: '10px', padding: '24px', textAlign: 'center', marginBottom: '30px'}}>
+
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '48px', fontWeight: 700, color: optProb < 0.3 ? 'var(--teal)' : optProb < 0.6 ? 'var(--gold)' : 'var(--rose)', marginBottom: '4px'}}>
+
+                   {Math.round(optProb * 100)}%
+
+                  </div>
+
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: optProb < 0.3 ? 'var(--teal)' : optProb < 0.6 ? 'var(--gold)' : 'var(--rose)'}}>
+
+                   {optProb < 0.3 ? 'Low Risk' : optProb < 0.6 ? 'Medium Risk' : 'High Risk'}
+
+                  </div>
+
+                </div>
+
+                <div style={{ height: '240px', position: 'relative', borderLeft: '1px solid var(--border)', borderBottom: '1px solid var(--border)', marginLeft: '30px'}}>
+
+                  <div style={{ position: 'absolute', left: '-30px', top: '-6px', bottom: '-6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text3)', fontFamily: "'IBM Plex Mono',monospace"}}>
+
+                    <span>80%</span><span>70%</span><span>60%</span><span>50%</span><span>40%</span><span>30%</span><span>20%</span><span>10%</span><span>0%</span>
+
+                  </div>
+
+                 {Array.from({ length: 9}).map((_, i) => (
+
+                    <div key={i} style={{ position: 'absolute', top: `${(i / 8) * 100}%`, left: 0, right: 0, height: '1px', background: 'var(--border)'}}></div>
+
+                  ))}
+
+                 {optProb * 100 >= 0 && optProb * 100 <= 80 && (
+
+                    <div style={{ position: 'absolute', left: '10px', bottom: `${((optProb * 100) / 80) * 100}%`, width: '10px', height: '10px', borderRadius: '50%', border: '2px solid var(--text)', background: 'var(--bg)', transform: 'translateY(5px)'}} />
+
+                  )}
+
+                 {optProb * 100 > 80 && (
+
+                    <div style={{ position: 'absolute', left: '10px', top: '0', width: '10px', height: '10px', borderRadius: '50%', border: '2px solid var(--rose)', background: 'var(--bg)', transform: 'translateY(-5px)'}} />
+
+                  )}
+
+                  <div style={{ position: 'absolute', left: '12px', bottom: '-20px', fontSize: '10px', color: 'var(--text3)', fontFamily: "'IBM Plex Mono',monospace"}}>#1</div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
+
+          <button className="ai-fab" onClick={() => setIsAiOpen(!isAiOpen)}>
+
+            <span style={{ fontSize: '18px', fontWeight: 900, fontFamily: 'var(--font-heading)'}}>A</span>
+
+          </button>
+
+          <ArthaAI isOpen={isAiOpen} onClose={() => setIsAiOpen(false)} />
+
+         {toast && (
+
+            <div className={`toast-notify ${toast.type}`} style={{ position: 'fixed', bottom: '30px', right: '30px', padding: '12px 24px', background: toast.type === 'success' ? 'var(--teal)' : 'var(--rose)', color: '#000', borderRadius: '12px', fontWeight: 800, zIndex: 10000, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s ease-out'}}>
+
+             {toast.type === 'success' ? '' : ''}{toast.message}
+
+            </div>
+
+          )}
+
+         {selectedApp && (
+            <div className="modal-overlay active" onClick={() =>{ setSelectedApp(null); setDecisionMode(null);}} style={{ backdropFilter: 'blur(8px)', background: 'rgba(15,23,42,0.6)'}}>
+              <div className="modal-content glass-modal animate-scale" style={{ maxWidth: '1140px', width: '95vw', padding: '0', background: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.15)'}} onClick={e => e.stopPropagation()}>
+
+               {/* STICKY TOP BAR */}
+
+                <div className="modal-header-premium" style={{ background: 'var(--navy)', color: '#fff', padding: '24px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10}}>
+
+                  <div>
+                    <div style={{ display: 'inline-block', padding: '4px 10px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '10px', fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px'}}>
+                      Bank Analyst Portal · Case #{selectedApp.id}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px'}}>
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '32px', fontWeight: 800, letterSpacing: '-1px'}}>{selectedApp.full_name || 'Manual Entry'}</div>
+                      <div className={`status-chip sc-${(selectedApp.risk_category || 'pending').toLowerCase()}`} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.2)'}}>{selectedApp.risk_category || 'Pending'} Risk</div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right', display: 'flex', gap: '24px', alignItems: 'center'}}>
+
+                    <div>
+
+                      <div style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase'}}>APPLICATION STATUS</div>
+
+                      <div style={{ fontWeight: 700, color: 'var(--gold)'}}>{selectedApp.status || 'Under Review'}</div>
+
+                    </div>
+
+                    <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)'}}></div>
+
+                    <button className="modal-close" style={{ position: 'static', color: '#fff', opacity: 0.8, background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '50%', transition: 'all 0.2s'}} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.8'} onClick={() =>{ setSelectedApp(null); setDecisionMode(null);}}>✕</button>
+
+                  </div>
+
+                </div>
+
+                <div className="modal-body-p" style={{ padding: '0', display: 'flex', height: 'calc(90vh - 86px)'}}>
+
+                 {/* LEFT MAIN CONTENT (Scrollable) */}
+
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '40px', background: '#fafbfc'}}>
+                   {/* 1. BORROWER OVERVIEW GRID */}
+                    <div style={{ marginBottom: '40px'}}>
+                      <div className="p-sec-title" style={{ fontSize: '15px', marginBottom: '20px', color: 'var(--navy)', fontWeight: 800}}>Borrower Summary Overview</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px'}}>
+                       {[
+                         { l: 'Age', v: `${selectedApp.age}y`},
+                         { l: 'Credit Score', v: selectedApp.credit_score, c: 'var(--gold)'},
+                         { l: 'Annual Income', v: `₹${fmtK(selectedApp.income)}`},
+                         { l: 'DTI Ratio', v: (selectedApp.dti || 0).toFixed(2)},
+                         { l: 'Loan Requested', v: `₹${fmt(selectedApp.loan_amount)}`, c: 'var(--teal)'},
+                         { l: 'Purpose', v: selectedApp.loan_purpose},
+                         { l: 'Employment', v: selectedApp.employment_type},
+                         { l: 'Duration', v: `${selectedApp.months_employed}m`},
+                         { l: 'Education', v: selectedApp.education || 'Bachelor\'s'},
+                         { l: 'Co-Signer', v: selectedApp.has_cosigner || 'No'},
+                         { l: 'Dependents', v: selectedApp.has_dependents || 'No'},
+                         { l: 'Target Bank', v: selectedApp.target_bank || 'HDFC Bank', c: '#4BA8E0'}
+                        ].map((s, i) => (
+                          <div key={i} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)'}}>
+                            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px'}}>{s.l}</div>
+                            <div style={{ fontSize: '16px', fontWeight: 800, color: s.c || 'var(--navy)'}}>{s.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                   {/* 2. LOAN & UNDERWRITING KPI SECTION */}
+                    <div style={{ marginBottom: '40px', background: '#fff', border: '1px solid var(--border)', borderRadius: '20px', padding: '32px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)'}}>
+                      <div className="p-sec-title" style={{ fontSize: '15px', marginBottom: '24px', color: 'var(--navy)', fontWeight: 800}}>Loan Underwriting Parameters</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px'}}>
+                        <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px'}}>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px'}}>Assigned Rate</div>
+                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px'}}>{selectedApp.assigned_rate || (selectedApp.probability < 0.3 ? '8.5' : '12.4')}%</div>
+                        </div>
+                        <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px'}}>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px'}}>Estimated EMI</div>
+                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px'}}>₹{fmt(Math.round(selectedApp.loan_amount / (selectedApp.term || 36) * 1.1))}</div>
+                        </div>
+                        <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px'}}>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px'}}>Term Length</div>
+                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px'}}>{selectedApp.term || 36} <small style={{ fontSize: '14px', opacity: 0.5, fontWeight: 700}}>mo</small></div>
+                        </div>
+                        <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px'}}>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px'}}>Default Prob.</div>
+                          <div style={{ fontSize: '26px', fontWeight: 800, color: selectedApp.probability > 0.6 ? 'var(--rose)' : 'var(--teal)', letterSpacing: '-0.5px'}}>{Math.round((selectedApp.probability || 0.1) * 100)}%</div>
+                        </div>
+                        <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px'}}>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px'}}>Risk Score</div>
+                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px'}}>{Math.round(850 - (selectedApp.probability || 0.1) * 400)}</div>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '16px', background: '#f0f4f8', padding: '16px 24px', borderRadius: '12px'}}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--navy)', whiteSpace: 'nowrap', textTransform: 'uppercase'}}>Underwriter Notes:</div>
+                        <div style={{ fontSize: '13px', color: 'var(--navy)', fontStyle: 'italic', fontWeight: 500}}>
+                          "{selectedApp.bank_decision_note || 'Application satisfies primary liquidity thresholds. Recommended for standard processing.'}"
+                        </div>
+                      </div>
+                    </div>
+
+                   {/* 3. FINANCIAL INTELLIGENCE (CHARTS) */}
+
+                    <div style={{ marginBottom: '40px'}}>
+
+                      <div className="p-sec-title" style={{ fontSize: '14px', marginBottom: '24px', color: 'var(--navy)', border: 'none', padding: 0}}>Financial Behavioural Analytics</div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '24px', marginBottom: '24px'}}>
+
+                       {/* Investment Donut */}
+
+                        <div className="card" style={{ padding: '24px', background: '#fff', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)'}}>
+
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '20px'}}>Investment Allocation</div>
+
+                          <div style={{ height: '220px', position: 'relative'}}><canvas id="modal-cht-asset"></canvas></div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '10px', marginTop: '20px'}}>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: '#38C9B0', borderRadius: '2px'}}></span> Stocks</div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: '#E85475', borderRadius: '2px'}}></span> Crypto</div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: '#C9973C', borderRadius: '2px'}}></span> Gold</div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}><span style={{ width: '8px', height: '8px', background: '#4BA8E0', borderRadius: '2px'}}></span> Mutual Funds</div>
+
+                          </div>
+
+                        </div>
+
+                       {/* Income vs Spending Line */}
+
+                        <div className="card" style={{ padding: '32px', background: '#fff', borderRadius: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)', border: '1px solid var(--border)'}}>
+
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', letterSpacing: '0.5px'}}>
+
+                            <span>Monthly Cashflow Dynamics</span>
+
+                            <div style={{ display: 'flex', gap: '12px'}}>
+
+                              <span style={{ color: '#38C9B0'}}>●  Income</span>
+
+                              <span style={{ color: '#E85475'}}>●  Expenses</span>
+
+                              <span style={{ color: 'var(--gold)'}}>●  Savings</span>
+
+                            </div>
+
+                          </div>
+
+                          <div style={{ height: '260px', position: 'relative'}}><canvas id="modal-cht-trend"></canvas></div>
+
+                        </div>
+
+                      </div>
+
+                     {/* Spending Bar Chart */}
+
+                      <div className="card" style={{ padding: '32px', background: '#fff', borderRadius: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)', border: '1px solid var(--border)'}}>
+
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '24px', letterSpacing: '0.5px'}}>Expenditure Analysis by Category</div>
+
+                        <div style={{ height: '200px', position: 'relative'}}><canvas id="modal-cht-spend"></canvas></div>
+
+                      </div>
+
+                    </div>
+
+                   {/* 4. FINANCIAL HEALTH INSIGHTS */}
+
+                    <div style={{ marginBottom: '40px'}}>
+
+                      <div className="p-sec-title" style={{ fontSize: '14px', marginBottom: '20px', color: 'var(--navy)', border: 'none', padding: 0}}>Financial Health Observations</div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px'}}>
+
+                       {behData?.insights.map((ins, idx) => (
+
+                          <div key={idx} style={{ padding: '16px', background: ins.type === 'pos' ? 'rgba(56,201,176,0.05)' : 'rgba(232,84,117,0.05)', border: `1px solid ${ins.type === 'pos' ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)'}`, borderRadius: '12px', fontSize: '12px', color: 'var(--navy)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '12px'}}>
+
+                            <span style={{ fontSize: '18px'}}>{ins.type === 'pos' ? '' : ''}</span>
+
+                           {ins.text}
+
+                          </div>
+
+                        ))}
+
+                      </div>
+
+                    </div>
+
+                   {/* 5. TRANSACTION HISTORY TABLE */}
+
+                    <div style={{ marginBottom: '40px'}}>
+
+                      <div className="p-sec-title" style={{ fontSize: '14px', marginBottom: '20px', color: 'var(--navy)', border: 'none', padding: 0}}>Institutional Transaction Ledger</div>
+
+                      <div className="tbl-wrap" style={{ border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.03)'}}>
+
+                        <table className="tbl" style={{ width: '100%', borderCollapse: 'collapse'}}>
+
+                          <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)'}}>
+
+                            <tr style={{ textAlign: 'left', fontSize: '10px', color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px'}}>
+
+                              <th style={{ padding: '18px 24px', fontWeight: 800}}>Date</th>
+
+                              <th style={{ padding: '18px 24px', fontWeight: 800}}>Category</th>
+
+                              <th style={{ padding: '18px 24px', textAlign: 'right', fontWeight: 800}}>Amount</th>
+
+                              <th style={{ padding: '18px 24px', textAlign: 'center', fontWeight: 800}}>Type</th>
+
+                              <th style={{ padding: '18px 24px', fontWeight: 800}}>Description</th>
+
+                            </tr>
+
+                          </thead>
+
+                          <tbody>
+
+                           {behData?.transactions.map((t, idx) => (
+
+                              <tr key={idx} style={{ borderBottom: '1px solid var(--border)'}}>
+
+                                <td style={{ padding: '18px 24px', fontSize: '12px', color: 'var(--slate)', fontWeight: 500}}>{t.date}</td>
+
+                                <td style={{ padding: '18px 24px', fontWeight: 700, fontSize: '13px', color: 'var(--navy)'}}>{t.category}</td>
+
+                                <td style={{ padding: '18px 24px', textAlign: 'right', fontWeight: 800, color: t.type === 'Credit' ? 'var(--teal)' : 'var(--navy)', fontSize: '14px'}}>
+
+                                 {t.type === 'Credit' ? '+' : '-'}₹{fmt(t.amount)}
+
+                                </td>
+
+                                <td style={{ padding: '18px 24px', textAlign: 'center'}}>
+
+                                  <span style={{ fontSize: '9px', fontWeight: 800, padding: '5px 10px', borderRadius: '6px', background: t.type === 'Credit' ? 'rgba(56,201,176,0.1)' : 'rgba(100,116,139,0.1)', color: t.type === 'Credit' ? 'var(--teal)' : 'var(--slate)'}}>
+
+                                   {t.type.toUpperCase()}
+
+                                  </span>
+
+                                </td>
+
+                                <td style={{ padding: '18px 24px', fontSize: '12px', color: 'var(--slate)', fontStyle: 'italic'}}>
+
+                                 {t.type === 'Credit' ? 'Direct Deposit / Salary' : `Ref: TXN-502${idx}992`}
+
+                                </td>
+
+                              </tr>
+
+                            ))}
+
+                          </tbody>
+
+                        </table>
+
+                      </div>
+
+                    </div>
+
+                   {/* 6. APPROVAL SUPPORT SUMMARY */}
+
+                    <div style={{ background: 'linear-gradient(135deg, var(--navy) 0%, #0C1428 100%)', borderRadius: '24px', padding: '40px', color: '#fff', textAlign: 'center', marginBottom: '40px'}}>
+
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '16px'}}>Decision Support Conclusion</div>
+
+                      <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '12px'}}>
+
+                       {selectedApp.probability < 0.3 ? 'Financially Stable / Strong Capacity' : selectedApp.probability < 0.6 ? 'Moderate Risk / Manual Review' : 'High Risk / Weak Capacity'}
+
+                      </div>
+
+                      <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', maxWidth: '600px', margin: '0 auto', lineHeight: 1.6}}>
+
+                        Based on algorithmic assessment and behavioral intelligence, this borrower demonstrates
+
+                       {selectedApp.probability < 0.3 ? ' high repayment reliability and disciplined spending.' : ' moderate volatility which may require further verification of non-declared assets.'}
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                 {page !== 'bd-underwriting' && (
+                  <div style={{ width: '380px', borderLeft: '1px solid var(--border)', background: 'var(--panel)', padding: '40px', display: 'flex', flexDirection: 'column', gap: '30px', position: 'sticky', top: 0, height: '100%', overflowY: 'auto'}}>
+
+                    <div className="p-sec-title" style={{ fontSize: '14px', color: 'var(--navy)', border: 'none', padding: 0, flexShrink: 0}}>Final Underwriting Decision</div>
+
+                   {(!selectedApp.status || selectedApp.status === 'Pending' || selectedApp.status === 'Under Review') && !decisionMode ? (
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px'}}>
+
+                        <div style={{ background: '#f8fafc', border: '1px solid var(--border)', padding: '24px', borderRadius: '20px', textAlign: 'center'}}>
+
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.5px'}}>Live ML Risk Confidence</div>
+
+                          <div style={{ fontSize: '48px', fontWeight: 900, color: selectedApp.probability < 0.3 ? 'var(--teal)' : selectedApp.probability < 0.6 ? 'var(--gold)' : 'var(--rose)', letterSpacing: '-2px'}}>
+
+                           {Math.round((selectedApp.probability || 0.1) * 100)}%
+
+                          </div>
+
+                          <div style={{ height: '6px', background: 'var(--border-light)', borderRadius: '3px', marginTop: '20px', overflow: 'hidden'}}>
+
+                            <div style={{ height: '100%', width: `${(selectedApp.probability || 0.1) * 100}%`, background: selectedApp.probability < 0.3 ? 'var(--teal)' : selectedApp.probability < 0.6 ? 'var(--gold)' : 'var(--rose)'}}></div>
+
+                          </div>
+
+                        </div>
+
+                        <div className="decision-btns" style={{ display: 'flex', flexDirection: 'column', gap: '12px'}}>
+
+                          <button className="d-btn b-approve" style={{ width: '100%', padding: '20px'}} onClick={() => setDecisionMode('approve')}>
+
+                            <span style={{ fontSize: '20px'}}></span> Approve Application
+
+                          </button>
+
+                          <button className="d-btn b-reject" style={{ width: '100%', padding: '20px'}} onClick={() => setDecisionMode('reject')}>
+
+                            <span style={{ fontSize: '20px'}}></span> Reject Application
+
+                          </button>
+
+                        </div>
+
+                      </div>
+
+                    ) : decisionMode === 'approve' ? (
+
+                      <div className="decision-flow animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '20px'}}>
+
+                        <button className="back-link" onClick={() => setDecisionMode(null)}>← Return to options</button>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px'}}>
+
+                          <div className="f-row">
+
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)'}}>ASSIGNED INTEREST RATE (%)</label>
+
+                            <input type="number" step="0.01" className="f-inp" value={assignedRate} onChange={e => setAssignedRate(e.target.value)} />
+
+                          </div>
+
+                          <div className="f-row">
+
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)'}}>EMPLOYMENT SECTOR</label>
+
+                            <select className="f-inp" value={industry} onChange={e => setIndustry(e.target.value)}>
+
+                              <option>IT & Software</option><option>Healthcare</option><option>Manufacturing</option><option>Finance</option>
+
+                            </select>
+
+                          </div>
+
+                          <div className="f-row">
+
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)'}}>INTERNAL DECISION NOTE</label>
+
+                            <textarea className="f-area" style={{ height: '120px'}} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+
+                          </div>
+
+                          <button className="confirm-btn c-approve" style={{ width: '100%', padding: '20px'}} onClick={() => handleReviewSubmit('Approved')} disabled={reviewSubmitting}>
+
+                           {reviewSubmitting ? 'Confirming...' : 'Finalize Approval'}
+
+                          </button>
+
+                        </div>
+
+                      </div>
+
+                    ) : decisionMode === 'reject' ? (
+
+                      <div className="decision-flow animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '20px'}}>
+
+                        <button className="back-link" onClick={() => setDecisionMode(null)}>← Return to options</button>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px'}}>
+
+                          <div className="f-row">
+
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)'}}>REJECTION RATIONALE</label>
+
+                            <textarea className="f-area" style={{ height: '180px'}} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+
+                          </div>
+
+                          <button className="confirm-btn c-reject" style={{ width: '100%', padding: '20px'}} onClick={() => handleReviewSubmit('Rejected')} disabled={reviewSubmitting}>
+
+                            Confirm Rejection
+
+                          </button>
+
+                        </div>
+
+                      </div>
+
+                    ) : (
+
+                      <div className="decision-complete animate-fade" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column'}}>
+
+                        <div style={{ background: selectedApp.status === 'Approved' ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: selectedApp.status === 'Approved' ? 'var(--teal)' : 'var(--rose)', border: `1px solid ${selectedApp.status === 'Approved' ? 'rgba(56,201,176,0.2)' : 'rgba(232,84,117,0.2)'}`, fontSize: '20px', fontWeight: 900, padding: '24px', borderRadius: '20px', letterSpacing: '1px'}}>
+
+                         {selectedApp.status === 'Approved' ? '' : ''}{selectedApp.status.toUpperCase()}
+
+                        </div>
+
+                        <div style={{ marginTop: '32px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '16px'}}>
+
+                          <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px'}}>Decision Summary Note</div>
+
+                          <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', fontSize: '14px', lineHeight: 1.6, color: 'var(--navy)', fontStyle: 'italic', border: '1px solid var(--border)'}}>
+
+                            "{selectedApp.bank_decision_note || 'No notes provided.'}"
+
+                          </div>
+
+                         {selectedApp.status === 'Approved' && (
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', background: '#fff', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--border)', marginTop: '8px'}}>
+
+                              <span style={{ color: 'var(--slate)', fontWeight: 700}}>Final Rate</span><span style={{ fontWeight: 900, color: 'var(--teal)'}}>{selectedApp.assigned_rate}%</span>
+
+                            </div>
+
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+                    {/* Borrower Communication Section */}
+                    <div className="borrower-comm-sec animate-fade" style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: '24px', 
+                      marginTop: '40px', 
+                      padding: '32px', 
+                      background: '#ffffff', 
+                      border: '1px solid #eef2f6', 
+                      borderRadius: '28px', 
+                      boxShadow: '0 20px 50px rgba(0,0,0,0.04)'
+                    }}>
+                      
+                      <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
+                        <div style={{ fontSize: '18px', color: '#0f172a', fontWeight: 800, letterSpacing: '-0.4px', marginBottom: '4px' }}>Borrower Communication</div>
+                        <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500, lineHeight: 1.5 }}>Compose and dispatch official loan updates and document requests.</div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        
+                        <div className="f-row">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px', display: 'block' }}>Email Template</label>
+                          <select 
+                            className="f-inp" 
+                            style={{ 
+                              background: '#f8fafc', 
+                              border: '1.5px solid #e2e8f0', 
+                              borderRadius: '14px', 
+                              padding: '14px 18px', 
+                              fontSize: '14px',
+                              fontWeight: 600, 
+                              color: '#1e293b', 
+                              width: '100%', 
+                              outline: 'none', 
+                              transition: 'all 0.2s ease',
+                              cursor: 'pointer'
+                            }} 
+                            value={emailType} 
+                            onChange={e => handleEmailTypeChange(e.target.value)}
+                          >
+                            <option value="Loan Approved">Loan Approved</option>
+                            <option value="Loan Rejected">Loan Rejected</option>
+                            <option value="Additional Documents Required">Documents Required</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="General Update">General Update</option>
+                          </select>
+                        </div>
+                        
+                        <div className="f-row">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px', display: 'block' }}>Subject Line</label>
+                          <input 
+                            type="text" 
+                            className="f-inp" 
+                            style={{ 
+                              background: '#ffffff', 
+                              border: '1.5px solid #e2e8f0', 
+                              borderRadius: '14px', 
+                              padding: '14px 18px', 
+                              fontSize: '14px',
+                              fontWeight: 600, 
+                              color: '#1e293b', 
+                              width: '100%', 
+                              outline: 'none', 
+                              transition: 'all 0.2s ease'
+                            }}
+                            value={emailSubject} 
+                            onChange={e => setEmailSubject(e.target.value)} 
+                          />
+                        </div>
+                        
+                        <div className="f-row">
+                          <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px', display: 'block' }}>Message Body</label>
+                          <textarea 
+                            className="f-area" 
+                            style={{ 
+                              background: '#ffffff', 
+                              border: '1.5px solid #e2e8f0', 
+                              borderRadius: '16px', 
+                              padding: '20px', 
+                              fontSize: '14px', 
+                              fontFamily: "'Inter', system-ui, sans-serif", 
+                              color: '#334155', 
+                              width: '100%', 
+                              minHeight: '200px', 
+                              lineHeight: '1.7', 
+                              outline: 'none', 
+                              transition: 'all 0.2s ease', 
+                              resize: 'vertical',
+                              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.01)'
+                            }} 
+                            value={emailBody} 
+                            onChange={e => setEmailBody(e.target.value)} 
+                            placeholder="Write update or instructions for the borrower..." 
+                          />
+                        </div>
+
+                        {emailStatus === 'success' ? (
+                          <div className="animate-fade" style={{ 
+                            padding: '18px', 
+                            background: '#f0fdf4', 
+                            color: '#166534', 
+                            border: '1px solid #bbf7d0', 
+                            borderRadius: '16px', 
+                            fontSize: '14px', 
+                            fontWeight: 700, 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '12px', 
+                            justifyContent: 'center' 
+                          }}>
+                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✓</div>
+                            Update dispatched successfully
+                          </div>
+                        ) : (
+                          <button 
+                            className="d-btn" 
+                            style={{ 
+                              width: '100%', 
+                              padding: '18px', 
+                              background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', 
+                              color: '#fff', 
+                              border: 'none', 
+                              borderRadius: '16px', 
+                              fontSize: '15px', 
+                              fontWeight: 700, 
+                              cursor: 'pointer', 
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              gap: '12px', 
+                              boxShadow: '0 10px 20px rgba(15, 23, 42, 0.15)'
+                            }} 
+                            onClick={sendActualEmail} 
+                            disabled={emailSending}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                              e.currentTarget.style.boxShadow = '0 15px 30px rgba(15, 23, 42, 0.2)';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = '0 10px 20px rgba(15, 23, 42, 0.15)';
+                            }}
+                          >
+                            {emailSending ? (
+                              <>
+                                <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
+                                Dispatching...
+                              </>
+                            ) : 'Dispatch Update'}
+                          </button>
+                        )}
+                        
+                        <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', fontWeight: 500, letterSpacing: '0.3px' }}>
+                          Secure Institutional Relay • Identity Verified
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 'auto'}}>
+                      <button style={{ width: '100%', padding: '18px', background: '#f1f5f9', color: 'var(--slate)', border: 'none', borderRadius: '14px', fontSize: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', marginTop: '40px'}} onMouseEnter={e =>{ e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = 'var(--navy)';}} onMouseLeave={e =>{ e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = 'var(--slate)';}} onClick={() => setSelectedApp(null)}>
+                        Close Review Portal
+                      </button>
+                    </div>
+
+                  </div>
+                 )}
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+

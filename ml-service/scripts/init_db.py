@@ -10,9 +10,9 @@ import sys
 from sqlalchemy import create_engine, text
 
 # Add ml-service to path
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from database import Base, PredictionRecord, User
+from core.database import Base, PredictionRecord, User
 
 
 def init_database():

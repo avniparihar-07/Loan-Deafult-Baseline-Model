@@ -1,94 +1,76 @@
 import React from 'react';
 
-export default function Sidebar({ user, activePage, setPage, onLogout, type, toggleTheme }) {
-  const bankPages = [
-    { id: 'pg-overview', icon: '📊', label: 'Overview' },
-    { id: 'pg-assess', icon: '⚡', label: 'Risk Assessment' },
-    { id: 'pg-history', icon: '📋', label: 'Loan History' },
-    { id: 'pg-insights', icon: '📈', label: 'Business Insights', section: 'Intelligence' },
-    { id: 'pg-behaviour', icon: '🧠', label: 'Behaviour Profile', section: 'Intelligence' },
-    { id: 'pg-invest', icon: '💹', label: 'Investments', section: 'Intelligence' },
-    { id: 'pg-suggest', icon: '💡', label: 'Recommendations', section: 'Intelligence' }
+export default function Sidebar({ role, activePage, setPage, user, onLogout }) {
+  const bankMenu = [
+    { id: 'bd-overview',     label: 'Dashboard' },
+    { id: 'bd-portfolio',    label: 'Customers' },
+    { id: 'bd-risk',         label: 'Risk Review' },
+    { id: 'bd-underwriting', label: 'Applications' },
+    { id: 'bd-reports',      label: 'Reports' },
+    { id: 'bd-behaviour',    label: 'Customer Activity' }
   ];
 
-  const borPages = [
-    { id: 'bpg-status', icon: '📄', label: 'My Application' },
-    { id: 'bpg-apply', icon: '✏️', label: 'Submit Details' },
-    { id: 'bpg-history', icon: '📋', label: 'Past Applications' },
-    { id: 'bpg-tips', icon: '💡', label: 'Improve Score' },
-    { id: 'bpg-stocks', icon: '📈', label: 'Stock Investments' },
+  const borrowerMenu = [
+    { id: 'bpg-simulator', label: 'Check Eligibility' },
+    { id: 'bpg-apply', label: 'Apply Loan' },
+    { id: 'bpg-history', label: 'My Applications' },
+    { id: 'bpg-stocks', label: 'Money Insights' },
+    { id: 'bpg-tips', label: 'Smart Tips' }
   ];
 
-  const pages = type === 'bank' ? bankPages : borPages;
-  
-  const analyticsPages = pages.filter(p => !p.section);
-  const intelPages = pages.filter(p => p.section === 'Intelligence');
-
-  const getGradient = (name) => {
-    let h = 0; for(let i=0; i<name.length; i++) h=(h*31+name.charCodeAt(i))%5;
-    return `av-g${h}`;
-  };
+  const menu = role === 'bank' ? bankMenu : borrowerMenu;
 
   return (
-    <aside className="sidebar">
-      <div className="sb-top">
-        <div className="sb-brand">
-          <div className="sb-mark">G</div>
-          <div>
-            <div className="sb-nm">Ground<em>Zero</em></div>
-            <div className={`sb-bdg ${type === 'bank' ? 'sbb-bank' : 'sbb-bor'}`}>
-              {type === 'bank' ? 'Bank Analyst' : 'Borrower'}
-            </div>
-          </div>
+    <header className="sidebar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 32px', background: 'var(--navy)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+      <div className="sb-header">
+        <div className="lp-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span className="logo-g" style={{ background: 'var(--gold)', color: '#fff', borderRadius: '4px', width: '32px', height: '32px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>G</span>
+          <span className="logo-text" style={{ color: '#fff', fontSize: '20px', letterSpacing: '-0.02em', fontWeight: 800 }}>GroundZero</span>
         </div>
-        <button className="theme-btn" onClick={toggleTheme} style={{width:'40px',height:'22px'}} title="Toggle theme">
-          <div className="theme-btn-track" style={{borderRadius:'50px'}}>
-            <div className="theme-btn-stars" />
-            <div className="theme-btn-thumb" style={{width:'16px',height:'16px',fontSize:'9px',top:'3px',left:'3px'}}>🌙</div>
-          </div>
-        </button>
       </div>
 
-      <nav className="sb-nav">
-        <div className="sb-sec">
-          <div className="sb-sec-lbl">{type === 'bank' ? 'Analytics' : 'My Portal'}</div>
-          {analyticsPages.map(p => (
-            <div 
-              key={p.id} 
-              className={`nav-item ${activePage === p.id ? 'on' : ''}`}
-              onClick={() => setPage(p.id)}
-            >
-              <span className="ni">{p.icon}</span> {p.label}
-            </div>
-          ))}
-        </div>
-        
-        {intelPages.length > 0 && (
-          <div className="sb-sec">
-            <div className="sb-sec-lbl">Intelligence</div>
-            {intelPages.map(p => (
-              <div 
-                key={p.id} 
-                className={`nav-item ${activePage === p.id ? 'on' : ''}`}
-                onClick={() => setPage(p.id)}
-              >
-                <span className="ni">{p.icon}</span> {p.label}
-              </div>
-            ))}
+      <nav className="sb-nav" style={{ display: 'flex', gap: '48px', alignItems: 'center' }}>
+        {menu.map(item => (
+          <div 
+            key={item.id} 
+            className={`sb-item ${activePage === item.id ? 'active' : ''}`}
+            onClick={() => setPage(item.id)}
+            style={{ 
+              cursor: 'pointer', 
+              color: activePage === item.id ? 'var(--gold)' : 'rgba(255,255,255,0.6)',
+              fontWeight: 700,
+              fontSize: '13px',
+              padding: '24px 0',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              transition: 'all 0.2s ease',
+              borderBottom: activePage === item.id ? '2px solid var(--gold)' : '2px solid transparent'
+            }}
+          >
+            {item.label}
           </div>
-        )}
+        ))}
       </nav>
 
-      <div className="sb-user">
-        <div className={`sb-av ${getGradient((user.first||'')+(user.last||''))}`}>
-          {user.first?.[0]}{user.last?.[0]}
+      <div className="sb-footer" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '20px' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 700 }}>
+            {user?.first?.charAt(0) || 'U'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{user?.first} {user?.last}</span>
+            <span style={{ color: 'var(--gold)', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{role === 'bank' ? 'Bank Officer' : 'Portal Access'}</span>
+          </div>
         </div>
-        <div className="sb-ui">
-          <div className="sb-un">{user.first} {user.last}</div>
-          <div className="sb-ur">{user.type === 'bank' ? 'Credit Analyst' : 'Borrower'}</div>
-        </div>
-        <button className="sb-logout" onClick={onLogout}>⏻</button>
+        <button 
+          onClick={onLogout}
+          style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: '0.2s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#fff'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+        >
+          Sign Out
+        </button>
       </div>
-    </aside>
+    </header>
   );
 }

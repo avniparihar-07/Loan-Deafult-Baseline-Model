@@ -15,7 +15,7 @@ import os
 
 # --- Configuration ---
 DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'Loan_default.csv')
-MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model_artifacts')
+MODEL_DIR = os.path.join(os.path.dirname(__file__), '..', 'model_artifacts')
 
 def train_and_save_model():
     """Train the logistic regression model and save artifacts."""
