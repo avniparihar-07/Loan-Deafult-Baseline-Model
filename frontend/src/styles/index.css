@@ -2196,17 +2196,7 @@ input[type=number] {
   box-shadow: 0 1px 4px rgba(0,0,0,.04);
 }
 
-/* 8b. "01" counter before the step title */
-.card.glass .form-grid > .fg-sec:first-of-type::before {
-  content: '01';
-  font-size: 28px;
-  font-weight: 900;
-  color: var(--navy);
-  line-height: 1;
-  flex-shrink: 0;
-  letter-spacing: -1px;
-  opacity: 0.85;
-}
+/* 8b. Removed duplicate 01 counter */
 
 /* 8c. Hide the dot inside the first step section */
 .card.glass .form-grid > .fg-sec:first-of-type > .fg-sec-dot {
@@ -2611,17 +2601,7 @@ input[type=number] {
   box-shadow: 0 1px 4px rgba(0,0,0,.04);
 }
 
-/* 8b. "01" counter before the step title */
-.card.glass .form-grid > .fg-sec:first-of-type::before {
-  content: '01';
-  font-size: 28px;
-  font-weight: 900;
-  color: var(--navy);
-  line-height: 1;
-  flex-shrink: 0;
-  letter-spacing: -1px;
-  opacity: 0.85;
-}
+/* 8b. Removed duplicate 01 counter */
 
 /* 8c. Hide the dot inside the first step section */
 .card.glass .form-grid > .fg-sec:first-of-type > .fg-sec-dot {

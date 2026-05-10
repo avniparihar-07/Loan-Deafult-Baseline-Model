@@ -129,33 +129,42 @@ export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borro
               <div className="auth-sec-box" style={{ background: 'var(--ice)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-bank)', marginBottom: '20px' }}>
                 <div className="form-group">
                   <label>Institutional Bank Name</label>
-                  <select value={form.bankName} onChange={e => update('bankName', e.target.value)}>
+                  <select className="f-inp f-select" style={{ cursor: 'pointer', background: '#fff' }} value={form.bankName} onChange={e => update('bankName', e.target.value)}>
                     <option value="">Choose Bank…</option>
+                    <option value="State Bank of India">State Bank of India (SBI)</option>
                     <option value="HDFC Bank">HDFC Bank</option>
                     <option value="ICICI Bank">ICICI Bank</option>
-                    <option value="State Bank of India">State Bank of India</option>
                     <option value="Axis Bank">Axis Bank</option>
+                    <option value="Kotak Mahindra Bank">Kotak Mahindra Bank</option>
+                    <option value="Punjab National Bank">Punjab National Bank (PNB)</option>
+                    <option value="Bank of Baroda">Bank of Baroda</option>
+                    <option value="Canara Bank">Canara Bank</option>
+                    <option value="Union Bank of India">Union Bank of India</option>
+                    <option value="IDFC First Bank">IDFC First Bank</option>
+                    <option value="IndusInd Bank">IndusInd Bank</option>
                     <option value="manual">Other (Specify manually)</option>
                   </select>
                 </div>
                 {form.bankName === 'manual' && (
-                  <div className="form-group">
+                  <div className="form-group" style={{ marginTop: '-12px' }}>
                     <input type="text" placeholder="Enter Bank Name" value={form.bankNameManual} onChange={e => update('bankNameManual', e.target.value)} />
                   </div>
                 )}
                 <div className="form-group" style={{ marginTop: '16px' }}>
                   <label>Officer Role</label>
-                  <select value={form.officerRole} onChange={e => update('officerRole', e.target.value)}>
+                  <select className="f-inp f-select" style={{ cursor: 'pointer', background: '#fff' }} value={form.officerRole} onChange={e => update('officerRole', e.target.value)}>
                     <option value="">Choose Role…</option>
                     <option value="Credit Analyst">Credit Analyst</option>
                     <option value="Underwriter">Underwriter</option>
                     <option value="Branch Manager">Branch Manager</option>
                     <option value="Risk Officer">Risk Officer</option>
+                    <option value="Loan Officer">Loan Officer</option>
+                    <option value="Collection Manager">Collection Manager</option>
                     <option value="manual">Other (Specify manually)</option>
                   </select>
                 </div>
                 {form.officerRole === 'manual' && (
-                  <div className="form-group">
+                  <div className="form-group" style={{ marginTop: '-12px' }}>
                     <input type="text" placeholder="Enter Your Role" value={form.officerRoleManual} onChange={e => update('officerRoleManual', e.target.value)} />
                   </div>
                 )}

@@ -464,7 +464,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                     <div style={{ background: 'var(--ice)', padding: '20px 24px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '32px', display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
                       <div>
                         <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--navy)', marginBottom: '4px' }}>
-                          {page === 'bpg-apply' ? 'Loan Application Form' : 'Loan Eligibility Check'}
+                          {page === 'bpg-apply' ? 'Official Loan Application' : 'Institutional Eligibility Check'}
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--slate)', lineHeight: '1.6', opacity: 0.8 }}>
                           {page === 'bpg-apply'
@@ -715,6 +715,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             value={curData.targetBank}
                             onChange={e => update('targetBank', e.target.value)}
                             disabled={isReadOnly}
+                            style={{ padding: '14px 18px', borderRadius: '12px', background: '#fff', border: '1.5px solid var(--border)', fontSize: '14.5px', fontWeight: 600, color: 'var(--navy)', cursor: 'pointer', transition: '0.2s' }}
                           >
                             <option value="">Select bank you are applying to…</option>
                             <option value="SBI">State Bank of India (SBI)</option>
@@ -728,8 +729,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             <option value="Union Bank">Union Bank of India</option>
                             <option value="IDFC First Bank">IDFC First Bank</option>
                             <option value="IndusInd Bank">IndusInd Bank</option>
-                            <option value="Yes Bank">Yes Bank</option>
-                            <option value="__custom__">Enter bank name manually…</option>
+                            <option value="__custom__">Other (Specify manually)</option>
                           </select>
                           {curData.targetBank === '__custom__' && (
                             <input
@@ -946,9 +946,9 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
             <div className="fade-in" style={{ marginTop: '24px', color: 'var(--navy)' }}>
               {/* HERO SECTION */}
               <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', marginBottom: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 600, fontFamily: "'Georgia', serif", color: 'var(--navy)' }}>Application Submitted</h2>
+                <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 600, fontFamily: "'Georgia', serif", color: 'var(--navy)' }}>Eligibility Report</h2>
                 <div style={{ fontSize: '11px', color: 'var(--slate)', marginTop: '6px', letterSpacing: '0.5px', fontWeight: 500 }}>
-                  Assessed by GroundZero L.R Model · ROC-AUC 0.760 · {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+                  Assessed by GroundZero ML Intelligence · {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
                 </div>
                 <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                   <span style={{ padding: '6px 12px', background: 'rgba(13, 148, 136, 0.08)', color: 'var(--teal)', borderRadius: '6px', fontSize: '10px', fontWeight: 800, border: '1px solid rgba(13, 148, 136, 0.15)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -956,9 +956,6 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                   </span>
                   <span style={{ padding: '6px 12px', background: 'rgba(14, 165, 233, 0.08)', color: 'var(--sky)', borderRadius: '6px', fontSize: '10px', fontWeight: 800, border: '1px solid rgba(14, 165, 233, 0.15)' }}>
                     ₹{fmt(formData.loanAmt)} · {effectiveTerm} months · {displayPurpose}
-                  </span>
-                  <span style={{ padding: '6px 12px', background: 'rgba(181, 148, 75, 0.08)', color: 'var(--gold)', borderRadius: '6px', fontSize: '10px', fontWeight: 800, border: '1px solid rgba(181, 148, 75, 0.15)' }}>
-                    σ(wᵀx+b) = {result.pct}%
                   </span>
                 </div>
               </div>
