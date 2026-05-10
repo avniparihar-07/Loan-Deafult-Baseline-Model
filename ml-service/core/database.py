@@ -13,9 +13,21 @@ logger = logging.getLogger(__name__)
 # Falls back to local SQLite for development
 DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
-    _sqlite_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'local_dev.db')
+    # Build path relative to ml-service directory to work in both local and container environments
+    _base_dir = os.path.join(os.path.dirname(__file__), '..') # ml-service/
+    _data_dir = os.path.join(_base_dir, '..', 'data') # root/data/
+    
+    # Ensure the directory exists
+    try:
+        os.makedirs(_data_dir, exist_ok=True)
+    except:
+        # Fallback to local ml-service/data if root/data is not writable (e.g. in some containers)
+        _data_dir = os.path.join(_base_dir, 'data')
+        os.makedirs(_data_dir, exist_ok=True)
+
+    _sqlite_path = os.path.abspath(os.path.join(_data_dir, 'local_dev.db'))
     DATABASE_URL = f'sqlite:///{_sqlite_path}'
-    logger.warning(f"[DEV] DATABASE_URL not set. Using local SQLite: {_sqlite_path}")
+    logger.warning(f"[DATABASE] Using local SQLite: {_sqlite_path}")
 else:
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
