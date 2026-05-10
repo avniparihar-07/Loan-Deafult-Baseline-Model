@@ -36,7 +36,7 @@ def send_loan_email(email_type, borrower_name, loan_id, extra=None):
 
     try:
         params = {
-            "from": "onboarding@resend.dev",
+            "from": "GroundZero <onboarding@resend.dev>",
             "to": "thakkerstuti947@gmail.com", # Keeping your test email
             "subject": template['subject'],
             "html": template['html']

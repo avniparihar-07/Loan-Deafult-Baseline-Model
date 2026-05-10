@@ -486,8 +486,10 @@ def review_application(app_id):
 
         if note:
             record.bank_decision_note = note
-        if industry:
-            record.industry = industry
+        
+        industry_val = data.get('industry')
+        if industry_val:
+            record.industry = industry_val
 
         db.commit()
         db.refresh(record)

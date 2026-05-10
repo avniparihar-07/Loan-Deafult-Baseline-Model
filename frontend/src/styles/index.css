@@ -686,6 +686,25 @@ input[type=number] {
   box-shadow: 0 8px 20px rgba(225, 29, 72, 0.2);
 }
 
+.f-inp, .f-select, .f-area {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--navy);
+  background: #fff;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.f-inp:focus, .f-select:focus, .f-area:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 4px rgba(10, 25, 49, 0.05);
+  background: #fcfdfe;
+}
+
 .f-select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
@@ -693,6 +712,61 @@ input[type=number] {
   background-position: right 16px center;
   background-size: 16px;
   padding-right: 48px !important;
+  cursor: pointer;
+}
+
+.confirm-btn {
+  width: 100%;
+  padding: 18px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  margin-top: 10px;
+}
+
+.c-approve {
+  background: var(--navy);
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(10, 25, 49, 0.2);
+}
+
+.c-approve:hover:not(:disabled) {
+  background: var(--navy-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(10, 25, 49, 0.3);
+}
+
+.c-reject {
+  background: #fff;
+  color: #e11d48;
+  border: 1.5px solid #fecdd3 !important;
+}
+
+.c-reject:hover:not(:disabled) {
+  background: #fff1f2;
+  transform: translateY(-2px);
+}
+
+.back-link {
+  background: transparent;
+  border: none;
+  color: var(--slate);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  margin-bottom: 8px;
+  transition: 0.2s;
+}
+
+.back-link:hover {
+  color: var(--navy);
 }
 
 .modal-body {
