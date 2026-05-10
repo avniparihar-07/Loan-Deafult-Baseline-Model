@@ -4353,7 +4353,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme}){
 
                         <div style={{ background: selectedApp.status === 'Approved' ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: selectedApp.status === 'Approved' ? 'var(--teal)' : 'var(--rose)', border: `1px solid ${selectedApp.status === 'Approved' ? 'rgba(56,201,176,0.2)' : 'rgba(232,84,117,0.2)'}`, fontSize: '20px', fontWeight: 900, padding: '24px', borderRadius: '20px', letterSpacing: '1px'}}>
 
-                         {selectedApp.status === 'Approved' ? '' : ''}{selectedApp.status.toUpperCase()}
+                         {selectedApp.status.toUpperCase()}
 
                         </div>
 
