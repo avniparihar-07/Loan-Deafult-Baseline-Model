@@ -199,7 +199,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme}){
     if (!selectedApp) return;
     setEmailSending(true);
     try {
-      const resp = await fetch(`${apiUrl}/api/send-communication`, {
+      const resp = await fetch(apiUrl('/api/send-communication'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
