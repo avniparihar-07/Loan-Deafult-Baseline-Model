@@ -80,6 +80,7 @@ def get_cors_origins():
         'http://127.0.0.1:5177',
         'http://127.0.0.1:5178',
         'https://groundzero-tawny.vercel.app',
+        'https://groundzero-tauny.vercel.app',
         'https://loan-default-backend-production.up.railway.app',
     ]
     origins.extend(origin.strip().rstrip('/') for origin in configured.split(',') if origin.strip())
