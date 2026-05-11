@@ -707,9 +707,83 @@ def submit_application():
         db.close()
 
 
+@app.route('/api/applications/<int:app_id>/analyze', methods=['POST'])
+def analyze_application(app_id):
+    """Run dynamic ML risk assessment and calculate EMI based on officer input."""
+    if not MODEL_LOADED:
+        return jsonify({'error': 'Model not loaded'}), 503
+
+    data = request.get_json() or {}
+    assigned_rate = data.get('assigned_rate')
+    if assigned_rate is None:
+        return jsonify({'error': 'Interest rate is required for analysis'}), 400
+
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB offline'}), 500
+
+    try:
+        record = db.query(PredictionRecord).filter(PredictionRecord.id == app_id).first()
+        if not record:
+            return jsonify({'error': 'Application not found'}), 404
+
+        rate = float(assigned_rate)
+        term = record.loan_term or 36
+        amount = record.loan_amount
+
+        # EMI Calculation: [P x R x (1+R)^N]/[(1+R)^N-1]
+        monthly_rate = rate / (12 * 100)
+        emi = (amount * monthly_rate * pow(1 + monthly_rate, term)) / (pow(1 + monthly_rate, term) - 1)
+
+        # ML Prediction
+        ml_data = {
+            'Age': record.age, 'Income': record.income,
+            'LoanAmount': record.loan_amount, 'CreditScore': record.credit_score or 600,
+            'MonthsEmployed': record.months_employed, 'NumCreditLines': record.num_credit_lines or 1,
+            'InterestRate': rate,
+            'LoanTerm': term, 'DTIRatio': record.dti_ratio or 0,
+            'Education': record.education or "Bachelor's",
+            'EmploymentType': record.employment_type or 'Full-time',
+            'MaritalStatus': record.marital_status or 'Single',
+            'HasMortgage': record.has_mortgage or 'No',
+            'HasDependents': record.has_dependents or 'No',
+            'LoanPurpose': record.loan_purpose or 'Other',
+            'HasCoSigner': record.has_cosigner or 'No',
+        }
+        features_df = prepare_features(ml_data)
+        features_scaled = scaler.transform(features_df)
+        probability = float(model.predict_proba(features_scaled)[0][1])
+        
+        # Professional Risk Category
+        risk_cat = "Low Risk"
+        if probability > 0.5: risk_cat = "High Risk"
+        elif probability > 0.2: risk_cat = "Medium Risk"
+        
+        risk_score = int(850 - (probability * 400))
+
+        # Institutional Recommendation
+        recommendation = "Standard Approval Recommended"
+        if probability > 0.5: recommendation = "Decline Suggested"
+        elif probability > 0.2: recommendation = "Manual Review Required"
+
+        return jsonify({
+            'default_probability': round(probability * 100, 1),
+            'risk_score': risk_score,
+            'emi': round(emi, 2),
+            'risk_category': risk_cat,
+            'recommendation': recommendation,
+            'assigned_rate': rate
+        })
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+
 @app.route('/api/applications/<int:app_id>/review', methods=['POST'])
 def review_application(app_id):
-    """Bank analyst: run ML risk assessment, assign rate, set decision status."""
+    """Bank analyst: assign rate, set decision status, and persist analysis."""
     if not MODEL_LOADED:
         return jsonify({'error': 'Model not loaded'}), 503
 
@@ -723,57 +797,40 @@ def review_application(app_id):
         if not record:
             return jsonify({'error': 'Application not found'}), 404
 
-        # SECURITY: Verify the reviewer belongs to the target bank
         reviewer_bank = data.get('bank_name', '').strip()
         if not reviewer_bank or record.target_bank != reviewer_bank:
-            return jsonify({'error': 'Unauthorized Access: You cannot review applications for other banks.'}), 403
+            return jsonify({'error': 'Unauthorized Access'}), 403
 
-        assigned_rate = data.get('assigned_rate')
-        # We no longer accept assigned_term from officer as per requirements (read-only from borrower)
-        decision = data.get('decision')  # 'Approved' | 'Rejected' | 'Under Review' | 'Additional Verification Required'
+        decision = data.get('decision')
         note = data.get('note', '')
+        assigned_rate = data.get('assigned_rate')
+        
+        # Capture analysis results from frontend if provided
+        prob_pct = data.get('default_probability')
+        risk_score = data.get('risk_score')
+        risk_cat = data.get('risk_category')
 
-        # Update loan parameters if provided by the officer
         if assigned_rate is not None:
-            rate = float(assigned_rate)
-            record.assigned_rate = rate
-            record.interest_rate = rate # Sync for model consistency
-
-        # Run ML assessment with updated parameters (Dynamic Risk)
-        if assigned_rate is not None:
-            try:
-                ml_data = {
-                    'Age': record.age, 'Income': record.income,
-                    'LoanAmount': record.loan_amount, 'CreditScore': record.credit_score or 600,
-                    'MonthsEmployed': record.months_employed, 'NumCreditLines': record.num_credit_lines or 1,
-                    'InterestRate': record.interest_rate or 8.5,
-                    'LoanTerm': record.loan_term or 36, 'DTIRatio': record.dti_ratio or 0,
-                    'Education': record.education or "Bachelor's",
-                    'EmploymentType': record.employment_type or 'Full-time',
-                    'MaritalStatus': record.marital_status or 'Single',
-                    'HasMortgage': record.has_mortgage or 'No',
-                    'HasDependents': record.has_dependents or 'No',
-                    'LoanPurpose': record.loan_purpose or 'Other',
-                    'HasCoSigner': record.has_cosigner or 'No',
-                }
-                features_df = prepare_features(ml_data)
-                features_scaled = scaler.transform(features_df)
-                probability = float(model.predict_proba(features_scaled)[0][1])
-                risk_cat = get_risk_category(probability)
-                record.default_probability = round(probability, 4)
-                record.prediction = int(probability >= 0.5)
-                record.risk_category = risk_cat
-            except Exception as ml_err:
-                logger.warning(f"ML assessment failed for app {app_id}: {ml_err}")
+            record.assigned_rate = float(assigned_rate)
+            record.interest_rate = float(assigned_rate)
+            
+        if prob_pct is not None:
+            record.default_probability = float(prob_pct) / 100
+        
+        if risk_score is not None:
+            record.risk_score = int(risk_score)
+            
+        if risk_cat is not None:
+            record.risk_category = risk_cat
 
         if decision:
             record.status = decision
-        else:
-            record.status = 'Under Review'
-
+            if decision == 'Approved':
+                record.application_type = 'official'
+        
         if note:
             record.bank_decision_note = note
-        
+            
         industry_val = data.get('industry')
         if industry_val:
             record.industry = industry_val
@@ -781,33 +838,19 @@ def review_application(app_id):
         db.commit()
         db.refresh(record)
 
-        # Send status update email if decision made
         if decision in ['Approved', 'Rejected', 'Additional Verification Required']:
             try:
                 email_type = 'approved' if decision == 'Approved' else 'rejected'
                 if decision == 'Additional Verification Required':
                     email_type = 'verification_requested'
-                
-                # Mock sending for verification requested if not in mailer, otherwise use standard
                 send_loan_email(email_type if email_type != 'verification_requested' else 'general', 
                                record.full_name, record.id, {'reason': note, 'status': decision})
-            except Exception as e:
-                logger.error(f"Failed to send decision email: {e}")
+            except: pass
 
-        return jsonify({
-            'id': record.id,
-            'status': record.status,
-            'assigned_rate': record.assigned_rate,
-            'assigned_term': record.loan_term,
-            'default_probability': record.default_probability,
-            'risk_category': record.risk_category or 'Medium',
-            'risk_score': int(850 - (record.default_probability * 400)) if record.default_probability is not None else None,
-            'confidence_level': 'High' if record.default_probability is not None and (record.default_probability < 0.2 or record.default_probability > 0.8) else 'Medium',
-            'note': record.bank_decision_note
-        })
+        return jsonify({'success': True, 'id': record.id, 'status': record.status})
     except Exception as e:
         db.rollback()
-        logger.error(f"Review failed for app {app_id}: {e}", exc_info=True)
+        logger.error(f"Review failed: {e}")
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()

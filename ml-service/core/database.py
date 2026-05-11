@@ -72,6 +72,14 @@ class PredictionRecord(Base):
     industry = Column(String)          # Industry sector assigned during review
     loan_id = Column(String, unique=True, index=True)
 
+    # Institutional Transaction Intelligence
+    monthly_inflow = Column(Float, nullable=True)
+    monthly_outflow = Column(Float, nullable=True)
+    bounced_transactions = Column(Integer, default=0)
+    salary_consistency = Column(String, default='High') # High | Medium | Low
+    active_liabilities = Column(Float, nullable=True)
+    existing_emi_burden = Column(Float, nullable=True)
+
     # Workflow columns
     application_type = Column(String, default='official')  # 'official' | 'simulation'
     status = Column(String, default='Pending')              # Pending | Under Review | Approved | Rejected
@@ -81,6 +89,7 @@ class PredictionRecord(Base):
     # Output features
     prediction = Column(Integer)
     default_probability = Column(Float)
+    risk_score = Column(Integer)
     risk_category = Column(String)
 
 class User(Base):
@@ -141,6 +150,13 @@ try:
             ('target_bank',         'VARCHAR'),
             ('industry',            'VARCHAR'),
             ('loan_id',             'VARCHAR'),
+            ('monthly_inflow',      'FLOAT'),
+            ('monthly_outflow',     'FLOAT'),
+            ('bounced_transactions','INTEGER DEFAULT 0'),
+            ('salary_consistency',  'VARCHAR DEFAULT "High"'),
+            ('active_liabilities',  'FLOAT'),
+            ('existing_emi_burden', 'FLOAT'),
+            ('risk_score',          'INTEGER'),
         ]
         try:
             inspector = inspect(engine)
