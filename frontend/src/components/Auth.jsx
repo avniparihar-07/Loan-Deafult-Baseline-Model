@@ -66,7 +66,7 @@ export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borro
           throw new Error('Account not created. Please register as a Borrower.');
         }
         if (role === 'borrower' && userType === 'bank') {
-          throw new Error('Account not created. Please use the Bank Officer Login.');
+          throw new Error('Account not created. Please create one.');
         }
 
         onLogin(data);

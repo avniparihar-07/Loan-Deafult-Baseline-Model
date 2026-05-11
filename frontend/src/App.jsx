@@ -61,7 +61,7 @@ export default function App() {
           initialRole="borrower" 
           onBack={handleLogout} 
           isLocked={true}
-          forcedError="Account not created. Please use the Bank Officer Login."
+          forcedError="Account not created. Please create one."
         />
       );
     }
