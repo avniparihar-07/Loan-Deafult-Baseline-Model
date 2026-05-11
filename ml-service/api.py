@@ -58,8 +58,6 @@ def is_authorized_officer(email):
 
 # --- App Setup ---
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
-app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
-
 def get_cors_origins():
     configured = os.getenv('CORS_ORIGINS') or os.getenv('FRONTEND_URL') or ''
     origins = [
@@ -86,16 +84,8 @@ def get_cors_origins():
     origins.extend(origin.strip().rstrip('/') for origin in configured.split(',') if origin.strip())
     return sorted(set(origins))
 
-
-# Configure CORS for frontend communication
-CORS(app, resources={
-    r"/api/*": {
-        "origins": get_cors_origins(),
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True
-    }
-})
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
+CORS(app, supports_credentials=True, resources={r"*": {"origins": get_cors_origins()}})
 
 # --- Load Model Artifacts ---
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model_artifacts')
