@@ -4,6 +4,61 @@ import ArthaAI from '../components/ArthaAI';
 import { calcRisk, buildSched, fmt, fmtK } from '../utils/model';
 import { apiUrl } from '../services/api';
 
+const DocCard = ({ label, id, file, onUpload, accept = ".jpg,.jpeg,.png,.pdf" }) => {
+  return (
+    <div style={{ 
+      background: '#fff', 
+      border: '1.5px solid var(--border)', 
+      borderRadius: '12px', 
+      padding: '16px', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      textAlign: 'center',
+      transition: 'all 0.2s ease',
+      cursor: 'pointer',
+      position: 'relative',
+      minHeight: '160px'
+    }} className="doc-card-hover">
+      <input 
+        type="file" 
+        accept={accept} 
+        onChange={e => { if(e.target.files && e.target.files[0]) onUpload(e.target.files[0]); }} 
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
+      />
+      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>{label}</div>
+      
+      {!file ? (
+        <div style={{ padding: '20px 0', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: '20px', color: 'var(--slate)', marginBottom: '8px' }}>📁</div>
+          <div style={{ fontSize: '12px', color: 'var(--slate)', fontWeight: 600 }}>Click to Upload</div>
+          <div style={{ fontSize: '10px', color: 'var(--slate)', opacity: 0.6, marginTop: '4px' }}>Max 5MB</div>
+        </div>
+      ) : (
+        <div style={{ padding: '12px 0', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', margin: '0 auto 10px' }}>✓</div>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--navy-deep)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{file.name}</div>
+          <div style={{ fontSize: '10px', color: 'var(--teal)', fontWeight: 800, marginTop: '4px', textTransform: 'uppercase' }}>Uploaded</div>
+        </div>
+      )}
+      
+      <div style={{ marginTop: 'auto', paddingTop: '12px', width: '100%', borderTop: '1px solid var(--ice)', display: 'flex', justifyContent: 'center' }}>
+        <span style={{ 
+          padding: '4px 8px', 
+          borderRadius: '4px', 
+          fontSize: '9px', 
+          fontWeight: 800, 
+          textTransform: 'uppercase',
+          background: file ? 'rgba(56,201,176,0.1)' : 'rgba(100,100,100,0.05)',
+          color: file ? 'var(--teal)' : 'var(--slate)'
+        }}>
+          {file ? 'Uploaded' : 'Missing'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [page, setPage] = useState('bpg-simulator');
   const [formData, setFormData] = useState({
@@ -1447,61 +1502,138 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
 
   const eduMap = { hs: "High School", bach: "Bachelor's", mast: "Master's", phd: "PhD" };
   const empMap = { full: "Full-time", part: "Part-time", self: "Self-employed", unemployed: "Unemployed" };
-  const maritalMap = { single: "Single", married: "Married", divorced: "Divorced" };
   const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", medical: "Medical", personal: "Personal Loan", other: "Other", custom: "Other" };
 
   const displayPurpose = data.purpose === 'custom' ? data.customPurpose : (purposeMap[data.purpose] || data.purpose);
   const effectiveTerm = data.term === 'custom' ? data.customTerm : data.term;
+  
+  const status = result.adjustedD?.status || 'Under Review';
+  const isRejected = status === 'Rejected';
+  const isApproved = status === 'Approved';
 
   return (
     <div className="fade-in">
       <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="h-serif" style={{ fontSize: '32px', margin: 0 }}>Loan <span style={{ color: 'var(--gold)' }}>Details</span></h1>
-          <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px' }}>View your loan summary and monthly payment plan.</p>
+          <h1 className="h-serif" style={{ fontSize: '32px', margin: 0 }}>Application <span style={{ color: 'var(--gold)' }}>Summary</span></h1>
+          <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px' }}>Review your loan application status and risk assessment details.</p>
         </div>
         <button onClick={onBack} className="lp-btn-secondary" style={{ padding: '10px 24px', width: 'auto' }}>
           ← BACK TO MY APPLICATIONS
         </button>
       </div>
 
-      <div className="stats-grid" style={{ marginBottom: '32px' }}>
-        <div className="kpi-card">
-          <div className="label">Status</div>
-          <div className="value" style={{ color: result.adjustedD.status === 'Approved' ? 'var(--teal)' : result.adjustedD.status === 'Rejected' ? 'var(--rose)' : 'var(--gold)' }}>
-            {result.adjustedD.status || 'Under Review'}
+      {/* NEW: Application Review Summary Section */}
+      <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '24px', marginBottom: '32px', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Application Review Summary</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ 
+                padding: '6px 14px', 
+                borderRadius: '20px', 
+                fontSize: '12px', 
+                fontWeight: 800, 
+                background: isApproved ? 'rgba(56,201,176,0.1)' : isRejected ? 'rgba(232,84,117,0.1)' : 'rgba(201,151,60,0.1)',
+                color: isApproved ? 'var(--teal)' : isRejected ? 'var(--rose)' : 'var(--gold)',
+                border: `1px solid ${isApproved ? 'var(--teal)' : isRejected ? 'var(--rose)' : 'var(--gold)'}22`
+              }}>
+                {status.toUpperCase()}
+              </span>
+              <span style={{ fontSize: '12px', color: 'var(--slate)', fontWeight: 500 }}>
+                {isApproved ? 'Congratulations! Your loan has been approved.' : isRejected ? 'Your application requires adjustments for approval.' : 'Your application is currently being evaluated by our underwriters.'}
+              </span>
+            </div>
           </div>
-          <div className="label" style={{ fontSize: '10px' }}>Current Application Stage</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>Review Date</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--navy)' }}>{new Date().toLocaleDateString()}</div>
+          </div>
         </div>
-        <div className="kpi-card">
-          <div className="label">Interest Rate</div>
-          <div className="value" style={{ color: 'var(--sky)' }}>{result.adjustedD.assigned_rate || result.adjustedD.interest_rate || '0.0'}%</div>
-          <div className="label" style={{ fontSize: '10px' }}>Fixed Yearly Rate</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Risk Probability</div>
-          <div className="value" style={{ color: result.level === 'low' ? 'var(--teal)' : 'var(--rose)' }}>{result.pct}%</div>
-          <div className="label" style={{ fontSize: '10px' }}>Calculated Risk Score</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Monthly Payment</div>
-          <div className="value">₹{fmt(result.sched.emi)}</div>
-          <div className="label" style={{ fontSize: '10px' }}>Monthly EMI Amount</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
+          {/* Risk Indicator Card */}
+          <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '16px' }}>Risk Assessment</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }}>{result.pct}%</div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', paddingBottom: '4px' }}>Default Prob.</div>
+            </div>
+            <div style={{ height: '6px', background: 'var(--ice)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }} />
+            </div>
+            <div style={{ marginTop: '12px', fontSize: '11px', fontWeight: 600, color: 'var(--slate)' }}>
+              Risk Level: <span style={{ color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)', fontWeight: 800 }}>{result.level.toUpperCase()}</span>
+            </div>
+          </div>
+
+          {/* Decision Details Card */}
+          <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            {isApproved ? (
+              <>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '8px' }}>Approved Interest Rate</div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--sky)' }}>{result.adjustedD?.assigned_rate || result.adjustedD?.interest_rate}% <span style={{ fontSize: '12px', fontWeight: 600 }}>Fixed</span></div>
+                <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--slate)' }}>Monthly EMI: <strong>₹{fmt(result.sched.emi)}</strong></div>
+              </>
+            ) : isRejected ? (
+              <>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '8px' }}>Rejection Reason</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--rose)', lineHeight: 1.4 }}>
+                  {result.pct > 60 ? 'High repayment risk detected' : data.dti > 0.4 ? 'Existing debt burden too high' : 'Credit profile needs improvement'}
+                </div>
+                <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--slate)', opacity: 0.8 }}>Based on current financial data</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '8px' }}>Underwriting Queue</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--gold)' }}>Awaiting manual review</div>
+                <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--slate)' }}>Avg. processing time: 24-48 hours</div>
+              </>
+            )}
+          </div>
+
+          {/* Improvement Tips Card */}
+          <div style={{ background: isRejected ? 'rgba(232,84,117,0.03)' : 'var(--bg)', borderRadius: '12px', padding: '20px', border: `1px solid ${isRejected ? 'rgba(232,84,117,0.1)' : 'var(--border)'}` }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '10px' }}>
+              {isApproved ? 'Next Steps' : 'Improvement Tips'}
+            </div>
+            <ul style={{ margin: 0, padding: '0 0 0 14px', fontSize: '11px', color: 'var(--navy)', fontWeight: 600, lineHeight: 1.6 }}>
+              {isApproved ? (
+                <>
+                  <li>Check your registered email</li>
+                  <li>Complete e-Sign verification</li>
+                  <li>Funds disbursed in 3-5 days</li>
+                </>
+              ) : isRejected ? (
+                <>
+                  <li>Reduce active credit card balances</li>
+                  <li>Improve debt-to-income (DTI) ratio</li>
+                  <li>Apply for a lower loan amount</li>
+                </>
+              ) : (
+                <>
+                  <li>Keep KYC documents ready</li>
+                  <li>Verify income sources</li>
+                  <li>Monitor application status</li>
+                </>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '32px', alignItems: 'start' }}>
         <div className="card" style={{ padding: '32px' }}>
-          <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', marginBottom: '24px' }}>Loan Information</h3>
+          <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', marginBottom: '24px' }}>Detailed Information</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[
               { l: 'Loan Amount', v: `₹${fmt(data.loanAmt)}` },
-              { l: 'Reason for Loan', v: displayPurpose },
-              { l: 'Repayment Time', v: `${effectiveTerm} Months` },
-              { l: 'Monthly Debt vs Income', v: `${(data.dti * 100).toFixed(1)}%` },
+              { l: 'Purpose', v: displayPurpose },
+              { l: 'Term', v: `${effectiveTerm} Months` },
+              { l: 'Education', v: eduMap[data.edu] || data.edu },
+              { l: 'Employment', v: empMap[data.empType] || data.empType },
               { l: 'Credit Score', v: data.credit },
-              { l: 'Job Type', v: empMap[data.empType] },
-              { l: 'Safety Rating', v: result.level === 'low' ? 'SAFE' : result.level === 'med' ? 'MODERATE' : 'HIGH RISK' }
+              { l: 'Status', v: status }
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '14px', borderBottom: '1px solid var(--ice)', fontSize: '14px' }}>
                 <span style={{ color: 'var(--slate)', fontWeight: 600 }}>{item.l}</span>
@@ -1513,14 +1645,14 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
           <div style={{ marginTop: '32px', padding: '24px', background: 'var(--ice)', borderRadius: '12px', border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Bank Reviewer Notes</div>
             <p style={{ fontSize: '13px', color: 'var(--navy-deep)', lineHeight: 1.7, opacity: 0.9, fontWeight: 500 }}>
-              {result.level === 'low' ? 'Your profile looks very strong. You have a stable income and low debt, which makes you a safe borrower.' : 'The bank is checking your application carefully due to existing debt levels. They may ask for more documents soon.'}
+              {isApproved ? 'Your profile demonstrated exceptional stability. We have processed your application with a competitive interest rate.' : isRejected ? 'Our automated risk engine identified potential repayment challenges. Please review the improvement tips to increase your eligibility for future requests.' : 'We are currently validating your income stability. Please ensure all uploaded documents are legible.'}
             </p>
           </div>
         </div>
 
         <div className="analyst-table-container">
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
-            <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', margin: 0 }}>Amortization Lifecycle</h3>
+            <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', margin: 0 }}>Amortization lifecycle</h3>
             <span className="mbadge mbadge-sky" style={{ fontSize: '10px' }}>LIFECYCLE ACTIVE</span>
           </div>
           <div style={{ maxHeight: '700px', overflowY: 'auto' }}>
