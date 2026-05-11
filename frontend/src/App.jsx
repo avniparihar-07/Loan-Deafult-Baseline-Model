@@ -47,7 +47,7 @@ export default function App() {
           initialRole="bank" 
           onBack={handleLogout} 
           isLocked={true}
-          forcedError="This account belongs to the Borrower Portal. Please use the Borrower Login."
+          forcedError="Account not created. Please register as a Borrower."
         />
       );
     }
@@ -61,7 +61,7 @@ export default function App() {
           initialRole="borrower" 
           onBack={handleLogout} 
           isLocked={true}
-          forcedError="This account belongs to the Bank Portal. Please use the Bank Officer Login."
+          forcedError="Account not created. Please use the Bank Officer Login."
         />
       );
     }

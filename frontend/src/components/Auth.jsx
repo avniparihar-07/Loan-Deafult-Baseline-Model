@@ -63,10 +63,10 @@ export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borro
         const userType = data.type; // 'bank' or 'borrower'
         
         if (role === 'bank' && userType !== 'bank') {
-          throw new Error('This account belongs to the Borrower Portal. Please use the Borrower Login.');
+          throw new Error('Account not created. Please register as a Borrower.');
         }
         if (role === 'borrower' && userType === 'bank') {
-          throw new Error('This account belongs to the Bank Portal. Please use the Bank Officer Login.');
+          throw new Error('Account not created. Please use the Bank Officer Login.');
         }
 
         onLogin(data);
