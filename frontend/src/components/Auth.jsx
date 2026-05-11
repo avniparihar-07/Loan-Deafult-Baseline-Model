@@ -104,7 +104,11 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
         }
       }
     } catch (err) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch') {
+        setError('Server Unavailable: Could not connect to the authentication service. Please ensure the backend is running.');
+      } else {
+        setError(err.message || 'An unexpected error occurred during authentication.');
+      }
     } finally {
       setLoading(false);
     }
@@ -126,7 +130,11 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
       if (!res.ok) throw new Error(data.error || 'OTP verification failed');
       onLogin(data);
     } catch (err) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch') {
+        setError('Server Unavailable: Could not connect to the authentication service. Please ensure the backend is running.');
+      } else {
+        setError(err.message || 'An unexpected error occurred during authentication.');
+      }
     } finally {
       setLoading(false);
     }
@@ -150,7 +158,11 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
       setSuccessMsg('Instructions sent! Check your inbox.');
       setResetStep(2);
     } catch (err) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch') {
+        setError('Server Unavailable: Could not connect to the authentication service. Please ensure the backend is running.');
+      } else {
+        setError(err.message || 'An unexpected error occurred during authentication.');
+      }
     } finally {
       setLoading(false);
     }
@@ -181,7 +193,11 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
         setSuccessMsg('');
       }, 2000);
     } catch (err) {
-      setError(err.message);
+      if (err.message === 'Failed to fetch') {
+        setError('Server Unavailable: Could not connect to the authentication service. Please ensure the backend is running.');
+      } else {
+        setError(err.message || 'An unexpected error occurred during authentication.');
+      }
     } finally {
       setLoading(false);
     }
