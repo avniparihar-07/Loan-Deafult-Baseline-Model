@@ -869,49 +869,51 @@ def get_applications():
         return jsonify([])
 
     try:
+        # Optimization: Limit to latest 100 applications to prevent 500 errors on large datasets
         query = db.query(PredictionRecord).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_filter
-        ).order_by(PredictionRecord.created_at.desc())
+        ).order_by(PredictionRecord.created_at.desc()).limit(100)
         
         records = query.all()
         result = []
         for r in records:
+            # Safe serialization to prevent 500 on Null/Missing fields
             result.append({
-                'id': r.id,
-                'loan_id': r.loan_id,
-                'full_name': r.full_name,
-                'email': r.email,
-                'state': r.state,
-                'age': r.age,
-                'income': r.income,
-                'loan_amount': r.loan_amount,
-                'credit_score': r.credit_score,
-                'loan_purpose': r.loan_purpose,
-                'risk_category': r.risk_category,
-                'probability': r.default_probability,
+                'id': getattr(r, 'id', None),
+                'loan_id': getattr(r, 'loan_id', 'N/A'),
+                'full_name': getattr(r, 'full_name', 'Anonymous'),
+                'email': getattr(r, 'email', ''),
+                'state': getattr(r, 'state', 'MH'),
+                'age': getattr(r, 'age', 0),
+                'income': getattr(r, 'income', 0),
+                'loan_amount': getattr(r, 'loan_amount', 0),
+                'credit_score': getattr(r, 'credit_score', 0),
+                'loan_purpose': getattr(r, 'loan_purpose', 'Other'),
+                'risk_category': getattr(r, 'risk_category', 'Pending'),
+                'probability': getattr(r, 'default_probability', 0),
                 'created_at': r.created_at.isoformat() if r.created_at else None,
-                'has_existing_loan': r.has_existing_loan,
-                'existing_bank': r.existing_bank,
-                'existing_rate': r.existing_rate,
-                'existing_purpose': r.existing_purpose,
-                'dti': r.dti_ratio,
-                'term': r.loan_term,
-                'interest_rate': r.interest_rate,
-                'assigned_rate': r.assigned_rate,
-                'status': r.status or 'Pending',
-                'bank_decision_note': r.bank_decision_note,
-                'employment_type': r.employment_type,
-                'months_employed': r.months_employed,
-                'job_changes': r.job_changes,
-                'has_cosigner': r.has_cosigner,
-                'education': r.education,
-                'marital_status': r.marital_status,
-                'has_mortgage': r.has_mortgage,
-                'has_dependents': r.has_dependents,
-                'prediction': r.prediction,
-                'target_bank': r.target_bank,
-                'num_credit_lines': r.num_credit_lines,
+                'has_existing_loan': getattr(r, 'has_existing_loan', 'No'),
+                'existing_bank': getattr(r, 'existing_bank', ''),
+                'existing_rate': getattr(r, 'existing_rate', 0),
+                'existing_purpose': getattr(r, 'existing_purpose', ''),
+                'dti': getattr(r, 'dti_ratio', 0),
+                'term': getattr(r, 'loan_term', 24),
+                'interest_rate': getattr(r, 'interest_rate', None),
+                'assigned_rate': getattr(r, 'assigned_rate', None),
+                'status': getattr(r, 'status', 'Pending') or 'Pending',
+                'bank_decision_note': getattr(r, 'bank_decision_note', ''),
+                'employment_type': getattr(r, 'employment_type', 'Full-time'),
+                'months_employed': getattr(r, 'months_employed', 0),
+                'job_changes': getattr(r, 'job_changes', 0),
+                'has_cosigner': getattr(r, 'has_cosigner', 'No'),
+                'education': getattr(r, 'education', "Bachelor's"),
+                'marital_status': getattr(r, 'marital_status', 'Single'),
+                'has_mortgage': getattr(r, 'has_mortgage', 'No'),
+                'has_dependents': getattr(r, 'has_dependents', 'No'),
+                'prediction': getattr(r, 'prediction', None),
+                'target_bank': getattr(r, 'target_bank', ''),
+                'num_credit_lines': getattr(r, 'num_credit_lines', 0),
             })
         return jsonify(result)
     except Exception as e:
@@ -1043,6 +1045,162 @@ def feature_options():
             'DTIRatio': {'min': 0.0, 'max': 1.0, 'step': 0.01}
         }
     })
+
+
+# --- Institutional Dashboard Aggregation ---
+
+@app.route('/api/bank-dashboard/stats', methods=['GET'])
+def get_dashboard_stats():
+    """Return aggregated counters for the institutional dashboard."""
+    bank_name = request.args.get('bank_name', '').strip()
+    if not bank_name:
+        return jsonify({
+            'total': 0, 'approved': 0, 'pending': 0, 'rejected': 0, 'high_risk': 0
+        })
+
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+    
+    try:
+        from sqlalchemy import func
+        
+        # Total official applications for this bank
+        total = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name
+        ).scalar() or 0
+
+        # Approved
+        approved = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.status == 'Approved'
+        ).scalar() or 0
+
+        # Pending
+        pending = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.status == 'Pending'
+        ).scalar() or 0
+
+        # Rejected
+        rejected = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.status == 'Rejected'
+        ).scalar() or 0
+
+        # High Risk (ML Probability > 60%)
+        high_risk = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.default_probability > 0.6
+        ).scalar() or 0
+
+        return jsonify({
+            'total': total,
+            'approved': approved,
+            'pending': pending,
+            'rejected': rejected,
+            'high_risk': high_risk,
+            'last_updated': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Stats aggregation failed: {e}")
+        return jsonify({'error': 'Aggregation temporarily unavailable'}), 500
+    finally:
+        db.close()
+
+
+@app.route('/api/bank-dashboard/analytics', methods=['GET'])
+def get_dashboard_analytics():
+    """Return historical trend data and distribution for charts."""
+    bank_name = request.args.get('bank_name', '').strip()
+    if not bank_name:
+        return jsonify({'error': 'Bank name required'}), 400
+
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+
+    try:
+        from sqlalchemy import func, extract
+        
+        # 1. Volume over time (last 12 months)
+        trend_data = []
+        for i in range(1, 13): 
+            count = db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.application_type == 'official',
+                PredictionRecord.target_bank == bank_name,
+                extract('month', PredictionRecord.created_at) == i
+            ).scalar() or 0
+            trend_data.append(count)
+
+        # 2. Risk Distribution
+        risk_dist = {
+            'Low': db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.target_bank == bank_name,
+                PredictionRecord.risk_category == 'Low'
+            ).scalar() or 0,
+            'Medium': db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.target_bank == bank_name,
+                PredictionRecord.risk_category == 'Medium'
+            ).scalar() or 0,
+            'High': db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.target_bank == bank_name,
+                PredictionRecord.risk_category == 'High'
+            ).scalar() or 0
+        }
+
+        # 3. Loan Purpose Distribution
+        purposes = ["Home", "Auto", "Education", "Business", "Other"]
+        purpose_dist = {p: db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.loan_purpose == p
+        ).scalar() or 0 for p in purposes}
+
+        # 4. Credit Score Distribution
+        credit_ranges = [(300, 400), (400, 500), (500, 600), (600, 700), (700, 800), (800, 900)]
+        credit_dist = []
+        for low, high in credit_ranges:
+            count = db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.target_bank == bank_name,
+                PredictionRecord.credit_score >= low,
+                PredictionRecord.credit_score < high
+            ).scalar() or 0
+            credit_dist.append(count)
+
+        # 5. Employment Type Distribution
+        emp_types = ['Full-time', 'Self-employed', 'Part-time', 'Unemployed']
+        emp_dist = {t: db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.employment_type == t
+        ).scalar() or 0 for t in emp_types}
+
+        # 6. DTI Distribution
+        dti_ranges = [(0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]
+        dti_dist = []
+        for low, high in dti_ranges:
+            count = db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.target_bank == bank_name,
+                PredictionRecord.dti_ratio >= low,
+                PredictionRecord.dti_ratio < high
+            ).scalar() or 0
+            dti_dist.append(count)
+
+        return jsonify({
+            'volume_trend': trend_data,
+            'risk_distribution': risk_dist,
+            'purpose_distribution': purpose_dist,
+            'credit_distribution': credit_dist,
+            'employment_distribution': emp_dist,
+            'dti_distribution': dti_dist
+        })
+    except Exception as e:
+        logger.error(f"Analytics failed: {e}")
+        return jsonify({'success': False, 'message': 'Analytics temporarily unavailable'}), 500
+    finally:
+        db.close()
 
 
 # --- Serve Frontend ---

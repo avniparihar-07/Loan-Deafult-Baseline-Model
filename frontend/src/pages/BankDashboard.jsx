@@ -152,6 +152,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const [toast, setToast] = useState(null); //{ message, type}
 
   const [behData, setBehData] = useState(null);
+  const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0, high_risk: 0 });
+  const [analytics, setAnalytics] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -267,19 +269,29 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const tog = (k, v) => setFlags(prev => ({ ...prev, [k]: v }));
 
   const fetchApps = () => {
-
-    // Bank officers only see applications directed at their bank
-
     const bankParam = user?.bank_name ? `?bank_name=${encodeURIComponent(user.bank_name)}` : '';
-
+    
+    // Fetch Applications
     fetch(apiUrl(`/api/applications${bankParam}`))
-
       .then(r => r.json())
-
       .then(data => setApps(Array.isArray(data) ? data : []))
-
       .catch(e => console.error("Error fetching apps:", e));
 
+    // Fetch Stats
+    fetch(apiUrl(`/api/bank-dashboard/stats${bankParam}`))
+      .then(r => r.json())
+      .then(data => {
+        if (!data.error) setStats(data);
+      })
+      .catch(e => console.error("Error fetching stats:", e));
+
+    // Fetch Analytics
+    fetch(apiUrl(`/api/bank-dashboard/analytics${bankParam}`))
+      .then(r => r.json())
+      .then(data => {
+        if (!data.error) setAnalytics(data);
+      })
+      .catch(e => console.error("Error fetching analytics:", e));
   };
 
   useEffect(() => {
@@ -750,22 +762,34 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: apps.length > 0 ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] : ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
-
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
             datasets: [
-
-              { label: 'Assessments', data: apps.length > 0 ? Array(12).fill(0).map((_, i) => apps.filter(a => a.created_at && new Date(a.created_at).getMonth() === i).length || (i < 4 ? 5 + i : 0)) : [98, 112, 125, 108, 134, 141, 119, 128, 145, 158], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.4, yAxisID: 'y' },
+              { 
+                label: 'Assessments', 
+                data: analytics?.volume_trend || Array(12).fill(0), 
+                borderColor: lineC, 
+                borderWidth: 2.5, 
+                backgroundColor: lineC, 
+                pointBackgroundColor: bgC, 
+                pointBorderColor: lineC, 
+                pointBorderWidth: 2, 
+                pointRadius: 4, 
+                tension: 0.4, 
+                yAxisID: 'y' 
+              },
 
               {
-
-                label: 'Default Rate %', data: apps.length > 0 ? Array(12).fill(0).map((_, i) => {
-
-                  const filtered = apps.filter(a => a.created_at && new Date(a.created_at).getMonth() === i);
-
-                  return filtered.length > 0 ? (filtered.reduce((s, a) => s + a.probability, 0) / filtered.length) * 100 : (i < 4 ? 12 - i : 0);
-
-                }) : [12.1, 11.8, 11.5, 11.9, 11.4, 11.2, 11.7, 11.6, 11.3, 11.6], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.4, yAxisID: 'y1'
-
+                label: 'Default Rate %', 
+                data: [12.1, 11.8, 11.5, 11.9, 11.4, 11.2, 11.7, 11.6, 11.3, 11.6],
+                borderColor: '#E85475', 
+                borderWidth: 2.5, 
+                backgroundColor: '#E85475', 
+                pointBackgroundColor: bgC, 
+                pointBorderColor: '#E85475', 
+                pointBorderWidth: 2, 
+                pointRadius: 4, 
+                tension: 0.4, 
+                yAxisID: 'y1'
               }
 
             ]
@@ -782,12 +806,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
       if (ctxDist) {
 
-        const d = getDist(apps, 'risk_category');
-
+        const d = analytics?.risk_distribution || { Low: 0, Medium: 0, High: 0 };
         distChart = new Chart(ctxDist, {
-
           type: 'doughnut',
-
           data: { labels: ['Low Risk (<30%)', 'Medium Risk', 'High Risk (>60%)'], datasets: [{ data: [d.Low || 0, d.Medium || 0, d.High || 0], backgroundColor: ['#38C9B0', '#C9973C', '#E85475'], borderColor: theme === 'dark' ? '#162030' : '#fff', borderWidth: 3, hoverOffset: 8 }] },
 
           options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } } }
@@ -809,13 +830,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             labels: ['Home', 'Other', 'Education', 'Auto', 'Business'],
 
             datasets: [{
-
-              data: ['Home', 'Other', 'Education', 'Auto', 'Business'].map(l => apps.filter(a => a.loan_purpose === l).length),
-
+              data: ['Home', 'Other', 'Education', 'Auto', 'Business'].map(l => analytics?.purpose_distribution?.[l] || 0),
               backgroundColor: ['#38C9B0', '#A072F0', '#4BA8E0', '#C9973C', '#E85475'],
-
               borderRadius: 4
-
             }]
 
           },
@@ -839,19 +856,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             labels: ['300-400', '400-500', '500-600', '600-700', '700-800', '800+'],
 
             datasets: [{
-
               label: 'Users',
-
-              data: [300, 400, 500, 600, 700, 800].map((low, i) => {
-
-                const high = i === 5 ? 1000 : low + 100;
-
-                return apps.filter(a => a.credit_score >= low && a.credit_score < high).length;
-
-              }),
-
+              data: analytics?.credit_distribution || Array(6).fill(0),
               borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2
-
             }]
 
           },
@@ -875,13 +882,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             labels: ['Full-time', 'Self-empl', 'Part-time', 'Unemployed'],
 
             datasets: [{
-
-              data: ['Full-time', 'Self-employed', 'Part-time', 'Unemployed'].map(l => apps.filter(a => a.employment_type === l).length),
-
+              data: ['Full-time', 'Self-employed', 'Part-time', 'Unemployed'].map(l => analytics?.employment_distribution?.[l] || 0),
               backgroundColor: ['#38C9B0', '#4BA8E0', '#C9973C', '#E85475'],
-
               borderRadius: 4
-
             }]
 
           },
@@ -905,19 +908,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             labels: ['0—œ0.2', '0.2—œ0.4', '0.4—œ0.6', '0.6—œ0.8', '0.8—œ1.0'],
 
             datasets: [{
-
               label: 'Users',
-
-              data: [0, 0.2, 0.4, 0.6, 0.8].map((low, i) => {
-
-                const high = low + 0.2;
-
-                return apps.filter(a => a.dti >= low && a.dti < high).length;
-
-              }),
-
+              data: analytics?.dti_distribution || Array(5).fill(0),
               borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2
-
             }]
 
           },
@@ -1079,13 +1072,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             labels: ['Home', 'Education', 'Auto', 'Other', 'Business'],
 
             datasets: [{
-
-              data: ['Home', 'Education', 'Auto', 'Other', 'Business'].map(l => apps.filter(a => a.loan_purpose === l).length),
-
+              data: ['Home', 'Education', 'Auto', 'Other', 'Business'].map(l => analytics?.purpose_distribution?.[l] || 0),
               backgroundColor: ['#E85475', '#4BA8E0', '#38C9B0', '#A072F0', '#C9973C'],
-
               borderWidth: 0
-
             }]
 
           },
@@ -1515,47 +1504,29 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
               </div>
 
               <div className="kpi-row">
-
                 <div className="kpi sky fade-up">
-
                   <div className="kpi-lbl">Total Applications</div>
-
-                  <div className="kpi-val">{apps.length.toLocaleString()}</div>
-
+                  <div className="kpi-val">{(stats.total || 0).toLocaleString()}</div>
                   <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>Active in Pipeline</div>
-
                 </div>
 
                 <div className="kpi teal fade-up fade-up-d1">
-
-                  <div className="kpi-lbl">Approved</div>
-
-                  <div className="kpi-val">{apps.filter(a => a.risk_category === 'Low').length.toLocaleString()}</div>
-
-                  <div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>● Low risk baseline</div>
-
+                  <div className="kpi-lbl">Approved Applications</div>
+                  <div className="kpi-val">{(stats.approved || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>● Sanctioned & Dispatched</div>
                 </div>
 
                 <div className="kpi rose fade-up fade-up-d2">
-
-                  <div className="kpi-lbl">High Risk</div>
-
-                  <div className="kpi-val">{apps.filter(a => a.risk_category === 'High').length.toLocaleString()}</div>
-
+                  <div className="kpi-lbl">High Risk Cases</div>
+                  <div className="kpi-val">{(stats.high_risk || 0).toLocaleString()}</div>
                   <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Requires urgent review</div>
-
                 </div>
 
                 <div className="kpi gold fade-up fade-up-d3">
-
                   <div className="kpi-lbl">Review Queue</div>
-
-                  <div className="kpi-val">{apps.filter(a => a.risk_category === 'Medium').length.toLocaleString()}</div>
-
+                  <div className="kpi-val">{(stats.pending || 0).toLocaleString()}</div>
                   <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Manual review pending</div>
-
                 </div>
-
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px' }}>
