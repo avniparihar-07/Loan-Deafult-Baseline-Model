@@ -797,9 +797,12 @@ def review_application(app_id):
             'id': record.id,
             'status': record.status,
             'assigned_rate': record.assigned_rate,
+            'assigned_term': record.loan_term,
             'default_probability': record.default_probability,
-            'risk_category': record.risk_category,
-            'bank_decision_note': record.bank_decision_note,
+            'risk_category': record.risk_category or 'Medium',
+            'risk_score': int(850 - (record.default_probability * 400)) if record.default_probability is not None else None,
+            'confidence_level': 'High' if record.default_probability is not None and (record.default_probability < 0.2 or record.default_probability > 0.8) else 'Medium',
+            'note': record.bank_decision_note
         })
     except Exception as e:
         db.rollback()
