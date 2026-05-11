@@ -303,19 +303,23 @@ def login():
 
         user = db.query(User).filter(User.email == email).first()
         
-        # Role-based Portal Access Control
+        # 1. Institutional Bank Portal Access (Restricted)
         if role == 'bank':
             if not is_authorized_officer(email):
                 return jsonify({'error': 'Access restricted. Only authorized institutional officers can access this portal.'}), 403
-            if not user or user.role != 'bank':
-                return jsonify({'error': 'Access restricted. You do not have an institutional officer account.'}), 403
+            
+            if user and user.role != 'bank':
+                return jsonify({'error': 'Access restricted. This account is registered as a Borrower. Please use the Borrower Portal.'}), 403
+            
+            if not user:
+                return jsonify({'error': 'Access restricted. No institutional account found for this email.'}), 403
+
+        # 2. Public Borrower Portal Access (Unrestricted)
+        # We allow ANY user (even those with 'bank' role) to log in here if they want, 
+        # but normally they will be borrowers. We do NOT check whitelist here.
         
         if not user: 
             return jsonify({'error': 'Access Denied: Account not found.'}), 404
-
-        # Cross-portal restriction: Bank officers should not use the borrower portal
-        if role == 'borrower' and user.role == 'bank':
-            return jsonify({'error': 'Access restricted. Institutional accounts must use the Bank Portal.'}), 403
         
         # Check lockout
         if user.locked_until and user.locked_until > datetime.utcnow():
