@@ -303,17 +303,19 @@ def login():
 
         user = db.query(User).filter(User.email == email).first()
         
-        # Whitelist enforcement for Bank Portal
-        if role == 'bank' or (user and user.role == 'bank'):
+        # Role-based Portal Access Control
+        if role == 'bank':
             if not is_authorized_officer(email):
                 return jsonify({'error': 'Access restricted. Only authorized institutional officers can access this portal.'}), 403
-            
-            # If authorized but not in DB (shouldn't happen with provisioning, but for safety)
-            if not user:
-                return jsonify({'error': 'Access restricted. Only authorized institutional officers can access this portal.'}), 403
-
+            if not user or user.role != 'bank':
+                return jsonify({'error': 'Access restricted. You do not have an institutional officer account.'}), 403
+        
         if not user: 
             return jsonify({'error': 'Access Denied: Account not found.'}), 404
+
+        # Cross-portal restriction: Bank officers should not use the borrower portal
+        if role == 'borrower' and user.role == 'bank':
+            return jsonify({'error': 'Access restricted. Institutional accounts must use the Bank Portal.'}), 403
         
         # Check lockout
         if user.locked_until and user.locked_until > datetime.utcnow():
