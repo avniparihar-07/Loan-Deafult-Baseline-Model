@@ -36,21 +36,6 @@ export default function App() {
     const isBankUser = user.type === 'bank';
     const isBankAuth = authRole === 'bank';
 
-    // Route Protection: Ensure user role matches the portal they entered
-    if (isBankAuth && !isBankUser) {
-      // Borrower tried to access Bank Portal - FORCE LOGOUT
-      return (
-        <Auth 
-          onLogin={handleLogin} 
-          theme={theme} 
-          toggleTheme={toggleTheme} 
-          initialRole="bank" 
-          onBack={handleLogout} 
-          isLocked={true}
-          forcedError="Account not created. Please register as a Borrower."
-        />
-      );
-    }
     if (!isBankAuth && isBankUser) {
       // Bank user tried to access Borrower Portal - FORCE LOGOUT
       return (

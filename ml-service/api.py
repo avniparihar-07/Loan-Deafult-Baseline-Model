@@ -259,20 +259,28 @@ def login():
 
         user = db.query(User).filter(User.email == email).first()
         
-        # Auto-provision bank user if they don't exist
-        if not user and (bank_name or officer_role):
-            user = User(
-                email=email,
-                password=password,
-                first_name=email.split('@')[0].capitalize(),
-                last_name='(Institutional)',
-                role='bank',
-                bank_name=bank_name or 'Independent Analyst',
-                officer_role=officer_role or 'Analyst'
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+        # Auto-provision bank user if they don't exist or update role if accessing bank portal
+        if (bank_name or officer_role):
+            if not user:
+                user = User(
+                    email=email,
+                    password=password,
+                    first_name=email.split('@')[0].capitalize(),
+                    last_name='(Institutional)',
+                    role='bank',
+                    bank_name=bank_name or 'Independent Analyst',
+                    officer_role=officer_role or 'Analyst'
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            elif user.role == 'borrower':
+                # Convert borrower to bank officer as requested
+                user.role = 'bank'
+                user.bank_name = bank_name or 'Independent Analyst'
+                user.officer_role = officer_role or 'Analyst'
+                db.commit()
+                db.refresh(user)
         
         if not user: 
             return jsonify({'error': 'Account not found. Please create one.'}), 404

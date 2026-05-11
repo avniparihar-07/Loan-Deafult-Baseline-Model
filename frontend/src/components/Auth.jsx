@@ -62,9 +62,7 @@ export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borro
         // Strict Role Validation
         const userType = data.type; // 'bank' or 'borrower'
         
-        if (role === 'bank' && userType !== 'bank') {
-          throw new Error('Account not created. Please register as a Borrower.');
-        }
+        // Only block if trying to log into Borrower Portal with a Bank account
         if (role === 'borrower' && userType === 'bank') {
           throw new Error('Account not created. Please create one.');
         }
