@@ -350,8 +350,8 @@ def login():
         # Reset failed attempts on success
         user.failed_attempts = 0
         
-        # Handle Bank OTP
-        if user.role == 'bank':
+        # Handle Bank OTP (Only for Bank Portal)
+        if role == 'bank' and user.role == 'bank':
             now = datetime.utcnow()
             last_sent = otp_cooldowns.get(user.email)
             
