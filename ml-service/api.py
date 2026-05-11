@@ -52,9 +52,8 @@ def validate_password_complexity(password):
     return True
 
 def is_authorized_officer(email):
-    authorized_usernames = ["thakkarstuti947", "thakkerstuti947", "avniparihar07"]
-    username = email.split('@')[0].lower()
-    return username in authorized_usernames
+    authorized_emails = ["thakkerstuti947@hdfc.com", "avniparihar07@icici.com"]
+    return email.lower() in authorized_emails
 
 # --- App Setup ---
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
@@ -97,9 +96,8 @@ def provision_officers():
     if not db: return
     try:
         officers = [
-            {"email": "thakkarstuti947@hdfc.com", "first": "Stuti", "last": "Thakkar"},
             {"email": "thakkerstuti947@hdfc.com", "first": "Stuti", "last": "Thakker"},
-            {"email": "avniparihar07@sbi.co.in", "first": "Avni", "last": "Parihar"}
+            {"email": "avniparihar07@icici.com", "first": "Avni", "last": "Parihar"}
         ]
         for off in officers:
             existing = db.query(User).filter(User.email == off['email']).first()
@@ -108,13 +106,17 @@ def provision_officers():
                     email=off['email'],
                     first_name=off['first'],
                     last_name=off['last'],
-                    password=hash_password("Secure123!"),
+                    password=hash_password("123456Stuti"),
                     role='bank',
-                    bank_name="HDFC Bank" if "hdfc" in off['email'] else "SBI",
+                    bank_name="HDFC Bank" if "hdfc" in off['email'] else "ICICI Bank",
                     officer_role="Senior Analyst",
                     bank_role="Admin"
                 )
                 db.add(new_off)
+            else:
+                # Update password for existing to match user request
+                existing.password = hash_password("123456Stuti")
+                existing.role = 'bank'
         db.commit()
     except Exception as e:
         db.rollback()
