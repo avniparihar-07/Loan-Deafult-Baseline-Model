@@ -1622,7 +1622,7 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '32px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isRejected ? '1fr' : '1fr 2fr', gap: '32px', alignItems: 'start' }}>
         <div className="card" style={{ padding: '32px' }}>
           <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', marginBottom: '24px' }}>Detailed Information</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1650,45 +1650,47 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
           </div>
         </div>
 
-        <div className="analyst-table-container">
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
-            <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', margin: 0 }}>Amortization lifecycle</h3>
-            <span className="mbadge mbadge-sky" style={{ fontSize: '10px' }}>LIFECYCLE ACTIVE</span>
+        {!isRejected && (
+          <div className="analyst-table-container">
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
+              <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', margin: 0 }}>Amortization lifecycle</h3>
+              <span className="mbadge mbadge-sky" style={{ fontSize: '10px' }}>LIFECYCLE ACTIVE</span>
+            </div>
+            <div style={{ maxHeight: '700px', overflowY: 'auto' }}>
+              <table className="analyst-table">
+                <thead>
+                  <tr>
+                    <th style={{ paddingLeft: '32px' }}>Period</th>
+                    <th>EMI Amount</th>
+                    <th>Principal</th>
+                    <th>Interest</th>
+                    <th>Balance</th>
+                    <th style={{ textAlign: 'right', paddingRight: '32px' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.sched.rows.map(row => {
+                    const isPaid = paidMonths.includes(row.m);
+                    return (
+                      <tr key={row.m}>
+                        <td style={{ paddingLeft: '32px', fontWeight: 800, color: 'var(--navy-deep)' }}>Month {row.m}</td>
+                        <td style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--navy)' }}>₹{fmt(row.emi)}</td>
+                        <td style={{ color: 'var(--sky)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>₹{fmt(row.p)}</td>
+                        <td style={{ color: 'var(--rose)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>₹{fmt(row.i)}</td>
+                        <td style={{ fontWeight: 900, fontFamily: 'var(--font-mono)', color: 'var(--navy-deep)' }}>₹{fmt(row.bal)}</td>
+                        <td style={{ textAlign: 'right', paddingRight: '32px' }}>
+                          <button onClick={() => togglePaid(row.m)} className="lp-btn-solid" style={{ fontSize: '10px', padding: '6px 12px', background: isPaid ? 'var(--teal)' : 'var(--navy)', width: 'auto', borderRadius: '6px' }}>
+                            {isPaid ? '✓ PAID' : 'MARK PAID'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div style={{ maxHeight: '700px', overflowY: 'auto' }}>
-            <table className="analyst-table">
-              <thead>
-                <tr>
-                  <th style={{ paddingLeft: '32px' }}>Period</th>
-                  <th>EMI Amount</th>
-                  <th>Principal</th>
-                  <th>Interest</th>
-                  <th>Balance</th>
-                  <th style={{ textAlign: 'right', paddingRight: '32px' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.sched.rows.map(row => {
-                  const isPaid = paidMonths.includes(row.m);
-                  return (
-                    <tr key={row.m}>
-                      <td style={{ paddingLeft: '32px', fontWeight: 800, color: 'var(--navy-deep)' }}>Month {row.m}</td>
-                      <td style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--navy)' }}>₹{fmt(row.emi)}</td>
-                      <td style={{ color: 'var(--sky)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>₹{fmt(row.p)}</td>
-                      <td style={{ color: 'var(--rose)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>₹{fmt(row.i)}</td>
-                      <td style={{ fontWeight: 900, fontFamily: 'var(--font-mono)', color: 'var(--navy-deep)' }}>₹{fmt(row.bal)}</td>
-                      <td style={{ textAlign: 'right', paddingRight: '32px' }}>
-                        <button onClick={() => togglePaid(row.m)} className="lp-btn-solid" style={{ fontSize: '10px', padding: '6px 12px', background: isPaid ? 'var(--teal)' : 'var(--navy)', width: 'auto', borderRadius: '6px' }}>
-                          {isPaid ? '✓ PAID' : 'MARK PAID'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
