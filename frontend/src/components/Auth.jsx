@@ -94,7 +94,7 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
 
       if (isSignup) {
         setIsSignup(false);
-        setSuccessMsg('Institutional account created! You can now log in.');
+        setSuccessMsg(role === 'bank' ? 'Institutional account created! You can now log in.' : 'Account created successfully! You can now sign in.');
       } else {
         if (data.otp_required) {
           setShowOtp(true);

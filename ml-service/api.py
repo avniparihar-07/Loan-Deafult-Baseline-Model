@@ -337,18 +337,25 @@ def login():
                 db.commit()
 
         if not is_correct:
-            user.failed_attempts = (user.failed_attempts or 0) + 1
-            if user.failed_attempts >= 5:
-                from datetime import timedelta
-                user.locked_until = datetime.utcnow() + timedelta(minutes=15)
-                user.failed_attempts = 0
+            # 1. Bank Officer Security (Strict Tracking)
+            if user.role == 'bank':
+                user.failed_attempts = (user.failed_attempts or 0) + 1
+                if user.failed_attempts >= 5:
+                    from datetime import timedelta
+                    user.locked_until = datetime.utcnow() + timedelta(minutes=15)
+                    user.failed_attempts = 0
+                    db.commit()
+                    return jsonify({'error': 'Institutional account locked for 15 minutes after 5 failed attempts.'}), 403
                 db.commit()
-                return jsonify({'error': 'Account locked for 15 minutes after 5 failed attempts.'}), 403
-            db.commit()
-            return jsonify({'error': f'Invalid credentials. {5 - user.failed_attempts} attempts remaining.'}), 401
+                return jsonify({'error': f'Invalid credentials. {5 - user.failed_attempts} attempts remaining.'}), 401
+            
+            # 2. Borrower Security (Simple Flow)
+            return jsonify({'error': 'Invalid email or password.'}), 401
         
         # Reset failed attempts on success
-        user.failed_attempts = 0
+        if user.role == 'bank':
+            user.failed_attempts = 0
+            db.commit()
         
         # Handle Bank OTP (Only for Bank Portal)
         if role == 'bank' and user.role == 'bank':
