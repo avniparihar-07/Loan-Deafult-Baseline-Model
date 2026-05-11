@@ -252,9 +252,33 @@ def login():
     if not db: return jsonify({'error': 'DB offline'}), 500
     
     try:
-        user = db.query(User).filter(User.email == data.get('email')).first()
-        if not user: return jsonify({'error': 'Account not found. Please create one.'}), 404
-        if user.password != data.get('password'): return jsonify({'error': 'Invalid password'}), 401
+        email = data.get('email')
+        password = data.get('password')
+        bank_name = data.get('bank_name')
+        officer_role = data.get('officer_role')
+
+        user = db.query(User).filter(User.email == email).first()
+        
+        # Auto-provision bank user if they don't exist
+        if not user and (bank_name or officer_role):
+            user = User(
+                email=email,
+                password=password,
+                first_name=email.split('@')[0].capitalize(),
+                last_name='(Institutional)',
+                role='bank',
+                bank_name=bank_name or 'Independent Analyst',
+                officer_role=officer_role or 'Analyst'
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        if not user: 
+            return jsonify({'error': 'Account not found. Please create one.'}), 404
+        
+        if user.password != password: 
+            return jsonify({'error': 'Invalid password'}), 401
         
         return jsonify({
             'first': user.first_name,
@@ -264,6 +288,9 @@ def login():
             'bank_name': user.bank_name or '',
             'officer_role': user.officer_role or ''
         })
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
     finally:
         db.close()
 
