@@ -344,7 +344,7 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
                 )}
 
                 <button className="btn-submit" onClick={handleSubmit} disabled={loading}>
-                  {loading ? 'Authenticating...' : (isSignup ? 'Create Account' : 'Secure Officer Login')}
+                  {loading ? 'Authenticating...' : (isSignup ? 'Create Account' : (role === 'bank' ? 'Secure Officer Login' : 'Sign In'))}
                 </button>
 
                 <div className="auth-toggle">
@@ -364,10 +364,10 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
 
                 <div style={{ marginTop: '32px', textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
                   <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                    GroundZero Internal Banking Portal
+                    {role === 'bank' ? 'GroundZero Internal Banking Portal' : 'GroundZero Client Ecosystem'}
                   </div>
                   <div style={{ fontSize: '9px', color: 'var(--slate)', opacity: 0.6, marginTop: '4px' }}>
-                    Restricted Institutional Access • System ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}
+                    {role === 'bank' ? 'Restricted Institutional Access' : 'Secure Digital Finance'} • System ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}
                   </div>
                 </div>
               </>
