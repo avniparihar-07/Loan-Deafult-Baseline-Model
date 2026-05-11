@@ -823,6 +823,14 @@ def review_application(app_id):
         if risk_cat is not None:
             record.risk_category = risk_cat
 
+        emi_val = data.get('emi')
+        if emi_val is not None:
+            record.emi = float(emi_val)
+            
+        tenure_val = data.get('tenure')
+        if tenure_val is not None:
+            record.tenure = int(tenure_val)
+
         if decision:
             record.status = decision
             if decision == 'Approved':
@@ -868,12 +876,24 @@ def get_applications():
     if not bank_filter:
         return jsonify([])
 
+    # Search filter
+    search_query = request.args.get('search', '').strip()
+
     try:
-        # Optimization: Limit to latest 100 applications to prevent 500 errors on large datasets
         query = db.query(PredictionRecord).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_filter
-        ).order_by(PredictionRecord.created_at.desc()).limit(100)
+        )
+        
+        if search_query:
+            from sqlalchemy import or_
+            query = query.filter(or_(
+                PredictionRecord.full_name.ilike(f"%{search_query}%"),
+                PredictionRecord.loan_id.ilike(f"%{search_query}%"),
+                PredictionRecord.email.ilike(f"%{search_query}%")
+            ))
+
+        query = query.order_by(PredictionRecord.created_at.desc()).limit(100)
         
         records = query.all()
         result = []
@@ -914,6 +934,8 @@ def get_applications():
                 'prediction': getattr(r, 'prediction', None),
                 'target_bank': getattr(r, 'target_bank', ''),
                 'num_credit_lines': getattr(r, 'num_credit_lines', 0),
+                'emi': getattr(r, 'emi', 0),
+                'approved_tenure': getattr(r, 'tenure', getattr(r, 'loan_term', 24)),
             })
         return jsonify(result)
     except Exception as e:
@@ -941,27 +963,47 @@ def get_my_applications():
         result = []
         for r in records:
             result.append({
-                'id': r.id, 'loan_id': r.loan_id, 'full_name': r.full_name, 'email': r.email, 'state': r.state,
-                'age': r.age, 'income': r.income, 'loan_amount': r.loan_amount, 'credit_score': r.credit_score,
-                'loan_purpose': r.loan_purpose, 'risk_category': r.risk_category, 'probability': r.default_probability,
+                'id': getattr(r, 'id', None),
+                'loan_id': getattr(r, 'loan_id', 'N/A'),
+                'full_name': getattr(r, 'full_name', 'Anonymous'),
+                'email': getattr(r, 'email', email),
+                'state': getattr(r, 'state', 'MH'),
+                'age': getattr(r, 'age', 0),
+                'income': getattr(r, 'income', 0),
+                'loan_amount': getattr(r, 'loan_amount', 0),
+                'credit_score': getattr(r, 'credit_score', 0),
+                'loan_purpose': getattr(r, 'loan_purpose', 'Other'),
+                'risk_category': getattr(r, 'risk_category', 'Pending'),
+                'probability': getattr(r, 'default_probability', 0),
                 'created_at': r.created_at.isoformat() if r.created_at else None,
-                'has_existing_loan': r.has_existing_loan, 'existing_bank': r.existing_bank,
-                'existing_rate': r.existing_rate, 'existing_purpose': r.existing_purpose,
-                'dti': r.dti_ratio, 'term': r.loan_term,
-                'interest_rate': r.interest_rate,
-                'assigned_rate': r.assigned_rate,
-                'status': r.status or 'Pending',
-                'bank_decision_note': r.bank_decision_note,
-                'employment_type': r.employment_type, 'months_employed': r.months_employed,
-                'job_changes': r.job_changes, 'has_cosigner': r.has_cosigner,
-                'education': r.education, 'marital_status': r.marital_status,
-                'has_mortgage': r.has_mortgage, 'has_dependents': r.has_dependents,
-                'prediction': r.prediction,
-                'target_bank': r.target_bank,
-                'num_credit_lines': r.num_credit_lines,
+                'has_existing_loan': getattr(r, 'has_existing_loan', 'No'),
+                'existing_bank': getattr(r, 'existing_bank', ''),
+                'existing_rate': getattr(r, 'existing_rate', 0),
+                'existing_purpose': getattr(r, 'existing_purpose', ''),
+                'dti': getattr(r, 'dti_ratio', 0),
+                'term': getattr(r, 'loan_term', 24),
+                'interest_rate': getattr(r, 'interest_rate', None),
+                'assigned_rate': getattr(r, 'assigned_rate', None),
+                'status': getattr(r, 'status', 'Pending') or 'Pending',
+                'bank_decision_note': getattr(r, 'bank_decision_note', ''),
+                'employment_type': getattr(r, 'employment_type', 'Full-time'),
+                'months_employed': getattr(r, 'months_employed', 0),
+                'job_changes': getattr(r, 'job_changes', 0),
+                'has_cosigner': getattr(r, 'has_cosigner', 'No'),
+                'education': getattr(r, 'education', "Bachelor's"),
+                'marital_status': getattr(r, 'marital_status', 'Single'),
+                'has_mortgage': getattr(r, 'has_mortgage', 'No'),
+                'has_dependents': getattr(r, 'has_dependents', 'No'),
+                'prediction': getattr(r, 'prediction', None),
+                'target_bank': getattr(r, 'target_bank', ''),
+                'num_credit_lines': getattr(r, 'num_credit_lines', 0),
+                'emi': getattr(r, 'emi', 0),
+                'approved_tenure': getattr(r, 'tenure', getattr(r, 'loan_term', 24)),
             })
         return jsonify(result)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
@@ -1129,12 +1171,16 @@ def get_dashboard_analytics():
         # 1. Volume over time (last 12 months)
         trend_data = []
         for i in range(1, 13): 
-            count = db.query(func.count(PredictionRecord.id)).filter(
-                PredictionRecord.application_type == 'official',
-                PredictionRecord.target_bank == bank_name,
-                extract('month', PredictionRecord.created_at) == i
-            ).scalar() or 0
-            trend_data.append(count)
+            try:
+                count = db.query(func.count(PredictionRecord.id)).filter(
+                    PredictionRecord.application_type == 'official',
+                    PredictionRecord.target_bank == bank_name,
+                    extract('month', PredictionRecord.created_at) == i
+                ).scalar() or 0
+                trend_data.append(count)
+            except Exception as e:
+                logger.warning(f"Trend extraction failed for month {i}: {e}")
+                trend_data.append(0)
 
         # 2. Risk Distribution
         risk_dist = {

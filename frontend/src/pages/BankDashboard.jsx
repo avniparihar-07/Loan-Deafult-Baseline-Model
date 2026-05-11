@@ -270,9 +270,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
   const fetchApps = () => {
     const bankParam = user?.bank_name ? `?bank_name=${encodeURIComponent(user.bank_name)}` : '';
+    const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
     
     // Fetch Applications
-    fetch(apiUrl(`/api/applications${bankParam}`))
+    fetch(apiUrl(`/api/applications${bankParam}${searchParam}`))
       .then(r => r.json())
       .then(data => setApps(Array.isArray(data) ? data : []))
       .catch(e => console.error("Error fetching apps:", e));
@@ -295,14 +296,17 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   };
 
   useEffect(() => {
-
-    fetchApps();
-
-    const interval = setInterval(fetchApps, 10000);
-
-    return () => clearInterval(interval);
-
-  }, [user?.bank_name]);
+    const timer = setTimeout(() => {
+      fetchApps();
+    }, 500); 
+    
+    const interval = setInterval(fetchApps, 30000); // Poll less frequently when searching
+    
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [searchQuery, user?.bank_name]);
 
   useEffect(() => {
 
@@ -465,7 +469,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           bank_name: user?.bank_name,
           default_probability: analysisResult?.default_probability,
           risk_score: analysisResult?.risk_score,
-          risk_category: analysisResult?.risk_category
+          risk_category: analysisResult?.risk_category,
+          emi: analysisResult?.emi,
+          tenure: selectedApp?.term
         })
       });
 

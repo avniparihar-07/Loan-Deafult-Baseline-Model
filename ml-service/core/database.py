@@ -91,6 +91,8 @@ class PredictionRecord(Base):
     default_probability = Column(Float)
     risk_score = Column(Integer)
     risk_category = Column(String)
+    emi = Column(Float, nullable=True)      # Calculated Monthly Installment
+    tenure = Column(Integer, nullable=True) # Approved tenure in months
 
 class User(Base):
     """Database model for registered users."""
@@ -157,6 +159,8 @@ try:
             ('active_liabilities',  'FLOAT'),
             ('existing_emi_burden', 'FLOAT'),
             ('risk_score',          'INTEGER'),
+            ('emi',                 'FLOAT'),
+            ('tenure',              'INTEGER'),
         ]
         try:
             inspector = inspect(engine)
