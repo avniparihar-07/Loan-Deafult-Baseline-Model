@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import ArthaAI from '../components/ArthaAI';
 import { calcRisk, buildSched, fmt, fmtK } from '../utils/model';
@@ -6,28 +6,28 @@ import { apiUrl } from '../services/api';
 
 const DocCard = ({ label, id, file, onUpload, accept = ".jpg,.jpeg,.png,.pdf" }) => {
   return (
-    <div style={{ 
-      background: '#fff', 
-      border: '1.5px solid var(--border)', 
-      borderRadius: '12px', 
-      padding: '16px', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
+    <div style={{
+      background: '#fff',
+      border: '1.5px solid var(--border)',
+      borderRadius: '12px',
+      padding: '16px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
       textAlign: 'center',
       transition: 'all 0.2s ease',
       cursor: 'pointer',
       position: 'relative',
       minHeight: '160px'
     }} className="doc-card-hover">
-      <input 
-        type="file" 
-        accept={accept} 
-        onChange={e => { if(e.target.files && e.target.files[0]) onUpload(e.target.files[0]); }} 
+      <input
+        type="file"
+        accept={accept}
+        onChange={e => { if (e.target.files && e.target.files[0]) onUpload(e.target.files[0]); }}
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
       />
       <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>{label}</div>
-      
+
       {!file ? (
         <div style={{ padding: '20px 0', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={{ fontSize: '20px', color: 'var(--slate)', marginBottom: '8px' }}>📁</div>
@@ -41,13 +41,13 @@ const DocCard = ({ label, id, file, onUpload, accept = ".jpg,.jpeg,.png,.pdf" })
           <div style={{ fontSize: '10px', color: 'var(--teal)', fontWeight: 800, marginTop: '4px', textTransform: 'uppercase' }}>Uploaded</div>
         </div>
       )}
-      
+
       <div style={{ marginTop: 'auto', paddingTop: '12px', width: '100%', borderTop: '1px solid var(--ice)', display: 'flex', justifyContent: 'center' }}>
-        <span style={{ 
-          padding: '4px 8px', 
-          borderRadius: '4px', 
-          fontSize: '9px', 
-          fontWeight: 800, 
+        <span style={{
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontSize: '9px',
+          fontWeight: 800,
           textTransform: 'uppercase',
           background: file ? 'rgba(56,201,176,0.1)' : 'rgba(100,100,100,0.05)',
           color: file ? 'var(--teal)' : 'var(--slate)'
@@ -88,6 +88,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   });
   const [viewForm, setViewForm] = useState(null);
   const [viewFlags, setViewFlags] = useState(null);
+  const [behData, setBehData] = useState(null);
+  const resultRef = useRef(null);
   const [result, setResult] = useState(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
@@ -146,7 +148,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
 
   const update = (k, v) => {
     if (isReadOnly || isView) return;
-    
+
     if (k === 'age') {
       const val = v.toString();
       if (val === '') {
@@ -187,6 +189,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       console.error('Failed to fetch my applications:', err);
     }
   };
+
+  useEffect(() => {
+    if (result && resultRef.current) {
+      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [result]);
 
   useEffect(() => {
     resetForm();
@@ -289,8 +297,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     const targetBankFinal = applyForm.targetBank === '__custom__' ? (applyForm.targetBankCustom || '').trim() : applyForm.targetBank;
 
     // Check required fields (same as simulator minus rate)
-    const requiredFields = ['age', 'credit', 'income', 'loanAmt', 'empl', 'jobChanges'];
-    const missing = requiredFields.filter(key => applyForm[key] === '' || applyForm[key] === null || Number.isNaN(Number(applyForm[key])));
+    const requiredFields = ['age', 'income', 'loanAmt', 'empl', 'jobChanges', 'credit'];
+    const missing = requiredFields.filter(key => applyForm[key] === '' || applyForm[key] === null || (key !== 'dti' && key !== 'lines' && Number.isNaN(Number(applyForm[key]))));
 
     if (missing.length > 0) {
       alert('Please fill all required fields before submitting.');
@@ -344,11 +352,9 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const handleSimulate = async () => {
     const requiredFields = [
       ['age', 'Age'],
-      ['credit', 'Credit Score'],
       ['income', 'Annual Income'],
       ['loanAmt', 'Loan Amount'],
-      ['dti', 'DTI Ratio'],
-      ['lines', 'Credit Lines'],
+      ['credit', 'Credit Score'],
       ['rate', 'Interest Rate (for simulation)'],
       ['empl', 'Months Employed'],
       ['jobChanges', 'Job Changes']
@@ -575,24 +581,24 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       </div>
                       <div>
                         <div className="flab">Age</div>
-                        <input 
-                          type="number" 
-                          className={`finput ${ageError ? 'error' : ''}`} 
-                          value={curData.age} 
-                          onChange={e => update('age', e.target.value)} 
+                        <input
+                          type="number"
+                          className={`finput ${ageError ? 'error' : ''}`}
+                          value={curData.age}
+                          onChange={e => update('age', e.target.value)}
                           onKeyDown={e => {
                             if (['.', 'e', 'E', '+', '-'].includes(e.key)) {
                               e.preventDefault();
                             }
                           }}
-                          disabled={isReadOnly} 
+                          disabled={isReadOnly}
                           placeholder="e.g. 25"
                         />
                         {ageError && (
-                          <div style={{ 
-                            color: 'var(--rose)', 
-                            fontSize: '11px', 
-                            fontWeight: 600, 
+                          <div style={{
+                            color: 'var(--rose)',
+                            fontSize: '11px',
+                            fontWeight: 600,
                             marginTop: '6px',
                             display: 'flex',
                             alignItems: 'center',
@@ -604,7 +610,18 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       </div>
                       <div>
                         <div className="flab">Credit Score</div>
-                        <input type="number" className="finput" value={curData.credit} onChange={e => update('credit', e.target.value)} disabled={isReadOnly} />
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          className="finput" 
+                          value={curData.credit} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            update('credit', val);
+                          }} 
+                          disabled={isReadOnly} 
+                          placeholder="e.g. 750"
+                        />
                       </div>
                       <div>
                         <div className="flab">Education Level</div>
@@ -666,11 +683,33 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       </div>
                       <div>
                         <div className="flab">Annual Income (₹)</div>
-                        <input type="number" className="finput" value={curData.income} onChange={e => update('income', e.target.value)} disabled={isReadOnly} />
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          className="finput" 
+                          value={curData.income} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            update('income', val);
+                          }} 
+                          disabled={isReadOnly} 
+                          placeholder="e.g. 800000"
+                        />
                       </div>
                       <div>
                         <div className="flab">Loan Amount (₹)</div>
-                        <input type="number" className="finput" value={curData.loanAmt} onChange={e => update('loanAmt', e.target.value)} disabled={isReadOnly} />
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          className="finput" 
+                          value={curData.loanAmt} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            update('loanAmt', val);
+                          }} 
+                          disabled={isReadOnly} 
+                          placeholder="e.g. 500000"
+                        />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', opacity: curData.income > 0 ? 1 : 0.4 }}>
                         <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '8px' }}>Income Stability</div>
@@ -687,25 +726,50 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                           <div>
                             <div className="flab">Monthly Debt (₹) <span className="combo-tag">Auto-DTI</span></div>
-                            <input type="number" className="finput" value={curData.dtiDebt} onChange={e => {
-                              const debt = e.target.value;
-                              const inc = curData.dtiIncome || curData.income;
-                              update('dtiDebt', debt);
-                              const dNum = debt === '' ? 0 : parseFloat(debt);
-                              const iNum = (inc === '' || !inc) ? 0 : parseFloat(inc);
-                              update('dti', iNum > 0 ? Math.min(parseFloat((dNum / iNum).toFixed(4)), 0.99) : 0);
-                            }} disabled={isReadOnly} />
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              className="finput" 
+                              value={curData.dtiDebt} 
+                              onChange={e => {
+                                const debt = e.target.value.replace(/\D/g, '');
+                                const inc = curData.dtiIncome || curData.income;
+                                update('dtiDebt', debt);
+                                const dNum = (debt === '') ? 0 : parseFloat(debt);
+                                const iNum = (inc === '' || !inc || parseFloat(inc) <= 0) ? 0 : parseFloat(inc);
+                                if (iNum > 0) {
+                                  const newDti = Math.max(0, Math.min(parseFloat((dNum / iNum).toFixed(4)), 0.99));
+                                  update('dti', newDti);
+                                } else {
+                                  update('dti', 0);
+                                }
+                              }} 
+                              disabled={isReadOnly} 
+                            />
                           </div>
                           <div>
                             <div className="flab">Pre-calculated Income (₹)</div>
-                            <input type="number" className="finput" value={curData.dtiIncome} placeholder={curData.income || "0"} onChange={e => {
-                              const inc = e.target.value;
-                              const debt = curData.dtiDebt;
-                              update('dtiIncome', inc);
-                              const dNum = (debt === '' || !debt) ? 0 : parseFloat(debt);
-                              const iNum = inc === '' ? 0 : parseFloat(inc);
-                              update('dti', iNum > 0 ? Math.min(parseFloat((dNum / iNum).toFixed(4)), 0.99) : 0);
-                            }} disabled={isReadOnly} />
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              className="finput" 
+                              value={curData.dtiIncome} 
+                              placeholder={curData.income || "0"} 
+                              onChange={e => {
+                                const inc = e.target.value.replace(/\D/g, '');
+                                const debt = curData.dtiDebt;
+                                update('dtiIncome', inc);
+                                const dNum = (debt === '' || !debt) ? 0 : parseFloat(debt);
+                                const iNum = (inc === '' || parseFloat(inc) <= 0) ? 0 : parseFloat(inc);
+                                if (iNum > 0) {
+                                  const newDti = Math.max(0, Math.min(parseFloat((dNum / iNum).toFixed(4)), 0.99));
+                                  update('dti', newDti);
+                                } else {
+                                  update('dti', 0);
+                                }
+                              }} 
+                              disabled={isReadOnly} 
+                            />
                           </div>
                         </div>
                         {curData.dti !== '' && curData.dtiDebt >= 0 && (
@@ -720,8 +784,18 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         )}
                       </div>
                       <div>
-                        <div className="flab">Active Credit Lines</div>
-                        <input type="number" className="finput" value={curData.lines} onChange={e => update('lines', e.target.value)} disabled={isReadOnly} />
+                        <div className="flab">Active Credit Lines <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '11px', marginLeft: '4px' }}>(Optional)</span></div>
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          className="finput" 
+                          value={curData.lines} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            update('lines', val);
+                          }} 
+                          disabled={isReadOnly} 
+                        />
                       </div>
 
                       <div className="fg-sec" style={{ gridColumn: '1 / -1', borderBottom: '2px solid var(--ice)', paddingBottom: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
@@ -750,11 +824,15 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="48">48 months</option><option value="60">60 months</option><option value="custom">Enter months manually…</option>
                           </select>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             className={`combo-manual ${curData.term === 'custom' ? 'show' : ''}`}
                             placeholder="e.g. 18, 42, 72 months…"
                             value={curData.customTerm}
-                            onChange={e => update('customTerm', e.target.value)}
+                            onChange={e => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              update('customTerm', val);
+                            }}
                             disabled={isReadOnly}
                           />
                         </div>
@@ -763,12 +841,16 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         <div>
                           <div className="flab">Expected Interest Rate (% p.a.)</div>
                           <input
-                            type="number"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             className="finput"
                             placeholder="e.g. 10.5"
                             value={curData.rate}
-                            onChange={e => update('rate', e.target.value)}
+                            onChange={e => {
+                              const val = e.target.value.replace(/[^0-9.]/g, '');
+                              const parts = val.split('.');
+                              if (parts.length <= 2) update('rate', val);
+                            }}
                             disabled={isReadOnly}
                           />
                         </div>
@@ -786,11 +868,31 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       </div>
                       <div>
                         <div className="flab">Months Employed</div>
-                        <input type="number" className="finput" value={curData.empl} onChange={e => update('empl', e.target.value)} disabled={isReadOnly} />
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          className="finput" 
+                          value={curData.empl} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            update('empl', val);
+                          }} 
+                          disabled={isReadOnly} 
+                        />
                       </div>
                       <div>
                         <div className="flab">Past 5y Job Changes</div>
-                        <input type="number" className="finput" value={curData.jobChanges} onChange={e => update('jobChanges', e.target.value)} disabled={isReadOnly} />
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          className="finput" 
+                          value={curData.jobChanges} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            update('jobChanges', val);
+                          }} 
+                          disabled={isReadOnly} 
+                        />
                       </div>
 
                       <div className="fg-sec" style={{ gridColumn: '1 / -1', borderBottom: '2px solid var(--ice)', paddingBottom: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
@@ -888,15 +990,47 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                           <div style={{ gridColumn: '1/-1', fontSize: '11px', color: 'var(--rose)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Existing Debt Burden Assessment</div>
                           <div>
                             <div className="flab">Outstanding Loan Amount (₹)</div>
-                            <input type="number" className="finput" value={curData.extLoanAmt} onChange={e => update('extLoanAmt', e.target.value)} disabled={isReadOnly} />
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              className="finput" 
+                              value={curData.extLoanAmt} 
+                              onChange={e => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                update('extLoanAmt', val);
+                              }} 
+                              disabled={isReadOnly} 
+                            />
                           </div>
                           <div>
                             <div className="flab">Monthly EMI Being Paid (₹)</div>
-                            <input type="number" className="finput" value={curData.extEmi} onChange={e => update('extEmi', e.target.value)} disabled={isReadOnly} />
+                            <input 
+                              type="text" 
+                              inputMode="numeric"
+                              className="finput" 
+                              value={curData.extEmi} 
+                              onChange={e => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                update('extEmi', val);
+                              }} 
+                              disabled={isReadOnly} 
+                            />
                           </div>
                           <div>
                             <div className="flab">Interest Rate (% p.a.)</div>
-                            <input type="number" step="0.01" className="finput" placeholder="e.g. 10.5" value={curData.extRate || ''} onChange={e => update('extRate', e.target.value)} disabled={isReadOnly} />
+                            <input 
+                              type="text" 
+                              inputMode="decimal"
+                              className="finput" 
+                              placeholder="e.g. 10.5" 
+                              value={curData.extRate || ''} 
+                              onChange={e => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                const parts = val.split('.');
+                                if (parts.length <= 2) update('extRate', val);
+                              }} 
+                              disabled={isReadOnly} 
+                            />
                           </div>
                           <div>
                             <div className="flab">Bank Name <span className="combo-tag">+ Custom</span></div>
@@ -974,8 +1108,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                           <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                               <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px' }}>1. Identity Proof</div>
-                              <select 
-                                className="fselect" 
+                              <select
+                                className="fselect"
                                 style={{ width: '200px', height: '32px', fontSize: '12px', padding: '0 12px' }}
                                 value={selectedIdType}
                                 onChange={e => {
@@ -990,20 +1124,20 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                                 <option value="dl">Driving License</option>
                               </select>
                             </div>
-                            
+
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                              <DocCard 
-                                label={`${selectedIdType.toUpperCase()} (Front)`} 
-                                id="idFront" 
-                                file={docs.idFront} 
-                                onUpload={f => setDocs(p => ({ ...p, idFront: f }))} 
+                              <DocCard
+                                label={`${selectedIdType.toUpperCase()} (Front)`}
+                                id="idFront"
+                                file={docs.idFront}
+                                onUpload={f => setDocs(p => ({ ...p, idFront: f }))}
                               />
                               {selectedIdType !== 'pan' && (
-                                <DocCard 
-                                  label={`${selectedIdType.toUpperCase()} (Back)`} 
-                                  id="idBack" 
-                                  file={docs.idBack} 
-                                  onUpload={f => setDocs(p => ({ ...p, idBack: f }))} 
+                                <DocCard
+                                  label={`${selectedIdType.toUpperCase()} (Back)`}
+                                  id="idBack"
+                                  file={docs.idBack}
+                                  onUpload={f => setDocs(p => ({ ...p, idBack: f }))}
                                 />
                               )}
                             </div>
@@ -1048,8 +1182,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             <span><strong style={{ color: 'var(--gold)' }}>Check Eligibility.</strong> Use this tool to quickly see your loan approval chance. This is not a formal application. To apply for a real loan, use <strong>Apply Loan</strong>.</span>
                           </div>
                           <div className="fg-full mt18" style={{ gridColumn: '1 / -1' }}>
-                            <button 
-                              className="btn-assess" 
+                            <button
+                              className="btn-assess"
                               onClick={handleSimulate}
                               disabled={!!ageError || curData.age === ''}
                               style={{ opacity: (!!ageError || curData.age === '') ? 0.6 : 1, cursor: (!!ageError || curData.age === '') ? 'not-allowed' : 'pointer' }}
@@ -1071,9 +1205,9 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             </div>
                           ) : (
                             <>
-                              <button 
-                                className="btn-assess" 
-                                onClick={handleOfficialApply} 
+                              <button
+                                className="btn-assess"
+                                onClick={handleOfficialApply}
                                 disabled={applySubmitting || !!ageError || curData.age === ''}
                                 style={{ opacity: (applySubmitting || !!ageError || curData.age === '') ? 0.6 : 1, cursor: (applySubmitting || !!ageError || curData.age === '') ? 'not-allowed' : 'pointer' }}
                               >
@@ -1094,7 +1228,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
           )}
 
           {page === 'bpg-simulator' && result && (
-            <div className="fade-in" style={{ marginTop: '24px', color: 'var(--navy)' }}>
+            <div ref={resultRef} className="fade-in" style={{ marginTop: '24px', color: 'var(--navy)' }}>
               {/* HERO SECTION */}
               <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', marginBottom: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
                 <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 600, fontFamily: "'Georgia', serif", color: 'var(--navy)' }}>Eligibility Report</h2>
@@ -1102,8 +1236,16 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                   Assessed by GroundZero ML Intelligence · {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
                 </div>
                 <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                  <span style={{ padding: '6px 12px', background: 'rgba(13, 148, 136, 0.08)', color: 'var(--teal)', borderRadius: '6px', fontSize: '10px', fontWeight: 800, border: '1px solid rgba(13, 148, 136, 0.15)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ width: '8px', height: '8px', background: 'var(--teal)', borderRadius: '2px' }} /> Likely Approved
+                  <span style={{
+                    padding: '6px 12px',
+                    background: result.level === 'low' ? 'rgba(13, 148, 136, 0.1)' : result.level === 'med' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444',
+                    borderRadius: '6px', fontSize: '10px', fontWeight: 800,
+                    border: `1px solid ${result.level === 'low' ? 'rgba(13, 148, 136, 0.2)' : result.level === 'med' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    <span style={{ width: '8px', height: '8px', background: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444', borderRadius: '2px' }} />
+                    {result.level === 'low' ? 'Likely Approved' : result.level === 'med' ? 'Review Required' : 'High Risk Profile'}
                   </span>
                   <span style={{ padding: '6px 12px', background: 'rgba(14, 165, 233, 0.08)', color: 'var(--sky)', borderRadius: '6px', fontSize: '10px', fontWeight: 800, border: '1px solid rgba(14, 165, 233, 0.15)' }}>
                     ₹{fmt(formData.loanAmt)} · {effectiveTerm} months · {displayPurpose}
@@ -1118,12 +1260,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                     <span style={{ width: '8px', height: '8px', background: 'var(--teal)', borderRadius: '50%' }} /> Your Risk Score
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '80px', fontWeight: 800, color: 'var(--teal)', lineHeight: 1, fontFamily: "'Georgia', serif" }}>{result.pct}%</div>
+                    <div style={{ fontSize: '80px', fontWeight: 800, color: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444', lineHeight: 1, fontFamily: "'Georgia', serif" }}>{result.pct}%</div>
                     <div style={{ fontSize: '10px', color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '2px', marginTop: '12px', fontWeight: 700 }}>Default Probability</div>
                     <div style={{ height: '6px', background: 'var(--bg)', borderRadius: '3px', marginTop: '40px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${result.pct}%`, background: 'var(--teal)' }} />
+                      <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444' }} />
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--teal)', marginTop: '20px', fontWeight: 600 }}>Category: {result.level === 'low' ? 'Low (<30%)' : result.level === 'med' ? 'Medium (30-60%)' : 'High (>60%)'}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--slate)', marginTop: '20px', fontWeight: 600 }}>Category: {result.level === 'low' ? 'Low (<30%)' : result.level === 'med' ? 'Medium (30-60%)' : 'High (>60%)'}</div>
                   </div>
                 </div>
 
@@ -1307,222 +1449,185 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
 
           {page === 'bpg-stocks' && (
             <div className="fade-in">
-              <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <div>
-                  <h1 className="h-serif" style={{ fontSize: '32px' }}>Money <span style={{ color: 'var(--gold)' }}>Insights</span></h1>
-                  <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px' }}>View simple financial suggestions based on your profile.</p>
-                </div>
-
-              </div>
-
-              <div className="stats-grid" style={{ marginBottom: '32px' }}>
-                <div className="kpi-card">
-                  <div className="label">Bitcoin (BTC)</div>
-                  <div className="value" style={{ color: 'var(--navy-deep)' }}>
-                    {liveData.loading ? '...' : liveData.btc ? `₹${fmtK(liveData.btc.inr)}` : '₹55.4L'}
-                  </div>
-                  <div className={`trend ${liveData.btc?.inr_24h_change < 0 ? 'down' : 'up'}`} style={{ color: liveData.btc?.inr_24h_change < 0 ? 'var(--rose)' : 'var(--teal)', fontSize: '11px', fontWeight: 800 }}>
-                    {liveData.btc?.inr_24h_change < 0 ? '▼' : '▲'} {Math.abs(liveData.btc?.inr_24h_change || 1.2).toFixed(2)}% <span style={{ color: 'var(--slate-light)', fontWeight: 400 }}>24h</span>
-                  </div>
-                </div>
-                <div className="kpi-card">
-                  <div className="label">Nifty 50 Index</div>
-                  <div className="value">24,320</div>
-                  <div className="trend up" style={{ color: 'var(--teal)', fontSize: '11px', fontWeight: 800 }}>▲ 0.65% <span style={{ color: 'var(--slate-light)', fontWeight: 400 }}>Today</span></div>
-                </div>
-                <div className="kpi-card">
-                  <div className="label">Money Health</div>
-                  <div className="value" style={{ color: activeProfile?.level === 'low' ? 'var(--teal)' : 'var(--gold)' }}>{activeProfile?.level === 'low' ? 'Optimal' : 'Moderate'}</div>
-                  <div className="label" style={{ fontSize: '10px' }}>Your Score</div>
-                </div>
-                <div className="kpi-card">
-                  <div className="label">Suggested Options</div>
-                  <div className="value">06</div>
-                  <div className="label" style={{ fontSize: '10px' }}>Top Picks</div>
-                </div>
+              <div style={{ marginBottom: '40px' }}>
+                <h1 className="h-serif" style={{ fontSize: '32px' }}>Investment <span style={{ color: 'var(--gold)' }}>Roadmap</span></h1>
+                <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px' }}>
+                  A simplified strategy to grow your wealth based on your <strong>{activeProfile.source.replace('bank_', '').toUpperCase()}</strong> profile.
+                </p>
               </div>
 
               {!activeProfile ? (
                 <div className="card" style={{ textAlign: 'center', padding: '100px 40px', color: 'var(--slate)' }}>
                   <div style={{ fontSize: '56px', marginBottom: '24px' }}>🔒</div>
-                  <h3 className="h-serif" style={{ color: 'var(--navy-deep)', marginBottom: '12px' }}>Money Insights Locked</h3>
-                  <p style={{ maxWidth: '500px', margin: '0 auto', fontSize: '15px', lineHeight: 1.6 }}>Please check your eligibility or apply for a loan first to see financial suggestions tailored for you.</p>
-                  <button className="lp-btn-solid" style={{ marginTop: '32px', padding: '14px 32px' }} onClick={() => setPage('bpg-simulator')}>Check Eligibility</button>
+                  <h3 className="h-serif" style={{ color: 'var(--navy-deep)', marginBottom: '12px' }}>Roadmap Locked</h3>
+                  <p style={{ maxWidth: '500px', margin: '0 auto', fontSize: '15px', lineHeight: 1.6 }}>Submit an application or check eligibility to unlock your personalized investment plan.</p>
+                  <button className="lp-btn-solid" style={{ marginTop: '32px', padding: '14px 32px' }} onClick={() => setPage('bpg-simulator')}>Get Started</button>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: '40px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                    <div className="card" style={{ padding: '32px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <div>
-                          <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', margin: 0 }}>Market Prices</h3>
-                          <div style={{ fontSize: '12px', color: 'var(--slate)', marginTop: '4px' }}>Current Focus: <strong style={{ color: 'var(--sky)' }}>{selectedAsset || 'Select an option below'}</strong></div>
-                        </div>
-                        <div className="range-selector">
-                          {['1D', '1W', '1M', '1Y'].map(r => (
-                            <button key={r} className={`range-btn ${r === '1W' ? 'active' : ''}`}>{r}</button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="chart-container" style={{ height: '300px', overflow: 'hidden' }}>
-                        {selectedAsset ? (
-                          <>
-                            <div className="chart-tooltip" style={{ top: '24px', right: '24px' }}>
-                              <span>Safety Check</span>
-                              <div>{selectedAsset === 'BTC' ? 'High Risk' : selectedAsset === 'NIFTY' ? 'Moderate' : 'Safe/Institutional'}</div>
-                            </div>
-                            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
-                              <defs>
-                                <linearGradient id="wealthGrad" x1="0" x2="0" y1="0" y2="1">
-                                  <stop offset="0%" stopColor="var(--sky)" stopOpacity="0.15" />
-                                  <stop offset="100%" stopColor="var(--sky)" stopOpacity="0" />
-                                </linearGradient>
-                              </defs>
-                              {(() => {
-                                const pts = generateSvgPath(selectedAsset);
-                                const pathStr = `M ${pts.join(' L ')}`;
-                                const areaStr = `${pathStr} L 100,100 L 0,100 Z`;
-                                return (
-                                  <>
-                                    <path d={areaStr} fill="url(#wealthGrad)" style={{ transition: 'all 1s cubic-bezier(0.23, 1, 0.32, 1)' }} />
-                                    <path d={pathStr} fill="none" stroke="var(--sky)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 1s cubic-bezier(0.23, 1, 0.32, 1)' }} />
-                                    {[25, 50, 75].map(y => <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="6,6" />)}
-                                    <circle cx="100" cy={pts[pts.length - 1].split(',')[1]} r="5" fill="var(--sky)" stroke="#fff" strokeWidth="2.5" />
-                                  </>
-                                );
-                              })()}
-                            </svg>
-                          </>
-                        ) : (
-                          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--slate)', opacity: 0.6 }}>
-                            <div style={{ fontSize: '40px', marginBottom: '16px' }}>📈</div>
-                            <div style={{ fontSize: '14px', fontWeight: 700 }}>Select an Option</div>
-                            <p style={{ fontSize: '12px' }}>Click on a suggestion below to see the price trend.</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-                        {[
-                          { id: 'BTC', name: 'Digital Alpha', type: 'High Risk', label: 'BTC', price: liveData.btc ? `₹${fmt(liveData.btc.inr)}` : '₹55,42,100', trend: '+1.2%', up: true },
-                          { id: 'RELIANCE', name: 'Corporate Equity', type: 'Core Growth', label: 'RELIANCE', price: '₹2,941', trend: '+0.82%', up: true },
-                          { id: 'SGB', name: 'Sovereign Debt', type: 'Stable', label: 'GOLD BOND', price: '₹6,240', trend: '+0.15%', up: true },
-                          { id: 'NIFTY', name: 'Market Index', type: 'Broad Market', label: 'NIFTY 50', price: '₹24,320', trend: '+0.45%', up: true },
-                          { id: 'FD', name: 'Liquid Reserves', type: 'Fixed Rate', label: 'FIXED DEPOSIT', price: '7.10%', trend: 'Stable', up: true },
-                          { id: 'MF', name: 'Diversified Fund', type: 'Managed', label: 'BLUECHIP MF', price: '₹142.1', trend: '+1.1%', up: true }
-                        ].filter(a => {
-                          if (activeProfile.level === 'high') return ['SGB', 'FD', 'MF'].includes(a.id);
-                          if (activeProfile.level === 'med') return ['RELIANCE', 'SGB', 'NIFTY', 'MF'].includes(a.id);
-                          return true;
-                        }).map(asset => (
-                          <div key={asset.id} className={`market-card ${selectedAsset === asset.id ? 'active' : ''}`} onClick={() => setSelectedAsset(asset.id)} style={{ border: selectedAsset === asset.id ? '2px solid var(--sky)' : '1px solid var(--border)', background: selectedAsset === asset.id ? 'rgba(14, 165, 233, 0.02)' : '#fff' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 800, color: 'var(--slate-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                              <span>{asset.type}</span>
-                              <span style={{ color: asset.up ? 'var(--teal)' : 'var(--rose)' }}>{asset.trend}</span>
-                            </div>
-                            <div style={{ fontWeight: 800, color: 'var(--navy-deep)', marginTop: '6px', fontSize: '15px' }}>{asset.name}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--slate)', opacity: 0.8 }}>{asset.label}</div>
-                            <div className="price" style={{ fontSize: '20px', marginTop: '12px', color: 'var(--navy-deep)' }}>{asset.price}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="card" style={{ padding: '32px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', margin: 0 }}>Portfolio Suggestions</h3>
-                        <span className="mock-status s-ok" style={{ fontSize: '9px' }}>AI OPTIMIZED</span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {activeProfile.level === 'low' ? (
-                          <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                              <div style={{ width: '48px', height: '48px', background: 'var(--sky-light)', color: 'var(--sky)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '18px' }}>65%</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                  <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy-deep)' }}>Growth Investments</div>
-                                  <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>High Return Opportunity</div>
-                                </div>
-                                <div style={{ height: '8px', background: 'var(--ice)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '65%', height: '100%', background: 'var(--sky)', borderRadius: '4px' }} /></div>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                              <div style={{ width: '48px', height: '48px', background: 'var(--teal-light)', color: 'var(--teal)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '18px' }}>25%</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                  <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy-deep)' }}>Stable Debt</div>
-                                  <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>Safety Layer</div>
-                                </div>
-                                <div style={{ height: '8px', background: 'var(--ice)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '25%', height: '100%', background: 'var(--teal)', borderRadius: '4px' }} /></div>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                              <div style={{ width: '48px', height: '48px', background: 'var(--rose-light)', color: 'var(--rose)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '18px' }}>10%</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                  <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy-deep)' }}>Frontier Assets</div>
-                                  <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>New Opportunities</div>
-                                </div>
-                                <div style={{ height: '8px', background: 'var(--ice)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '10%', height: '100%', background: 'var(--rose)', borderRadius: '4px' }} /></div>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ background: 'var(--ice)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--navy-deep)', marginBottom: '8px' }}>Safe Capital Planning</div>
-                            <p style={{ fontSize: '13px', color: 'var(--slate)', lineHeight: 1.7 }}>
-                              Given your current debt level ({(activeProfile.dti * 100).toFixed(1)}%), it is better to prioritize safety. Recommended allocation: 70% Fixed Deposits / 30% Gold.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                    <div className="card" style={{ background: 'var(--navy-deep)', color: '#fff', border: 'none', padding: '40px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>Smart Summary</div>
-                      <h3 className="h-serif" style={{ fontSize: '24px', color: '#fff', marginBottom: '20px' }}>Financial Advisory</h3>
-                      <p style={{ fontSize: '14px', opacity: 0.8, lineHeight: 1.8, marginBottom: '32px' }}>
-                        {activeProfile.level === 'low'
-                          ? 'Your financial profile is very stable. You have good capacity for growth-focused investments like tech stocks. We recommend exploring diversified equity options.'
-                          : 'Safety is currently the best strategy. While your profile is resilient, we recommend keeping debt below 30% of your income before entering risky markets.'
+                <>
+                  {/* Primary Recommendation Banner */}
+                  <div style={{ 
+                    background: 'var(--navy-deep)', 
+                    color: '#fff', 
+                    borderRadius: '24px', 
+                    padding: '40px', 
+                    marginBottom: '40px', 
+                    boxShadow: '0 20px 40px rgba(15, 23, 42, 0.15)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '120px', opacity: 0.05 }}>📈</div>
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 900, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '16px' }}>Master Strategy</div>
+                      <h2 className="h-serif" style={{ fontSize: '28px', color: '#fff', marginBottom: '16px' }}>
+                        {activeProfile.level === 'low' ? 'Aggressive Growth Plan' : 'Capital Protection Plan'}
+                      </h2>
+                      <p style={{ fontSize: '16px', opacity: 0.8, lineHeight: 1.8, maxWidth: '700px' }}>
+                        {activeProfile.source.includes('approved') 
+                          ? `With your recent loan Approval, you have demonstrated high financial discipline. We recommend allocating surplus funds into equity-linked assets to outpace your interest rate.`
+                          : activeProfile.source.includes('rejected')
+                          ? "Based on your bank review, your priority is stability. We suggest 100% allocation in guaranteed-return assets to rebuild your credit buffer without market risk."
+                          : "Your profile suggests a balanced approach. Focus on liquid assets that keep you ready for your upcoming loan obligations while earning a steady 7-8% return."
                         }
                       </p>
-                      <div style={{ padding: '24px', background: 'rgba(255,255,255,0.04)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ color: 'var(--teal)' }}>●</span> Core Goal: Value Growth
-                        </div>
-                        <div style={{ fontSize: '12px', opacity: 0.6, lineHeight: 1.6 }}>Focus on dividend-paying assets to build a secondary income stream.</div>
-                      </div>
-                    </div>
-
-                    <div className="card" style={{ padding: '32px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <h3 style={{ fontSize: '16px', color: 'var(--navy-deep)', margin: 0 }}>Market Updates</h3>
-                        <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--gold)', letterSpacing: '1px' }}>LATEST NEWS</div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        {[
-                          { title: 'Global Gold Market Outlook', date: 'Oct 2024', source: 'Gold News', type: 'GOLD' },
-                          { title: 'Stock Market Growth Cycles', date: 'Oct 2024', source: 'Market Research', type: 'EQUITY' },
-                          { title: 'FD and Interest Rate Benefits', date: 'Sep 2024', source: 'Savings Advisor', type: 'SAVINGS' }
-                        ].map((news, i) => (
-                          <div key={i} style={{ paddingBottom: '20px', borderBottom: i === 2 ? '' : '1px solid var(--ice)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                              <span className="mock-status s-wait" style={{ fontSize: '9px' }}>{news.type}</span>
-                              <span style={{ fontSize: '11px', color: 'var(--slate-light)', fontWeight: 600 }}>{news.date}</span>
-                            </div>
-                            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy-deep)', cursor: 'pointer', lineHeight: 1.4 }}>{news.title}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--slate)', marginTop: '4px', fontWeight: 600 }}>Source: {news.source}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <button className="lp-btn-secondary" style={{ width: '100%', marginTop: '16px', padding: '12px', fontSize: '12px' }}>VIEW FULL MARKET DATA</button>
                     </div>
                   </div>
-                </div>
+
+                  {/* Recommendation Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '40px' }}>
+                    {[
+                      { 
+                        id: 'SGB', 
+                        name: 'Gold Bonds (SGB)', 
+                        profit: '12.5%', 
+                        risk: 'Safe', 
+                        desc: 'Sovereign guarantee with 2.5% extra interest.',
+                        why: 'Perfect hedge against loan liabilities.',
+                        color: 'var(--gold)',
+                        icon: '🌕'
+                      },
+                      { 
+                        id: 'NIFTY', 
+                        name: 'Nifty 50 Index', 
+                        profit: '14.2%', 
+                        risk: 'Moderate', 
+                        desc: 'India\'s top 50 companies for long-term growth.',
+                        why: 'Best for Approved profiles with low DTI.',
+                        color: 'var(--teal)',
+                        icon: '📊'
+                      },
+                      { 
+                        id: 'FD', 
+                        name: 'Fixed Deposits', 
+                        profit: '7.1%', 
+                        risk: 'Secure', 
+                        desc: 'Guaranteed returns with instant liquidity.',
+                        why: 'Recommended for building emergency buffers.',
+                        color: 'var(--sky)',
+                        icon: '🛡️'
+                      }
+                    ].filter(a => {
+                      if (activeProfile.level === 'high') return a.risk === 'Secure' || a.risk === 'Safe';
+                      return true;
+                    }).map(asset => (
+                      <div key={asset.id} 
+                        className={`card ${selectedAsset === asset.id ? 'active-investment' : ''}`} 
+                        onClick={() => setSelectedAsset(selectedAsset === asset.id ? null : asset.id)}
+                        style={{ 
+                          padding: '32px', 
+                          border: selectedAsset === asset.id ? `2px solid ${asset.color}` : '1px solid var(--border)', 
+                          background: selectedAsset === asset.id ? `${asset.color}05` : '#fff',
+                          transition: 'all 0.3s ease', 
+                          cursor: 'pointer',
+                          position: 'relative'
+                        }}
+                      >
+                        {selectedAsset === asset.id && (
+                          <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '10px', color: asset.color, fontWeight: 900 }}>VIEWING TREND</div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                          <div style={{ width: '48px', height: '48px', background: `${asset.color}15`, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', color: asset.color }}>
+                            {asset.icon}
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase' }}>Est. Annual Profit</div>
+                            <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--navy-deep)' }}>{asset.profit}</div>
+                          </div>
+                        </div>
+                        <h3 style={{ fontSize: '18px', color: 'var(--navy-deep)', marginBottom: '8px' }}>{asset.name}</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--slate)', lineHeight: 1.6, marginBottom: '20px' }}>{asset.desc}</p>
+                        <div style={{ padding: '12px 16px', background: 'var(--bg)', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--navy)', fontWeight: 600 }}>
+                          💡 {asset.why}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Trend Analysis Section (Appears on Click) */}
+                  {selectedAsset && (
+                    <div className="card fade-in" style={{ padding: '40px', marginBottom: '40px', background: '#fff', border: '1.5px solid var(--ice)', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--sky)', textTransform: 'uppercase', letterSpacing: '1px' }}>Performance History</div>
+                          <h3 className="h-serif" style={{ fontSize: '24px', color: 'var(--navy-deep)', margin: '4px 0' }}>{selectedAsset} Trend Analysis</h3>
+                        </div>
+                        <button onClick={() => setSelectedAsset(null)} style={{ background: 'var(--ice)', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 800, cursor: 'pointer', color: 'var(--slate)' }}>CLOSE CHART ×</button>
+                      </div>
+                      
+                      <div style={{ height: '300px', width: '100%', position: 'relative' }}>
+                        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+                          <defs>
+                            <linearGradient id="chartGrad" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stopColor="var(--sky)" stopOpacity="0.15" />
+                              <stop offset="100%" stopColor="var(--sky)" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          {(() => {
+                            const pts = generateSvgPath(selectedAsset);
+                            const pathStr = `M ${pts.join(' L ')}`;
+                            const areaStr = `${pathStr} L 100,100 L 0,100 Z`;
+                            return (
+                              <>
+                                <path d={areaStr} fill="url(#chartGrad)" style={{ transition: 'all 0.6s ease' }} />
+                                <path d={pathStr} fill="none" stroke="var(--sky)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 0.6s ease' }} />
+                                {[25, 50, 75].map(y => <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="6,6" />)}
+                                <circle cx="100" cy={pts[pts.length - 1].split(',')[1]} r="5" fill="var(--sky)" stroke="#fff" strokeWidth="2.5" />
+                              </>
+                            );
+                          })()}
+                        </svg>
+                        <div style={{ position: 'absolute', bottom: '-24px', left: 0, right: 0, display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>
+                          <span>Past 12 Months</span>
+                          <span>Today</span>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '50px', background: 'var(--bg)', padding: '20px', borderRadius: '12px', fontSize: '13px', color: 'var(--slate)', lineHeight: 1.6 }}>
+                        <strong>Analyst Note:</strong> The trend for {selectedAsset} shows strong resilience over the last fiscal cycle. Clicking other cards will update this view to compare relative performance.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Why Invest Section */}
+                  <div className="card" style={{ padding: '40px', background: '#fff', border: '1.5px solid var(--ice)' }}>
+                    <h3 className="h-serif" style={{ fontSize: '22px', marginBottom: '24px' }}>Why these suggestions for you?</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+                      <div style={{ display: 'flex', gap: '20px' }}>
+                        <div style={{ fontSize: '24px' }}>📉</div>
+                        <div>
+                          <div style={{ fontWeight: 800, color: 'var(--navy)', marginBottom: '4px' }}>Loan Surplus Utilization</div>
+                          <p style={{ fontSize: '13px', color: 'var(--slate)', lineHeight: 1.6 }}>Investing your loan surplus in assets with {activeProfile.level === 'low' ? '12%+' : '7%+'} returns effectively reduces your net interest burden.</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '20px' }}>
+                        <div style={{ fontSize: '24px' }}>🛡️</div>
+                        <div>
+                          <div style={{ fontWeight: 800, color: 'var(--navy)', marginBottom: '4px' }}>Risk Matching</div>
+                          <p style={{ fontSize: '13px', color: 'var(--slate)', lineHeight: 1.6 }}>We\'ve matched these assets to your <strong>{activeProfile.level.toUpperCase()}</strong> risk profile to ensure your loan repayment capacity is never compromised.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -1591,7 +1696,7 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
 
   const displayPurpose = data.purpose === 'custom' ? data.customPurpose : (purposeMap[data.purpose] || data.purpose);
   const effectiveTerm = data.term === 'custom' ? data.customTerm : data.term;
-  
+
   const status = result.adjustedD?.status || 'Under Review';
   const isRejected = status === 'Rejected';
   const isApproved = status === 'Approved';
@@ -1615,11 +1720,11 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
           <div>
             <div style={{ fontSize: '11px', fontWeight: 900, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Application Review Summary</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ 
-                padding: '6px 14px', 
-                borderRadius: '20px', 
-                fontSize: '12px', 
-                fontWeight: 800, 
+              <span style={{
+                padding: '6px 14px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 800,
                 background: isApproved ? 'rgba(56,201,176,0.1)' : isRejected ? 'rgba(232,84,117,0.1)' : 'rgba(201,151,60,0.1)',
                 color: isApproved ? 'var(--teal)' : isRejected ? 'var(--rose)' : 'var(--gold)',
                 border: `1px solid ${isApproved ? 'var(--teal)' : isRejected ? 'var(--rose)' : 'var(--gold)'}22`

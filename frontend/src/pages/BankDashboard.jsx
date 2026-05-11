@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import Sidebar from '../components/Sidebar';
 
@@ -247,6 +247,15 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
 
   const [result, setResult] = useState(null);
+  const resultRef = useRef(null);
+
+  useEffect(() => {
+    if (result && page === 'bd-assess' && resultRef.current) {
+      setTimeout(() => {
+        resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 400);
+    }
+  }, [result, page]);
 
   const [opt, setOpt] = useState({ loanAmt: 130000, credit: 575, dti: 0.35, empType: 'full' });
 
@@ -503,7 +512,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
   const handleSubmit = async () => {
 
-    const required = ['age', 'income', 'loanAmt', 'credit', 'empl', 'lines', 'rate', 'term'];
+    const required = ['age', 'income', 'loanAmt', 'empl', 'credit', 'rate', 'term'];
 
     for (let f of required) {
 
@@ -1674,7 +1683,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">AGE</div>
 
-                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -1682,7 +1691,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">CREDIT SCORE</div>
 
-                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -1726,7 +1735,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">ANNUAL INCOME (₹)</div>
 
-                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -1734,23 +1743,23 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">LOAN AMOUNT (₹)</div>
 
-                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
                   <div>
 
-                    <div className="flab">DTI RATIO</div>
+                    <div className="flab">DTI RATIO <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL)</span></div>
 
-                    <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', +e.target.value)} />
+                    <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
                   <div>
 
-                    <div className="flab">CREDIT LINES</div>
+                    <div className="flab">CREDIT LINES <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL)</span></div>
 
-                    <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -1786,7 +1795,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                       </select>
 
-                      <input type="number" className={`combo-manual ${formData.term === 'custom' ? 'show' : ''}`} value={formData.customTerm} onChange={e => update('customTerm', e.target.value)} />
+                      <input type="number" className={`combo-manual ${formData.term === 'custom' ? 'show' : ''}`} value={formData.customTerm} onChange={e => update('customTerm', e.target.value)} onWheel={e => e.target.blur()} />
 
                     </div>
 
@@ -1796,7 +1805,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">INTEREST RATE %</div>
 
-                    <input type="number" step="0.01" className="finput" value={formData.rate} onChange={e => update('rate', +e.target.value)} />
+                    <input type="number" step="0.01" className="finput" value={formData.rate} onChange={e => update('rate', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -1818,7 +1827,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">MONTHS EMPLOYED</div>
 
-                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -1826,7 +1835,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">JOB CHANGES (LAST 5 YRS)</div>
 
-                    <input type="number" className="finput" value={formData.jobChanges} onChange={e => update('jobChanges', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.jobChanges} onChange={e => update('jobChanges', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -1953,8 +1962,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
               </div>
 
               {result && (
-
-                <div className="fade-in" style={{ marginTop: '30px' }}>
+                <div ref={resultRef} className="fade-in" style={{ marginTop: '30px', scrollMarginTop: '100px' }}>
 
                   {/* VERDICT BANNER */}
 
@@ -2571,11 +2579,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Recovery Rate</div>
 
-                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--gold)', marginBottom: '8px' }}>64.2%</div>
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--gold)', marginBottom: '8px' }}>{apps.length > 0 ? '64.2%' : '0.0%'}</div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--teal)', fontWeight: 600, marginBottom: '16px' }}>Standard baseline</div>
+                  <div style={{ fontSize: '12px', color: 'var(--teal)', fontWeight: 600, marginBottom: '16px' }}>{apps.length > 0 ? 'Standard baseline' : 'No data available'}</div>
 
-                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ width: '64%', height: '100%', background: 'var(--gold)' }}></div></div>
+                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ width: apps.length > 0 ? '64%' : '0%', height: '100%', background: 'var(--gold)' }}></div></div>
 
                 </div>
 
@@ -2585,11 +2593,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Model Precision</div>
 
-                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--sky)', marginBottom: '8px' }}>64%</div>
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--sky)', marginBottom: '8px' }}>{apps.length > 0 ? '64%' : '0%'}</div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--text2)', fontWeight: 600, marginBottom: '16px' }}>On default class</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text2)', fontWeight: 600, marginBottom: '16px' }}>{apps.length > 0 ? 'On default class' : 'Model inactive'}</div>
 
-                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ width: '64%', height: '100%', background: 'var(--sky)' }}></div></div>
+                  <div style={{ height: '4px', background: 'var(--bg2)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ width: apps.length > 0 ? '64%' : '0%', height: '100%', background: 'var(--sky)' }}></div></div>
 
                 </div>
 
@@ -2975,7 +2983,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 </div>
                 <div className="kpi teal fade-up fade-up-d1">
                   <div className="kpi-lbl">Avg. Interest Rate</div>
-                  <div className="kpi-val" style={{ color: 'var(--teal)' }}>12.4%</div>
+                  <div className="kpi-val" style={{ color: 'var(--teal)' }}>
+                    {apps.length > 0 ? (apps.reduce((s, a) => s + (parseFloat(a.interest_rate) || 12.4), 0) / apps.length).toFixed(1) : '0.0'}%
+                  </div>
                   <div className="kpi-sub">Annualized Returns</div>
                 </div>
                 <div className="kpi gold fade-up fade-up-d2">
@@ -2985,7 +2995,12 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 </div>
                 <div className="kpi rose fade-up fade-up-d3">
                   <div className="kpi-lbl">Portfolio Health</div>
-                  <div className="kpi-val" style={{ color: 'var(--teal)', fontSize: '24px' }}>Stable</div>
+                  <div className="kpi-val" style={{ 
+                    color: apps.some(a => a.risk_category === 'High') ? 'var(--rose)' : 'var(--teal)', 
+                    fontSize: '24px' 
+                  }}>
+                    {apps.length === 0 ? 'N/A' : (apps.some(a => a.risk_category === 'High') ? 'At Risk' : 'Stable')}
+                  </div>
                   <div className="kpi-sub">System-wide Status</div>
                 </div>
               </div>
@@ -3076,10 +3091,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     (a.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (a.loan_id || '').toLowerCase().includes(searchQuery.toLowerCase())
                   ).length === 0 && (
-                    <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 40px', background: 'var(--ice)', borderRadius: '14px', color: 'var(--slate)', fontSize: '14px', fontWeight: 500, border: '1px dashed var(--border-strong)' }}>
-                      No customers found matching your search.
-                    </div>
-                  )}
+                      <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 40px', background: 'var(--ice)', borderRadius: '14px', color: 'var(--slate)', fontSize: '14px', fontWeight: 500, border: '1px dashed var(--border-strong)' }}>
+                        No customers found matching your search.
+                      </div>
+                    )}
 
                 </div>
               </div>
@@ -3117,7 +3132,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">AGE</div>
 
-                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.age} onChange={e => update('age', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -3125,7 +3140,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">CREDIT SCORE</div>
 
-                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.credit} onChange={e => update('credit', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -3169,7 +3184,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">ANNUAL INCOME (₹)</div>
 
-                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.income} onChange={e => update('income', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -3177,19 +3192,19 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">LOAN AMOUNT (₹)</div>
 
-                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.loanAmt} onChange={e => update('loanAmt', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
                   <div style={{ gridColumn: '1 / -1', marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '20px', marginBottom: '10px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                       <div>
-                        <div className="flab">DTI RATIO <span style={{ fontWeight: 400, color: 'var(--slate)', fontSize: '11px', marginLeft: '8px' }}>(% of income used for EMI) (Optional)</span></div>
-                        <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', +e.target.value)} />
+                        <div className="flab">DTI RATIO <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL)</span></div>
+                        <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', e.target.value)} onWheel={e => e.target.blur()} />
                       </div>
                       <div>
-                        <div className="flab">CREDIT LINES <span style={{ fontWeight: 400, color: 'var(--slate)', fontSize: '11px', marginLeft: '8px' }}>(Total no. of active loans or cards) (Optional)</span></div>
-                        <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', +e.target.value)} />
+                        <div className="flab">CREDIT LINES <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL)</span></div>
+                        <input type="number" className="finput" value={formData.lines} onChange={e => update('lines', e.target.value)} onWheel={e => e.target.blur()} />
                       </div>
                     </div>
                   </div>
@@ -3226,7 +3241,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                       </select>
 
-                      <input type="number" className={`combo-manual ${formData.term === 'custom' ? 'show' : ''}`} value={formData.customTerm} onChange={e => update('customTerm', e.target.value)} />
+                      <input type="number" className={`combo-manual ${formData.term === 'custom' ? 'show' : ''}`} value={formData.customTerm} onChange={e => update('customTerm', e.target.value)} onWheel={e => e.target.blur()} />
 
                     </div>
 
@@ -3236,7 +3251,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">INTEREST RATE %</div>
 
-                    <input type="number" step="0.01" className="finput" value={formData.rate} onChange={e => update('rate', +e.target.value)} />
+                    <input type="number" step="0.01" className="finput" value={formData.rate} onChange={e => update('rate', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -3258,7 +3273,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">MONTHS EMPLOYED</div>
 
-                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.empl} onChange={e => update('empl', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -3266,7 +3281,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <div className="flab">JOB CHANGES (LAST 5 YRS)</div>
 
-                    <input type="number" className="finput" value={formData.jobChanges} onChange={e => update('jobChanges', +e.target.value)} />
+                    <input type="number" className="finput" value={formData.jobChanges} onChange={e => update('jobChanges', e.target.value)} onWheel={e => e.target.blur()} />
 
                   </div>
 
@@ -3393,15 +3408,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
               </div>
 
               {result && (
-
-                <div className="fade-in" style={{ marginTop: "30px" }}>
-
+                <div ref={resultRef} className="fade-in" style={{ marginTop: "30px", scrollMarginTop: '100px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1.1fr', gap: '24px' }}>
-
                     <div className="card fade-in">
-
                       <div className="ch">
-
                         <div className="ct"><div className="pip pip-sky" />Risk Assessment</div>
 
                         <div className="mbadge" style={{ background: 'rgba(201,151,60,0.1)', color: 'var(--gold)', border: '1px solid rgba(201,151,60,0.2)', fontFamily: "'JetBrains Mono',monospace" }}>σ(wᵀx+b)</div>
@@ -3434,7 +3444,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)', marginBottom: '8px', fontSize: '14px' }}>
 
-                          {result.level === 'low' ? 'Low Risk Low Risk — Likely Approved' : result.level === 'med' ? 'Medium Risk Medium Risk — Manual Review' : 'Ã¢â€°Â¡Ã†â€™ÃƒÂ¶Ã¢â€Â¤ High Risk — Likely Rejected'}
+                          {result.level === 'low' ? 'Low Risk — Likely Approved' : result.level === 'med' ? 'Medium Risk — Manual Review' : 'High Risk — Likely Rejected'}
 
                         </div>
 
@@ -3593,8 +3603,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
               )}
 
               {result && (
-
-                <div className="fade-in" style={{ marginTop: "30px" }}>
+                <div ref={resultRef} className="fade-in" style={{ marginTop: "30px", scrollMarginTop: '100px' }}>
 
                   <div className="card fade-up" style={{ marginTop: '20px', animationDelay: '0.3s' }}>
 

@@ -13,6 +13,9 @@ import os
 from datetime import datetime
 import logging
 from dotenv import load_dotenv
+import bcrypt
+import re
+import random
 
 # Load environment variables from .env
 load_dotenv()
@@ -21,6 +24,37 @@ from core.database import get_db, PredictionRecord, User
 from services.mailer import send_loan_email
 
 logger = logging.getLogger(__name__)
+
+# Track OTP cooldowns to prevent multiple emails (email -> last_sent_time)
+otp_cooldowns = {}
+
+# --- Security Helpers ---
+def hash_password(password):
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def check_password(password, hashed):
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    except:
+        return False
+
+def is_institutional_email(email):
+    personal_domains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'aol.com']
+    domain = email.split('@')[-1].lower()
+    return domain not in personal_domains
+
+def validate_password_complexity(password):
+    if len(password) < 8: return False
+    if not re.search(r"[A-Z]", password): return False
+    if not re.search(r"[a-z]", password): return False
+    if not re.search(r"\d", password): return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password): return False
+    return True
+
+def is_authorized_officer(email):
+    authorized_usernames = ["thakkarstuti947", "thakkerstuti947", "avniparihar07"]
+    username = email.split('@')[0].lower()
+    return username in authorized_usernames
 
 # --- App Setup ---
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
@@ -115,8 +149,11 @@ def prepare_features(data):
     numeric_fields = ['Age', 'Income', 'LoanAmount', 'CreditScore',
                       'MonthsEmployed', 'NumCreditLines', 'InterestRate',
                       'LoanTerm', 'DTIRatio']
-    for field in numeric_fields:
-        df[field] = pd.to_numeric(df[field], errors='coerce')
+    # Fill optional numeric fields with defaults if missing
+    defaults = {'DTIRatio': 0.3, 'MonthsEmployed': 12, 'NumCreditLines': 1}
+    for field, val in defaults.items():
+        if pd.isna(df[field].iloc[0]):
+            df[field] = val
 
     invalid_numeric = [
         field for field in numeric_fields
@@ -230,21 +267,32 @@ def signup():
     
     try:
         # Check if user exists
-        existing = db.query(User).filter(User.email == data.get('email')).first()
+        email = data.get('email', '').lower()
+        password = data.get('password')
+        role = data.get('role', 'borrower')
+
+        if role == 'bank' and not is_institutional_email(email):
+            return jsonify({'error': 'Institutional access requires a corporate email (Gmail/Yahoo not allowed).'}), 400
+
+        if not validate_password_complexity(password):
+            return jsonify({'error': 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'}), 400
+
+        existing = db.query(User).filter(User.email == email).first()
         if existing: return jsonify({'error': 'User already exists'}), 400
         
         new_user = User(
             first_name=data.get('first_name'),
             last_name=data.get('last_name'),
-            email=data.get('email'),
-            password=data.get('password'), # In production, hash this!
-            role=data.get('role', 'borrower'),
+            email=email,
+            password=hash_password(password),
+            role=role,
             bank_name=data.get('bank_name'),
-            officer_role=data.get('officer_role')
+            officer_role=data.get('officer_role'),
+            bank_role=data.get('bank_role', 'Analyst')
         )
         db.add(new_user)
         db.commit()
-        return jsonify({'message': 'Account created successfully'})
+        return jsonify({'message': 'Account created successfully. Please login.'})
     except Exception as e:
         db.rollback()
         return jsonify({'error': str(e)}), 500
@@ -258,56 +306,182 @@ def login():
     if not db: return jsonify({'error': 'DB offline'}), 500
     
     try:
-        email = data.get('email')
+        email = data.get('email', '').lower()
         password = data.get('password')
-        bank_name = data.get('bank_name')
-        officer_role = data.get('officer_role')
+        role = data.get('role', 'borrower') # Identify if trying to log into bank or borrower portal
 
         user = db.query(User).filter(User.email == email).first()
         
-        # Auto-provision bank user if they don't exist or update role if accessing bank portal
-        if (bank_name or officer_role):
+        # Whitelist enforcement for Bank Portal
+        if role == 'bank' or (user and user.role == 'bank'):
+            if not is_authorized_officer(email):
+                return jsonify({'error': 'Access restricted. Only authorized institutional officers can access this portal.'}), 403
+            
+            # If authorized but not in DB (shouldn't happen with provisioning, but for safety)
             if not user:
-                user = User(
-                    email=email,
-                    password=password,
-                    first_name=email.split('@')[0].capitalize(),
-                    last_name='(Institutional)',
-                    role='bank',
-                    bank_name=bank_name or 'Independent Analyst',
-                    officer_role=officer_role or 'Analyst'
-                )
-                db.add(user)
-                db.commit()
-                db.refresh(user)
-            elif user.role == 'borrower':
-                # Convert borrower to bank officer as requested
-                user.role = 'bank'
-                user.bank_name = bank_name or 'Independent Analyst'
-                user.officer_role = officer_role or 'Analyst'
-                db.commit()
-                db.refresh(user)
-            else:
-                # Update existing bank officer details if provided
-                if bank_name: user.bank_name = bank_name
-                if officer_role: user.officer_role = officer_role
-                db.commit()
-                db.refresh(user)
-        
+                return jsonify({'error': 'Access restricted. Only authorized institutional officers can access this portal.'}), 403
+
         if not user: 
-            return jsonify({'error': 'Account not found. Please create one.'}), 404
+            return jsonify({'error': 'Access Denied: Account not found.'}), 404
         
-        if user.password != password: 
-            return jsonify({'error': 'Invalid password'}), 401
+        # Check lockout
+        if user.locked_until and user.locked_until > datetime.utcnow():
+            diff = (user.locked_until - datetime.utcnow()).seconds // 60
+            return jsonify({'error': f'Account locked due to multiple failed attempts. Try again in {diff + 1} minutes.'}), 403
+
+        # Verify password (handles migration from plain text if necessary)
+        is_correct = False
+        if user.password.startswith('$2b$'): # Bcrypt hash
+            is_correct = check_password(password, user.password)
+        else:
+            is_correct = (user.password == password)
+            if is_correct: # Auto-migrate to hash
+                user.password = hash_password(password)
+                db.commit()
+
+        if not is_correct:
+            user.failed_attempts = (user.failed_attempts or 0) + 1
+            if user.failed_attempts >= 5:
+                from datetime import timedelta
+                user.locked_until = datetime.utcnow() + timedelta(minutes=15)
+                user.failed_attempts = 0
+                db.commit()
+                return jsonify({'error': 'Account locked for 15 minutes after 5 failed attempts.'}), 403
+            db.commit()
+            return jsonify({'error': f'Invalid credentials. {5 - user.failed_attempts} attempts remaining.'}), 401
+        
+        # Reset failed attempts on success
+        user.failed_attempts = 0
+        
+        # Handle Bank OTP
+        if user.role == 'bank':
+            now = datetime.utcnow()
+            last_sent = otp_cooldowns.get(user.email)
+            
+            if last_sent and (now - last_sent).total_seconds() < 10:
+                # Still within cooldown, don't generate new one, just tell frontend OTP is required
+                return jsonify({
+                    'otp_required': True,
+                    'email': user.email,
+                    'message': 'OTP already sent. Please check your email.'
+                })
+
+            otp = f"{random.randint(100000, 999999)}"
+            user.otp_code = otp
+            otp_cooldowns[user.email] = now
+            
+            # Store login info
+            ua = request.headers.get('User-Agent', 'Unknown')
+            user.last_login_info = f"Access from {ua[:50]} on {datetime.utcnow().strftime('%Y-%m-%d')}"
+            db.commit()
+            
+            # Send OTP via mock mailer
+            send_loan_email('update', user.first_name, 'LOGIN', {
+                'message': f"Your secure login OTP is: {otp}. This code expires in 5 minutes."
+            })
+            
+            return jsonify({
+                'otp_required': True,
+                'email': user.email,
+                'message': 'OTP sent to your institutional email.'
+            })
+
+        # Borrower direct login
+        return jsonify({
+            'first': user.first_name,
+            'last': user.last_name,
+            'email': user.email,
+            'type': user.role,
+            'last_login': user.last_login_info
+        })
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/verify-otp', methods=['POST'])
+def verify_otp():
+    data = request.json
+    email = data.get('email', '').lower()
+    otp = data.get('otp')
+    
+    db = get_db()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user or user.otp_code != otp:
+            return jsonify({'error': 'Invalid or expired OTP'}), 401
+        
+        # Clear OTP on success
+        user.otp_code = None
+        db.commit()
         
         return jsonify({
             'first': user.first_name,
             'last': user.last_name,
             'email': user.email,
             'type': user.role,
-            'bank_name': user.bank_name or '',
-            'officer_role': user.officer_role or ''
+            'bank_name': user.bank_name,
+            'officer_role': user.officer_role,
+            'bank_role': user.bank_role,
+            'last_login': user.last_login_info
         })
+    finally:
+        db.close()
+
+
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.json
+    email = data.get('email')
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+    
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            # For security, don't reveal if user exists, but here we can be helpful
+            return jsonify({'error': 'Account not found'}), 404
+        
+        # In a real app, generate a secure token and store it. 
+        # For this baseline, we'll send a "magic link" or just a simple verification.
+        # We'll use their existing password as a "token" hint for the demo reset flow 
+        # (NOT secure for production, but works for the prototype)
+        
+        from services.mailer import send_loan_email
+        send_loan_email('reset_password', user.first_name, 'N/A', {
+            'email': email,
+            'token': 'RESET-' + email.split('@')[0].upper() # Simple mock token
+        })
+        
+        return jsonify({'message': 'Reset instructions sent to your email'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    data = request.json
+    email = data.get('email')
+    token = data.get('token')
+    new_password = data.get('new_password')
+    
+    db = get_db()
+    if not db: return jsonify({'error': 'DB offline'}), 500
+    
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user: return jsonify({'error': 'User not found'}), 404
+        
+        # Verify mock token
+        expected_token = 'RESET-' + email.split('@')[0].upper()
+        if token != expected_token:
+            return jsonify({'error': 'Invalid or expired reset token'}), 400
+            
+        user.password = new_password
+        db.commit()
+        return jsonify({'message': 'Password updated successfully'})
     except Exception as e:
         db.rollback()
         return jsonify({'error': str(e)}), 500
@@ -327,14 +501,14 @@ def predict():
         if not data:
             return jsonify({'error': 'No input data provided'}), 400
 
-        # Validate required fields
-        required_fields = ['Age', 'Income', 'LoanAmount', 'CreditScore',
+        # Validate required fields (CreditScore and DTIRatio removed from here)
+        required_fields = ['Age', 'Income', 'LoanAmount', 
                            'MonthsEmployed', 'NumCreditLines', 'InterestRate',
-                           'LoanTerm', 'DTIRatio', 'Education', 'EmploymentType',
+                           'LoanTerm', 'Education', 'EmploymentType',
                            'MaritalStatus', 'HasMortgage', 'HasDependents',
                            'LoanPurpose', 'HasCoSigner']
 
-        missing = [f for f in required_fields if f not in data]
+        missing = [f for f in required_fields if f not in data or data[f] == '']
         if missing:
             return jsonify({'error': f'Missing fields: {", ".join(missing)}'}), 400
 

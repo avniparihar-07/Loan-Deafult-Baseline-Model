@@ -10,6 +10,31 @@ export default function App() {
   const [theme, setTheme] = useState('light');
   const [view, setView] = useState('landing'); // 'landing' | 'auth'
   const [authRole, setAuthRole] = useState('borrower');
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Global Session Timeout: 15 minutes
+  useEffect(() => {
+    let timeout;
+    const resetTimer = () => {
+      clearTimeout(timeout);
+      if (user) {
+        timeout = setTimeout(() => {
+          handleLogout();
+          setSessionExpired(true);
+        }, 15 * 60 * 1000); // 15 Minutes
+      }
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    resetTimer();
+
+    return () => {
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      clearTimeout(timeout);
+    };
+  }, [user]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -20,6 +45,7 @@ export default function App() {
   const handleLogin = (userData) => {
     setUser(userData);
     setView('dashboard');
+    setSessionExpired(false);
   };
 
   const handleLogout = () => {
@@ -30,6 +56,7 @@ export default function App() {
   const navigateToAuth = (role) => {
     setAuthRole(role);
     setView('auth');
+    setSessionExpired(false);
   };
 
   if (user) {
@@ -41,12 +68,29 @@ export default function App() {
       return (
         <Auth 
           onLogin={handleLogin} 
+          onRoleChange={setAuthRole}
           theme={theme} 
           toggleTheme={toggleTheme} 
           initialRole="borrower" 
           onBack={handleLogout} 
           isLocked={true}
-          forcedError="Account not created. Please create one."
+          forcedError="This account is registered for Institutional Access. Please use the Bank Analyst login."
+        />
+      );
+    }
+
+    if (isBankAuth && !isBankUser) {
+      // Borrower tried to access Bank Portal
+      return (
+        <Auth 
+          onLogin={handleLogin} 
+          onRoleChange={setAuthRole}
+          theme={theme} 
+          toggleTheme={toggleTheme} 
+          initialRole="bank" 
+          onBack={handleLogout} 
+          isLocked={true}
+          forcedError="This account is registered as a Borrower. Please use the Borrower Access tab."
         />
       );
     }
@@ -66,11 +110,13 @@ export default function App() {
     return (
       <Auth 
         onLogin={handleLogin} 
+        onRoleChange={setAuthRole}
         theme={theme} 
         toggleTheme={toggleTheme} 
         initialRole={authRole} 
         onBack={() => setView('landing')}
         isLocked={true}
+        forcedError={sessionExpired ? "Session expired for security reasons. Please login again." : ""}
       />
     );
   }

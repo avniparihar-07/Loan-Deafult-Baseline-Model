@@ -95,6 +95,11 @@ class User(Base):
     role = Column(String, default='borrower') # 'bank' or 'borrower'
     bank_name = Column(String)         # For bank officers: which bank they work at
     officer_role = Column(String)      # For bank officers: their job title/role
+    bank_role = Column(String, default='Analyst') # Analyst, Senior Analyst, Manager, Admin
+    failed_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime, nullable=True)
+    last_login_info = Column(String, nullable=True)
+    otp_code = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 # Initialize Engine and Session
@@ -155,8 +160,13 @@ try:
             inspector = inspect(engine)
             existing_user_cols = [col['name'] for col in inspector.get_columns('users')]
             user_columns = [
-                ('bank_name',    'VARCHAR'),
-                ('officer_role', 'VARCHAR'),
+                ('bank_name',       'VARCHAR'),
+                ('officer_role',    'VARCHAR'),
+                ('bank_role',       "VARCHAR DEFAULT 'Analyst'"),
+                ('failed_attempts', 'INTEGER DEFAULT 0'),
+                ('locked_until',    'TIMESTAMP'),
+                ('last_login_info', 'VARCHAR'),
+                ('otp_code',        'VARCHAR'),
             ]
             with engine.connect() as conn:
                 for col_name, col_def in user_columns:

@@ -26,6 +26,13 @@ def send_loan_email(email_type, borrower_name, loan_id, extra=None):
             'html': f"<h2>Hi {borrower_name},</h2>"
                     f"<p>{extra.get('message', '')}</p>"
                     f"<p>Loan ID: <strong>#{loan_id}</strong></p>"
+        },
+        'reset_password': {
+            'subject': "Reset your GroundZero password",
+            'html': f"<h2>Hi {borrower_name},</h2>"
+                    f"<p>We received a request to reset your password.</p>"
+                    f"<p>Your reset token is: <strong style='font-size:18px; color:var(--gold)'>{extra.get('token', '')}</strong></p>"
+                    f"<p>Please enter this token in the application to choose a new password.</p>"
         }
     }
 
