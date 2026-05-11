@@ -16,7 +16,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
   // Official application form state
   const [applyForm, setApplyForm] = useState({
-    loanAmt: '', purpose: 'other', customPurpose: '', term: 24, customTerm: '',
+    age: '', credit: '', income: '', loanAmt: '', purpose: 'other', customPurpose: '', term: 24, customTerm: '',
     empType: 'full', empl: '', jobChanges: '', edu: 'bach', marital: 'married',
     state: '', dtiDebt: '', dtiIncome: '', dti: '', lines: '',
     targetBank: '', targetBankCustom: ''
@@ -176,6 +176,13 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       jobChanges: '', targetBank: '', targetBankCustom: ''
     });
     setFlags({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
+    setApplyForm({
+      age: '', credit: '', income: '', loanAmt: '', purpose: 'other', customPurpose: '', term: 24, customTerm: '',
+      empType: 'full', empl: '', jobChanges: '', edu: 'bach', marital: 'married',
+      state: '', dtiDebt: '', dtiIncome: '', dti: '', lines: '',
+      targetBank: '', targetBankCustom: ''
+    });
+    setApplyFlags({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
     setViewForm(null);
     setViewFlags(null);
     setDraftData(null);
@@ -195,7 +202,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     const targetBankFinal = applyForm.targetBank === '__custom__' ? (applyForm.targetBankCustom || '').trim() : applyForm.targetBank;
 
     // Check required fields (same as simulator minus rate)
-    const requiredFields = ['age', 'credit', 'income', 'loanAmt', 'dti', 'lines', 'empl', 'jobChanges'];
+    const requiredFields = ['age', 'credit', 'income', 'loanAmt', 'empl', 'jobChanges'];
     const missing = requiredFields.filter(key => applyForm[key] === '' || applyForm[key] === null || Number.isNaN(Number(applyForm[key])));
 
     if (missing.length > 0) {
