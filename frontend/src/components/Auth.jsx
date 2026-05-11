@@ -233,10 +233,7 @@ export default function Auth({ onLogin, onRoleChange, theme, toggleTheme, initia
           </div>
 
           {!isLocked && !isForgot && !showOtp && (
-            <div className="auth-role-tabs">
-              <button className={`role-tab ${role === 'bank' ? 'on' : ''}`} onClick={() => { setRole('bank'); setIsSignup(false); onRoleChange?.('bank'); }}>Bank Officer</button>
-              <button className={`role-tab ${role === 'borrower' ? 'on' : ''}`} onClick={() => { setRole('borrower'); onRoleChange?.('borrower'); }}>Borrower</button>
-            </div>
+            <div style={{ marginBottom: '20px' }} />
           )}
 
           {error && <div className="auth-alert error">{error}</div>}
