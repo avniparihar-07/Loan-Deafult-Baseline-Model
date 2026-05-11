@@ -3,11 +3,11 @@ import { apiUrl } from '../services/api';
 import '../styles/index.css';
 import '../styles/Shine.css';
 
-export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borrower', onBack, isLocked = false }) {
+export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borrower', onBack, isLocked = false, forcedError = '' }) {
   const [role, setRole] = useState(initialRole);
   const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(forcedError);
 
   const [form, setForm] = useState({
     first: '', last: '', email: '', password: '', confirmPassword: '',
@@ -59,6 +59,16 @@ export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borro
         setIsSignup(false);
         setError('Account created! Please login.');
       } else {
+        // Strict Role Validation
+        const userType = data.type; // 'bank' or 'borrower'
+        
+        if (role === 'bank' && userType !== 'bank') {
+          throw new Error('This account belongs to the Borrower Portal. Please use the Borrower Login.');
+        }
+        if (role === 'borrower' && userType === 'bank') {
+          throw new Error('This account belongs to the Bank Portal. Please use the Bank Officer Login.');
+        }
+
         onLogin(data);
       }
     } catch (err) {

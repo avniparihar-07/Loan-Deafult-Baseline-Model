@@ -33,9 +33,42 @@ export default function App() {
   };
 
   if (user) {
+    const isBankUser = user.type === 'bank';
+    const isBankAuth = authRole === 'bank';
+
+    // Route Protection: Ensure user role matches the portal they entered
+    if (isBankAuth && !isBankUser) {
+      // Borrower tried to access Bank Portal - FORCE LOGOUT
+      return (
+        <Auth 
+          onLogin={handleLogin} 
+          theme={theme} 
+          toggleTheme={toggleTheme} 
+          initialRole="bank" 
+          onBack={handleLogout} 
+          isLocked={true}
+          forcedError="This account belongs to the Borrower Portal. Please use the Borrower Login."
+        />
+      );
+    }
+    if (!isBankAuth && isBankUser) {
+      // Bank user tried to access Borrower Portal - FORCE LOGOUT
+      return (
+        <Auth 
+          onLogin={handleLogin} 
+          theme={theme} 
+          toggleTheme={toggleTheme} 
+          initialRole="borrower" 
+          onBack={handleLogout} 
+          isLocked={true}
+          forcedError="This account belongs to the Bank Portal. Please use the Bank Officer Login."
+        />
+      );
+    }
+
     return (
       <div className="shine-root">
-        {user.type === 'bank' ? (
+        {isBankUser ? (
           <BankDashboard user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
         ) : (
           <BorrowerPortal user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
