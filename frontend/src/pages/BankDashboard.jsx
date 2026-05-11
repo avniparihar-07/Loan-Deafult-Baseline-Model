@@ -140,14 +140,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
   const [selectedApp, setSelectedApp] = useState(null);
 
-  const [reviewNote, setReviewNote] = useState('');
-
   const [assignedRate, setAssignedRate] = useState('');
-
+  const [assignedTerm, setAssignedTerm] = useState('');
+  const [reviewNote, setReviewNote] = useState('');
   const [industry, setIndustry] = useState('IT & Software');
-
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-
   const [decisionMode, setDecisionMode] = useState(null); // 'approve' | 'reject' | null
 
   const [toast, setToast] = useState(null); //{ message, type}
@@ -462,8 +459,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
         headers: { 'Content-Type': 'application/json' },
 
         body: JSON.stringify({
-
           assigned_rate: parseFloat(assignedRate) || null,
+          assigned_term: parseInt(assignedTerm) || null,
           decision: decision,
           note: reviewNote,
           industry: industry,
@@ -2372,13 +2369,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           onMouseEnter={e => e.currentTarget.style.background = 'rgba(14,165,233,0.02)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                           onClick={() => {
-
                             setSelectedApp(a);
-
                             setAssignedRate(a.assigned_rate || '');
-
+                            setAssignedTerm(a.term || '');
                             setReviewNote(a.bank_decision_note || '');
-
+                            setDecisionMode(null);
                           }}
                         >
 
@@ -4029,27 +4024,33 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     {/* 2. LOAN & UNDERWRITING KPI SECTION */}
                     <div style={{ marginBottom: '40px', background: '#fff', border: '1px solid var(--border)', borderRadius: '20px', padding: '32px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-                      <div className="p-sec-title" style={{ fontSize: '15px', marginBottom: '24px', color: 'var(--navy)', fontWeight: 800 }}>Loan Underwriting Parameters</div>
+                      <div className="p-sec-title" style={{ fontSize: '15px', marginBottom: '24px', color: 'var(--navy)', fontWeight: 800 }}>Decision Parameters (Underwriting)</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
                         <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Assigned Rate</div>
-                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px' }}>{selectedApp.assigned_rate || (selectedApp.probability < 0.3 ? '8.5' : '12.4')}%</div>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Interest Rate</div>
+                          <div style={{ fontSize: '24px', fontWeight: 800, color: selectedApp.status === 'Approved' ? 'var(--teal)' : 'var(--slate)', letterSpacing: '-0.5px' }}>
+                            {selectedApp.assigned_rate ? `${selectedApp.assigned_rate}%` : '--'}
+                          </div>
                         </div>
                         <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Estimated EMI</div>
-                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px' }}>₹{fmt(Math.round(selectedApp.loan_amount / (selectedApp.term || 36) * 1.1))}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Monthly EMI</div>
+                          <div style={{ fontSize: '24px', fontWeight: 800, color: selectedApp.status === 'Approved' ? 'var(--teal)' : 'var(--slate)', letterSpacing: '-0.5px' }}>
+                            {selectedApp.status === 'Approved' ? `₹${fmt(Math.round(selectedApp.loan_amount / (selectedApp.term || 36) * 1.1))}` : '--'}
+                          </div>
                         </div>
                         <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Term Length</div>
-                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px' }}>{selectedApp.term || 36} <small style={{ fontSize: '14px', opacity: 0.5, fontWeight: 700 }}>mo</small></div>
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Tenure</div>
+                          <div style={{ fontSize: '24px', fontWeight: 800, color: selectedApp.status === 'Approved' ? 'var(--teal)' : 'var(--slate)', letterSpacing: '-0.5px' }}>
+                            {selectedApp.term ? `${selectedApp.term} mo` : '--'}
+                          </div>
                         </div>
                         <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px' }}>
                           <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Default Prob.</div>
-                          <div style={{ fontSize: '26px', fontWeight: 800, color: selectedApp.probability > 0.6 ? 'var(--rose)' : 'var(--teal)', letterSpacing: '-0.5px' }}>{Math.round((selectedApp.probability || 0.1) * 100)}%</div>
+                          <div style={{ fontSize: '24px', fontWeight: 800, color: selectedApp.probability > 0.5 ? 'var(--rose)' : 'var(--teal)', letterSpacing: '-0.5px' }}>{Math.round((selectedApp.probability || 0.1) * 100)}%</div>
                         </div>
                         <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px' }}>
                           <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Risk Score</div>
-                          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px' }}>{Math.round(850 - (selectedApp.probability || 0.1) * 400)}</div>
+                          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px' }}>{Math.round(850 - (selectedApp.probability || 0.1) * 400)}</div>
                         </div>
                       </div>
                       <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '16px', background: '#f0f4f8', padding: '16px 24px', borderRadius: '12px' }}>
@@ -4254,89 +4255,55 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                       <div className="p-sec-title" style={{ fontSize: '14px', color: 'var(--navy)', border: 'none', padding: 0, flexShrink: 0 }}>Final Underwriting Decision</div>
 
                       {(!selectedApp.status || selectedApp.status === 'Pending' || selectedApp.status === 'Under Review') && !decisionMode ? (
-
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                          <div style={{ background: '#f8fafc', border: '1px solid var(--border)', padding: '24px', borderRadius: '20px', textAlign: 'center' }}>
-
-                            <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.5px' }}>Live ML Risk Confidence</div>
-
-                            <div style={{ fontSize: '48px', fontWeight: 900, color: selectedApp.probability < 0.3 ? 'var(--teal)' : selectedApp.probability < 0.6 ? 'var(--gold)' : 'var(--rose)', letterSpacing: '-2px' }}>
-
-                              {Math.round((selectedApp.probability || 0.1) * 100)}%
+                          <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '30px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.05)' }}>
+                            <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 20px' }}>
+                              <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth="3" />
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={selectedApp.probability < 0.2 ? '#10B981' : selectedApp.probability < 0.5 ? '#F59E0B' : '#EF4444'} strokeWidth="3" strokeDasharray={`${(selectedApp.probability || 0.1) * 100}, 100`} strokeLinecap="round" />
+                              </svg>
+                              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--navy)' }}>{Math.round((selectedApp.probability || 0.1) * 100)}%</div>
+                                <div style={{ fontSize: '8px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase' }}>Probability</div>
+                              </div>
                             </div>
-                            <div style={{ height: '6px', background: 'var(--border-light)', borderRadius: '3px', marginTop: '20px', overflow: 'hidden' }}>
-
-                              <div style={{ height: '100%', width: `${(selectedApp.probability || 0.1) * 100}%`, background: selectedApp.probability < 0.3 ? 'var(--teal)' : selectedApp.probability < 0.6 ? 'var(--gold)' : 'var(--rose)' }}></div>
-
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: selectedApp.probability < 0.2 ? '#10B981' : selectedApp.probability < 0.5 ? '#F59E0B' : '#EF4444', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+                              {selectedApp.probability < 0.2 ? 'LOW RISK' : selectedApp.probability < 0.5 ? 'MODERATE RISK' : 'HIGH RISK'}
                             </div>
-
+                            <div style={{ fontSize: '12px', color: 'var(--slate)', fontWeight: 600 }}>AI Confidence: High Precision</div>
+                            <div style={{ fontSize: '10px', color: 'var(--slate)', fontStyle: 'italic', marginTop: '12px', opacity: 0.7 }}>ML-generated prediction based on financial and behavioral profile.</div>
                           </div>
 
                           <div className="decision-btns" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-                            <button className="d-btn b-approve" onClick={() => setDecisionMode('approve')}>
-
-                              Approve Application
-
-                            </button>
-
-                            <button className="d-btn b-reject" onClick={() => setDecisionMode('reject')}>
-
-                              Reject Application
-
-                            </button>
-
+                            <button className="d-btn" style={{ background: '#10B981', color: '#fff', padding: '16px', borderRadius: '12px', fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }} onClick={() => setDecisionMode('approve')}>Approve Loan</button>
+                            <button className="d-btn" style={{ background: 'transparent', color: '#EF4444', border: '2px solid #EF4444', padding: '16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' }} onClick={() => setDecisionMode('reject')}>Reject Application</button>
                           </div>
-
                         </div>
-
                       ) : decisionMode === 'approve' ? (
-
-                        <div className="decision-flow animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                          <button className="back-link" onClick={() => setDecisionMode(null)}>← Return to options</button>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                            <div className="f-row">
-
-                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)' }}>ASSIGNED INTEREST RATE (%)</label>
-
-                              <input type="number" step="0.01" className="f-inp" value={assignedRate} onChange={e => setAssignedRate(e.target.value)} />
-
-                            </div>
-
-                            <div className="f-row">
-
-                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)' }}>EMPLOYMENT SECTOR</label>
-
-                              <select className="f-inp f-select" value={industry} onChange={e => setIndustry(e.target.value)}>
-
-                                <option>IT & Software</option><option>Healthcare</option><option>Manufacturing</option><option>Finance</option>
-
-                              </select>
-
-                            </div>
-
-                            <div className="f-row">
-
-                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)' }}>INTERNAL DECISION NOTE</label>
-
-                              <textarea className="f-area" style={{ height: '120px' }} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
-
-                            </div>
-
-                            <button className="confirm-btn c-approve" style={{ width: '100%', padding: '20px' }} onClick={() => handleReviewSubmit('Approved')} disabled={reviewSubmitting}>
-
-                              {reviewSubmitting ? 'Confirming...' : 'Finalize Approval'}
-
-                            </button>
-
+                        <div className="decision-flow animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff', padding: '30px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.05)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--navy)' }}>Underwriting Decision</div>
+                            <button style={{ background: 'none', border: 'none', color: 'var(--sky)', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }} onClick={() => setDecisionMode(null)}>Cancel</button>
                           </div>
-
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div className="f-row">
+                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Interest Rate (%)</label>
+                              <input type="number" step="0.1" placeholder="e.g. 8.5" className="f-inp" style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '14px', fontWeight: 700 }} value={assignedRate} onChange={e => setAssignedRate(e.target.value)} />
+                            </div>
+                            <div className="f-row">
+                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Loan Tenure (Months)</label>
+                              <input type="number" placeholder="e.g. 36" className="f-inp" style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '14px', fontWeight: 700 }} value={assignedTerm} onChange={e => setAssignedTerm(e.target.value)} />
+                            </div>
+                            <div className="f-row">
+                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Officer Decision Notes</label>
+                              <textarea className="f-area" placeholder="Enter justification for approval..." style={{ width: '100%', height: '100px', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', resize: 'none' }} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+                            </div>
+                            <button className="confirm-btn" style={{ width: '100%', padding: '16px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', marginTop: '10px' }} onClick={() => handleReviewSubmit('Approved')} disabled={reviewSubmitting}>
+                              {reviewSubmitting ? 'Processing...' : 'Finalize Approval'}
+                            </button>
+                          </div>
                         </div>
-
                       ) : decisionMode === 'reject' ? (
 
                         <div className="decision-flow animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

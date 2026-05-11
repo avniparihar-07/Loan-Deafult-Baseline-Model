@@ -729,27 +729,37 @@ def review_application(app_id):
             return jsonify({'error': 'Unauthorized Access: You cannot review applications for other banks.'}), 403
 
         assigned_rate = data.get('assigned_rate')
+        assigned_term = data.get('assigned_term')
         decision = data.get('decision')  # 'Approved' | 'Rejected' | 'Under Review'
         note = data.get('note', '')
 
-        # Run ML if we haven't yet or if rate has been assigned
+        # Update loan parameters if provided by the officer
         if assigned_rate is not None:
             rate = float(assigned_rate)
-            ml_data = {
-                'Age': record.age, 'Income': record.income,
-                'LoanAmount': record.loan_amount, 'CreditScore': record.credit_score or 600,
-                'MonthsEmployed': record.months_employed, 'NumCreditLines': record.num_credit_lines or 1,
-                'InterestRate': rate,
-                'LoanTerm': record.loan_term, 'DTIRatio': record.dti_ratio or 0,
-                'Education': record.education or "Bachelor's",
-                'EmploymentType': record.employment_type or 'Full-time',
-                'MaritalStatus': record.marital_status or 'Single',
-                'HasMortgage': record.has_mortgage or 'No',
-                'HasDependents': record.has_dependents or 'No',
-                'LoanPurpose': record.loan_purpose or 'Other',
-                'HasCoSigner': record.has_cosigner or 'No',
-            }
+            record.assigned_rate = rate
+            record.interest_rate = rate # Sync for model consistency
+
+        if assigned_term is not None:
+            term = int(assigned_term)
+            record.loan_term = term
+
+        # Run ML assessment with updated parameters if it's an approval
+        if assigned_rate is not None or assigned_term is not None:
             try:
+                ml_data = {
+                    'Age': record.age, 'Income': record.income,
+                    'LoanAmount': record.loan_amount, 'CreditScore': record.credit_score or 600,
+                    'MonthsEmployed': record.months_employed, 'NumCreditLines': record.num_credit_lines or 1,
+                    'InterestRate': record.interest_rate or 8.5,
+                    'LoanTerm': record.loan_term or 36, 'DTIRatio': record.dti_ratio or 0,
+                    'Education': record.education or "Bachelor's",
+                    'EmploymentType': record.employment_type or 'Full-time',
+                    'MaritalStatus': record.marital_status or 'Single',
+                    'HasMortgage': record.has_mortgage or 'No',
+                    'HasDependents': record.has_dependents or 'No',
+                    'LoanPurpose': record.loan_purpose or 'Other',
+                    'HasCoSigner': record.has_cosigner or 'No',
+                }
                 features_df = prepare_features(ml_data)
                 features_scaled = scaler.transform(features_df)
                 probability = float(model.predict_proba(features_scaled)[0][1])
@@ -759,9 +769,6 @@ def review_application(app_id):
                 record.risk_category = risk_cat
             except Exception as ml_err:
                 logger.warning(f"ML assessment failed for app {app_id}: {ml_err}")
-
-            record.assigned_rate = rate
-            record.interest_rate = rate
 
         if decision:
             record.status = decision
