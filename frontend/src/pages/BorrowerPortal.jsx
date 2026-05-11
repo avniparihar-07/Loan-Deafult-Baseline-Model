@@ -1223,10 +1223,6 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                   <h1 className="h-serif" style={{ fontSize: '32px' }}>Money <span style={{ color: 'var(--gold)' }}>Insights</span></h1>
                   <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px' }}>View simple financial suggestions based on your profile.</p>
                 </div>
-                <div className="segmented-control">
-                  <button className="active">Advisory Terminal</button>
-                  <button>Portfolio Review</button>
-                </div>
 
               </div>
 
