@@ -431,81 +431,51 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
   }, [page]);
 
   const handleReviewSubmit = async (decision) => {
-
     if (decision === 'Approved' && !assignedRate) {
-
       showToast("Please assign an interest rate.", "error");
-
       return;
-
-    }
-
-    if (decision === 'Approved' && !industry) {
-
-      showToast("Please select an industry sector.", "error");
-
-      return;
-
     }
 
     setReviewSubmitting(true);
-
     try {
-
       const res = await fetch(apiUrl(`/api/applications/${selectedApp.id}/review`), {
-
         method: 'POST',
-
         headers: { 'Content-Type': 'application/json' },
-
         body: JSON.stringify({
           assigned_rate: parseFloat(assignedRate) || null,
-          assigned_term: parseInt(assignedTerm) || null,
           decision: decision,
           note: reviewNote,
           industry: industry,
           bank_name: user?.bank_name
         })
-
       });
 
       if (res.ok) {
+        let msg = "Decision recorded successfully";
+        if (decision === 'Approved') msg = "Loan Approved & Sanction Letter Dispatched!";
+        if (decision === 'Rejected') msg = "Loan Application Declined.";
+        if (decision === 'Additional Verification Required') msg = "Verification Request Sent to Borrower.";
 
-        showToast(decision === 'Approved' ? "Loan Approved Successfully!" : "Application Rejected", decision === 'Approved' ? 'success' : 'error');
-
+        showToast(msg, decision === 'Approved' ? 'success' : 'error');
         fetchApps();
-
+        
         // Auto close modal
-
         setTimeout(() => {
-
           setSelectedApp(null);
-
           setDecisionMode(null);
-
         }, 500);
-
       } else {
-
         const err = await res.json();
-
         showToast(err.error || "Failed to submit review", "error");
-
       }
-
     } catch (e) {
-
       console.error(e);
-
       showToast("Failed to submit review", "error");
-
     } finally {
-
       setReviewSubmitting(false);
-
     }
-
   };
+
 
   const handleSubmit = async () => {
 
@@ -3993,8 +3963,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 <div className="modal-body-p" style={{ padding: '0', display: 'flex', height: 'calc(90vh - 86px)' }}>
 
                   {/* LEFT MAIN CONTENT (Scrollable) */}
-
                   <div style={{ flex: 1, overflowY: 'auto', padding: '40px', background: '#fafbfc' }}>
+                    
                     {/* 1. BORROWER OVERVIEW GRID */}
                     <div style={{ marginBottom: '40px' }}>
                       <div className="p-sec-title" style={{ fontSize: '15px', marginBottom: '20px', color: 'var(--navy)', fontWeight: 800 }}>Borrower Summary Overview</div>
@@ -4011,8 +3981,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           { l: 'Education', v: selectedApp.education || 'Bachelor\'s' },
                           { l: 'Co-Signer', v: selectedApp.has_cosigner || 'No' },
                           { l: 'Dependents', v: selectedApp.has_dependents || 'No' },
-                          { l: 'Loan ID', v: selectedApp.loan_id || 'N/A', c: 'var(--sky)' },
-                          { l: 'Target Bank', v: selectedApp.target_bank || 'HDFC Bank', c: '#4BA8E0' }
+                          { l: 'Loan ID', v: selectedApp.loan_id || 'N/A', c: 'var(--sky)' }
                         ].map((s, i) => (
                           <div key={i} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                             <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.l}</div>
@@ -4039,9 +4008,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           </div>
                         </div>
                         <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Tenure</div>
-                          <div style={{ fontSize: '24px', fontWeight: 800, color: selectedApp.status === 'Approved' ? 'var(--teal)' : 'var(--slate)', letterSpacing: '-0.5px' }}>
-                            {selectedApp.status === 'Approved' ? `${selectedApp.term} mo` : 'Not Selected'}
+                          <div style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Selected Tenure</div>
+                          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.5px' }}>
+                            {selectedApp.term || 36} <small style={{ fontSize: '12px', opacity: 0.5 }}>months</small>
                           </div>
                         </div>
                         <div className="kpi-mini" style={{ background: '#f8fafc', padding: '20px', borderRadius: '14px' }}>
@@ -4057,479 +4026,175 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           </div>
                         </div>
                       </div>
-                      <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '16px', background: '#f0f4f8', padding: '16px 24px', borderRadius: '12px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--navy)', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>Underwriter Notes:</div>
-                        <div style={{ fontSize: '13px', color: 'var(--navy)', fontStyle: 'italic', fontWeight: 500 }}>
-                          "{selectedApp.bank_decision_note || 'Application satisfies primary liquidity thresholds. Recommended for standard processing.'}"
-                        </div>
-                      </div>
                     </div>
 
                     {/* 3. FINANCIAL INTELLIGENCE (CHARTS) */}
-
                     <div style={{ marginBottom: '40px' }}>
-
                       <div className="p-sec-title" style={{ fontSize: '14px', marginBottom: '24px', color: 'var(--navy)', border: 'none', padding: 0 }}>Financial Behavioural Analytics</div>
-
                       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: '24px', marginBottom: '24px' }}>
-
-                        {/* Investment Donut */}
-
                         <div className="card" style={{ padding: '24px', background: '#fff', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-
                           <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '20px' }}>Investment Allocation</div>
-
                           <div style={{ height: '220px', position: 'relative' }}><canvas id="modal-cht-asset"></canvas></div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '10px', marginTop: '20px' }}>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: '#38C9B0', borderRadius: '2px' }}></span> Stocks</div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: '#E85475', borderRadius: '2px' }}></span> Crypto</div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: '#C9973C', borderRadius: '2px' }}></span> Gold</div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '8px', height: '8px', background: '#4BA8E0', borderRadius: '2px' }}></span> Mutual Funds</div>
-
-                          </div>
-
                         </div>
-
-                        {/* Income vs Spending Line */}
-
                         <div className="card" style={{ padding: '32px', background: '#fff', borderRadius: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)', border: '1px solid var(--border)' }}>
-
-                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', letterSpacing: '0.5px' }}>
-
-                            <span>Monthly Cashflow Dynamics</span>
-
-                            <div style={{ display: 'flex', gap: '12px' }}>
-
-                              <span style={{ color: '#38C9B0' }}>●  Income</span>
-
-                              <span style={{ color: '#E85475' }}>●  Expenses</span>
-
-                              <span style={{ color: 'var(--gold)' }}>●  Savings</span>
-
-                            </div>
-
-                          </div>
-
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '20px' }}>Monthly Cashflow Dynamics</div>
                           <div style={{ height: '260px', position: 'relative' }}><canvas id="modal-cht-trend"></canvas></div>
-
                         </div>
-
                       </div>
-
-                      {/* Spending Bar Chart */}
-
-                      <div className="card" style={{ padding: '32px', background: '#fff', borderRadius: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.03)', border: '1px solid var(--border)' }}>
-
-                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '24px', letterSpacing: '0.5px' }}>Expenditure Analysis by Category</div>
-
-                        <div style={{ height: '200px', position: 'relative' }}><canvas id="modal-cht-spend"></canvas></div>
-
-                      </div>
-
                     </div>
 
                     {/* 4. FINANCIAL HEALTH INSIGHTS */}
-
                     <div style={{ marginBottom: '40px' }}>
-
                       <div className="p-sec-title" style={{ fontSize: '14px', marginBottom: '20px', color: 'var(--navy)', border: 'none', padding: 0 }}>Financial Health Observations</div>
-
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
                         {behData?.insights.map((ins, idx) => (
-
                           <div key={idx} style={{ padding: '16px', background: ins.type === 'pos' ? 'rgba(56,201,176,0.05)' : 'rgba(232,84,117,0.05)', border: `1px solid ${ins.type === 'pos' ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)'}`, borderRadius: '12px', fontSize: '12px', color: 'var(--navy)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '12px' }}>
-
-                            <span style={{ fontSize: '18px' }}>{ins.type === 'pos' ? '' : ''}</span>
-
                             {ins.text}
-
                           </div>
-
                         ))}
-
                       </div>
-
                     </div>
 
                     {/* 5. TRANSACTION HISTORY TABLE */}
-
                     <div style={{ marginBottom: '40px' }}>
-
                       <div className="p-sec-title" style={{ fontSize: '14px', marginBottom: '20px', color: 'var(--navy)', border: 'none', padding: 0 }}>Institutional Transaction Ledger</div>
-
                       <div className="tbl-wrap" style={{ border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden', background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-
                         <table className="tbl" style={{ width: '100%', borderCollapse: 'collapse' }}>
-
                           <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-
                             <tr style={{ textAlign: 'left', fontSize: '10px', color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-
                               <th style={{ padding: '18px 24px', fontWeight: 800 }}>Date</th>
-
                               <th style={{ padding: '18px 24px', fontWeight: 800 }}>Category</th>
-
                               <th style={{ padding: '18px 24px', textAlign: 'right', fontWeight: 800 }}>Amount</th>
-
                               <th style={{ padding: '18px 24px', textAlign: 'center', fontWeight: 800 }}>Type</th>
-
-                              <th style={{ padding: '18px 24px', fontWeight: 800 }}>Description</th>
-
                             </tr>
-
                           </thead>
-
                           <tbody>
-
                             {behData?.transactions.map((t, idx) => (
-
                               <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
-
                                 <td style={{ padding: '18px 24px', fontSize: '12px', color: 'var(--slate)', fontWeight: 500 }}>{t.date}</td>
-
                                 <td style={{ padding: '18px 24px', fontWeight: 700, fontSize: '13px', color: 'var(--navy)' }}>{t.category}</td>
-
                                 <td style={{ padding: '18px 24px', textAlign: 'right', fontWeight: 800, color: t.type === 'Credit' ? 'var(--teal)' : 'var(--navy)', fontSize: '14px' }}>
-
                                   {t.type === 'Credit' ? '+' : '-'}₹{fmt(t.amount)}
-
                                 </td>
-
                                 <td style={{ padding: '18px 24px', textAlign: 'center' }}>
-
                                   <span style={{ fontSize: '9px', fontWeight: 800, padding: '5px 10px', borderRadius: '6px', background: t.type === 'Credit' ? 'rgba(56,201,176,0.1)' : 'rgba(100,116,139,0.1)', color: t.type === 'Credit' ? 'var(--teal)' : 'var(--slate)' }}>
-
                                     {t.type.toUpperCase()}
-
                                   </span>
-
                                 </td>
-
-                                <td style={{ padding: '18px 24px', fontSize: '12px', color: 'var(--slate)', fontStyle: 'italic' }}>
-
-                                  {t.type === 'Credit' ? 'Direct Deposit / Salary' : `Ref: TXN-502${idx}992`}
-
-                                </td>
-
                               </tr>
-
                             ))}
-
                           </tbody>
-
                         </table>
-
                       </div>
-
                     </div>
-
-                    {/* 6. APPROVAL SUPPORT SUMMARY */}
-
-                    <div style={{ background: 'linear-gradient(135deg, var(--navy) 0%, #0C1428 100%)', borderRadius: '24px', padding: '40px', color: '#fff', textAlign: 'center', marginBottom: '40px' }}>
-
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '16px' }}>Decision Support Conclusion</div>
-
-                      <div style={{ fontSize: '28px', fontWeight: 800, marginBottom: '12px' }}>
-
-                        {selectedApp.probability < 0.3 ? 'Financially Stable / Strong Capacity' : selectedApp.probability < 0.6 ? 'Moderate Risk / Manual Review' : 'High Risk / Weak Capacity'}
-
-                      </div>
-                          <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', maxWidth: '600px', margin: '0 auto', lineHeight: 1.6 }}>
-
-                        Based on algorithmic assessment and behavioral intelligence, this borrower demonstrates
-
-                        {selectedApp.probability < 0.3 ? ' high repayment reliability and disciplined spending.' : ' moderate volatility which may require further verification of non-declared assets.'}
-
-                      </div>
-
-                    </div>
-
                   </div>
 
-                  {page !== 'bd-underwriting' && (
-                    <div style={{ width: '380px', borderLeft: '1px solid var(--border)', background: 'var(--panel)', padding: '40px', display: 'flex', flexDirection: 'column', gap: '30px', position: 'sticky', top: 0, height: '100%', overflowY: 'auto' }}>
+                  {/* RIGHT SIDEBAR (Underwriting Controls) */}
+                  <div style={{ width: '380px', borderLeft: '1px solid var(--border)', background: 'var(--panel)', padding: '40px', display: 'flex', flexDirection: 'column', gap: '30px', position: 'sticky', top: 0, height: '100%', overflowY: 'auto' }}>
+                    
+                    <div className="p-sec-title" style={{ fontSize: '14px', color: 'var(--navy)', border: 'none', padding: 0, flexShrink: 0 }}>Final Underwriting Decision</div>
 
-                      <div className="p-sec-title" style={{ fontSize: '14px', color: 'var(--navy)', border: 'none', padding: 0, flexShrink: 0 }}>Final Underwriting Decision</div>
+                    {(!selectedApp.status || selectedApp.status === 'Pending' || selectedApp.status === 'Under Review' || selectedApp.status === 'Additional Verification Required') && !decisionMode ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {/* DYNAMIC RISK ANALYSIS SECTION */}
+                        <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '30px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.05)' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '24px' }}>AI Underwriting Analysis</div>
+                          <div style={{ position: 'relative', width: '140px', height: '140px', margin: '0 auto 24px' }}>
+                            <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth="2.5" />
+                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={selectedApp.probability < 0.2 ? '#10B981' : selectedApp.probability < 0.5 ? '#F59E0B' : '#EF4444'} strokeWidth="2.5" strokeDasharray={`${(selectedApp.probability || 0) * 100}, 100`} strokeLinecap="round" style={{ transition: 'stroke-dasharray 1s ease-in-out' }} />
+                            </svg>
+                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                              <div style={{ fontSize: '28px', fontWeight: 900, color: 'var(--navy)', letterSpacing: '-1px' }}>{selectedApp.probability != null ? `${Math.round(selectedApp.probability * 100)}%` : '--'}</div>
+                              <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Default Prob.</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '15px', fontWeight: 900, color: selectedApp.probability < 0.2 ? '#10B981' : selectedApp.probability < 0.5 ? '#F59E0B' : '#EF4444', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '6px' }}>
+                            {selectedApp.risk_category || (selectedApp.probability < 0.2 ? 'LOW RISK' : selectedApp.probability < 0.5 ? 'MODERATE RISK' : 'HIGH RISK')}
+                          </div>
+                        </div>
 
-                      {(!selectedApp.status || selectedApp.status === 'Pending' || selectedApp.status === 'Under Review') && !decisionMode ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                          <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '30px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.05)' }}>
-                            <div style={{ position: 'relative', width: '140px', height: '140px', margin: '0 auto 24px' }}>
-                              <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth="2.5" />
-                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke={selectedApp.probability < 0.2 ? '#10B981' : selectedApp.probability < 0.5 ? '#F59E0B' : '#EF4444'} strokeWidth="2.5" strokeDasharray={`${(selectedApp.probability || 0) * 100}, 100`} strokeLinecap="round" style={{ transition: 'stroke-dasharray 1s ease-in-out' }} />
-                              </svg>
-                              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                                <div style={{ fontSize: '28px', fontWeight: 900, color: 'var(--navy)', letterSpacing: '-1px' }}>{selectedApp.probability != null ? `${Math.round(selectedApp.probability * 100)}%` : '--'}</div>
-                                <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Default Prob.</div>
+                        {/* OFFICER WORKSPACE */}
+                        <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '24px', borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--navy)', textTransform: 'uppercase' }}>Assign Interest Rate</div>
+                          <div style={{ position: 'relative' }}>
+                            <input type="number" step="0.1" placeholder="Enter sanctioned rate..." className="f-inp" style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1.5px solid var(--border)', fontWeight: 700 }} value={assignedRate} onChange={e => setAssignedRate(e.target.value)} />
+                            <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: 'var(--slate)' }}>%</span>
+                          </div>
+                          {assignedRate && (
+                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--slate)' }}>Calculated EMI</span>
+                                <span style={{ fontSize: '14px', fontWeight: 800 }}>₹{((selectedApp.loan_amount * (parseFloat(assignedRate)/1200) * Math.pow(1 + (parseFloat(assignedRate)/1200), selectedApp.term || 36)) / (Math.pow(1 + (parseFloat(assignedRate)/1200), selectedApp.term || 36) - 1) || 0).toLocaleString()}</span>
                               </div>
                             </div>
-                            <div style={{ fontSize: '15px', fontWeight: 900, color: selectedApp.probability < 0.2 ? '#10B981' : selectedApp.probability < 0.5 ? '#F59E0B' : '#EF4444', textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '6px' }}>
-                              {selectedApp.risk_category || (selectedApp.probability < 0.2 ? 'LOW RISK' : selectedApp.probability < 0.5 ? 'MODERATE RISK' : 'HIGH RISK')}
-                            </div>
-                            <div style={{ fontSize: '13px', color: 'var(--slate)', fontWeight: 700, marginBottom: '4px' }}>Model Confidence: {selectedApp.confidence_level || 'High'}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--slate)', fontStyle: 'italic', marginTop: '14px', opacity: 0.8, lineHeight: 1.5 }}>AI-generated prediction based on real-time financial and behavioral profile analysis.</div>
-                          </div>
-
-                          <div className="decision-btns" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                            <button className="d-btn" style={{ background: '#10B981', color: '#fff', padding: '18px', borderRadius: '14px', fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 6px 16px rgba(16,185,129,0.25)', fontSize: '15px' }} onClick={() => setDecisionMode('approve')}>Authorize Approval</button>
-                            <button className="d-btn" style={{ background: 'transparent', color: '#EF4444', border: '2px solid #EF4444', padding: '18px', borderRadius: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', fontSize: '15px' }} onClick={() => setDecisionMode('reject')}>Decline Application</button>
-                          </div>
-                        </div>
-                      ) : decisionMode === 'approve' ? (
-                        <div className="decision-flow animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff', padding: '30px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.05)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--navy)' }}>Underwriting Decision</div>
-                            <button style={{ background: 'none', border: 'none', color: 'var(--sky)', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }} onClick={() => setDecisionMode(null)}>Cancel</button>
-                          </div>
-                          
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div className="f-row">
-                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Interest Rate (%)</label>
-                              <input type="number" step="0.1" placeholder="Enter Rate" className="f-inp" style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '14px', fontWeight: 700 }} value={assignedRate} onChange={e => setAssignedRate(e.target.value)} />
-                            </div>
-                            <div className="f-row">
-                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Loan Tenure (Months)</label>
-                              <input type="number" placeholder="Enter Term" className="f-inp" style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '14px', fontWeight: 700 }} value={assignedTerm} onChange={e => setAssignedTerm(e.target.value)} />
-                            </div>
-                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', fontWeight: 700, color: 'var(--navy)' }}>
-                              Estimated EMI: ₹{((selectedApp.loan_amount * (assignedRate/1200) * Math.pow(1 + (assignedRate/1200), assignedTerm)) / (Math.pow(1 + (assignedRate/1200), assignedTerm) - 1) || 0).toLocaleString()}
-                            </div>
-                            <div className="f-row">
-                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Officer Decision Notes</label>
-                              <textarea className="f-area" placeholder="Enter justification for approval..." style={{ width: '100%', height: '100px', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', resize: 'none' }} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
-                            </div>
-                            <button className="confirm-btn" style={{ width: '100%', padding: '16px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', marginTop: '10px' }} onClick={() => handleReviewSubmit('Approved')} disabled={reviewSubmitting}>
-                              {reviewSubmitting ? 'Processing...' : 'Finalize Approval'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : decisionMode === 'reject' ? (
-                        <div className="decision-flow animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                          <button className="back-link" onClick={() => setDecisionMode(null)}>← Return to options</button>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div className="f-row">
-                              <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text3)' }}>REJECTION RATIONALE</label>
-                              <textarea className="f-area" style={{ height: '180px' }} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
-                            </div>
-                            <button className="confirm-btn c-reject" style={{ width: '100%', padding: '20px' }} onClick={() => handleReviewSubmit('Rejected')} disabled={reviewSubmitting}>
-                              Confirm Rejection
-
-                            </button>
-
-                          </div>
-
-                        </div>
-
-                      ) : (
-
-                        <div className="decision-complete animate-fade" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
-
-                          <div style={{ background: selectedApp.status === 'Approved' ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: selectedApp.status === 'Approved' ? 'var(--teal)' : 'var(--rose)', border: `1px solid ${selectedApp.status === 'Approved' ? 'rgba(56,201,176,0.2)' : 'rgba(232,84,117,0.2)'}`, fontSize: '20px', fontWeight: 900, padding: '24px', borderRadius: '20px', letterSpacing: '1px' }}>
-
-                            {selectedApp.status.toUpperCase()}
-
-                          </div>
-
-                          <div style={{ marginTop: '32px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                            <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Decision Summary Note</div>
-
-                            <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', fontSize: '14px', lineHeight: 1.6, color: 'var(--navy)', fontStyle: 'italic', border: '1px solid var(--border)' }}>
-
-                              "{selectedApp.bank_decision_note || 'No notes provided.'}"
-
-                            </div>
-
-                            {selectedApp.status === 'Approved' && (
-
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', background: '#fff', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--border)', marginTop: '8px' }}>
-
-                                <span style={{ color: 'var(--slate)', fontWeight: 700 }}>Final Rate</span><span style={{ fontWeight: 900, color: 'var(--teal)' }}>{selectedApp.assigned_rate}%</span>
-
-                              </div>
-
-                            )}
-
-                          </div>
-
-                        </div>
-
-                      )}
-
-                      {/* Borrower Communication Section */}
-                      <div className="borrower-comm-sec animate-fade" style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '24px',
-                        marginTop: '40px',
-                        padding: '32px',
-                        background: '#ffffff',
-                        border: '1px solid #eef2f6',
-                        borderRadius: '28px',
-                        boxShadow: '0 20px 50px rgba(0,0,0,0.04)'
-                      }}>
-
-                        <div style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
-                          <div style={{ fontSize: '18px', color: '#0f172a', fontWeight: 800, letterSpacing: '-0.4px', marginBottom: '4px' }}>Borrower Communication</div>
-                          <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 500, lineHeight: 1.5 }}>Compose and dispatch official loan updates and document requests.</div>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
-                          <div className="f-row">
-                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px', display: 'block' }}>Email Template</label>
-                            <select
-                              className="f-inp f-select"
-                              style={{
-                                background: '#ffffff',
-                                border: '1.5px solid #e2e8f0',
-                                borderRadius: '14px',
-                                padding: '14px 18px',
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                color: '#1e293b',
-                                width: '100%',
-                                outline: 'none',
-                                transition: 'all 0.2s ease',
-                                cursor: 'pointer'
-                              }}
-                              value={emailType}
-                              onChange={e => handleEmailTypeChange(e.target.value)}
-                            >
-                              <option value="Loan Approved">Loan Approved</option>
-                              <option value="Loan Rejected">Loan Rejected</option>
-                              <option value="Additional Documents Required">Documents Required</option>
-                              <option value="Under Review">Under Review</option>
-                              <option value="General Update">General Update</option>
-                            </select>
-                          </div>
-
-                          <div className="f-row">
-                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px', display: 'block' }}>Subject Line</label>
-                            <input
-                              type="text"
-                              className="f-inp"
-                              style={{
-                                background: '#ffffff',
-                                border: '1.5px solid #e2e8f0',
-                                borderRadius: '14px',
-                                padding: '14px 18px',
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                color: '#1e293b',
-                                width: '100%',
-                                outline: 'none',
-                                transition: 'all 0.2s ease'
-                              }}
-                              value={emailSubject}
-                              onChange={e => setEmailSubject(e.target.value)}
-                            />
-                          </div>
-
-                          <div className="f-row">
-                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '10px', display: 'block' }}>Message Body</label>
-                            <textarea
-                              className="f-area"
-                              style={{
-                                background: '#ffffff',
-                                border: '1.5px solid #e2e8f0',
-                                borderRadius: '16px',
-                                padding: '20px',
-                                fontSize: '14px',
-                                fontFamily: "'Inter', system-ui, sans-serif",
-                                color: '#334155',
-                                width: '100%',
-                                minHeight: '200px',
-                                lineHeight: '1.7',
-                                outline: 'none',
-                                transition: 'all 0.2s ease',
-                                resize: 'vertical',
-                                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.01)'
-                              }}
-                              value={emailBody}
-                              onChange={e => setEmailBody(e.target.value)}
-                              placeholder="Write update or instructions for the borrower..."
-                            />
-                          </div>
-
-                          {emailStatus === 'success' ? (
-                            <div className="animate-fade" style={{
-                              padding: '18px',
-                              background: '#f0fdf4',
-                              color: '#166534',
-                              border: '1px solid #bbf7d0',
-                              borderRadius: '16px',
-                              fontSize: '14px',
-                              fontWeight: 700,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              justifyContent: 'center'
-                            }}>
-                              <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#22c55e', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✓</div>
-                              Update dispatched successfully
-                            </div>
-                          ) : (
-                            <button
-                              className="d-btn"
-                              style={{
-                                width: '100%',
-                                padding: '18px',
-                                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '16px',
-                                fontSize: '15px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '12px',
-                                boxShadow: '0 10px 20px rgba(15, 23, 42, 0.15)'
-                              }}
-                              onClick={sendActualEmail}
-                              disabled={emailSending}
-                              onMouseEnter={e => {
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = '0 15px 30px rgba(15, 23, 42, 0.2)';
-                              }}
-                              onMouseLeave={e => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 10px 20px rgba(15, 23, 42, 0.15)';
-                              }}
-                            >
-                              {emailSending ? (
-                                <>
-                                  <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
-                                  Dispatching...
-                                </>
-                              ) : 'Dispatch Update'}
-                            </button>
                           )}
+                        </div>
 
-                          <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', fontWeight: 500, letterSpacing: '0.3px' }}>
-                            Secure Institutional Relay • Identity Verified
+                        {/* ACTIONS */}
+                        <div className="decision-btns" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div className="action-card" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '16px', borderRadius: '16px', cursor: 'pointer', display: 'flex', gap: '16px', alignItems: 'center' }} onClick={() => setDecisionMode('approve')}>
+                            <div style={{ color: '#10B981', fontSize: '20px' }}>✓</div>
+                            <div>
+                              <div style={{ fontSize: '14px', fontWeight: 800 }}>Send Approval Email</div>
+                              <div style={{ fontSize: '10px', color: 'var(--slate)' }}>Finalize and notify borrower</div>
+                            </div>
+                          </div>
+                          <div className="action-card" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '16px', borderRadius: '16px', cursor: 'pointer', display: 'flex', gap: '16px', alignItems: 'center' }} onClick={() => setDecisionMode('reject')}>
+                            <div style={{ color: '#EF4444', fontSize: '20px' }}>✕</div>
+                            <div>
+                              <div style={{ fontSize: '14px', fontWeight: 800 }}>Send Rejection Email</div>
+                              <div style={{ fontSize: '10px', color: 'var(--slate)' }}>Decline and notify borrower</div>
+                            </div>
+                          </div>
+                          <div className="action-card" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '16px', borderRadius: '16px', cursor: 'pointer', display: 'flex', gap: '16px', alignItems: 'center' }} onClick={() => setDecisionMode('verify')}>
+                            <div style={{ color: 'var(--sky)', fontSize: '20px' }}>📁</div>
+                            <div>
+                              <div style={{ fontSize: '14px', fontWeight: 800 }}>Request Additional Docs</div>
+                              <div style={{ fontSize: '10px', color: 'var(--slate)' }}>Manual verification needed</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-
-                      <div style={{ marginTop: 'auto' }}>
-                        <button style={{ width: '100%', padding: '18px', background: '#f1f5f9', color: 'var(--slate)', border: 'none', borderRadius: '14px', fontSize: '14px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', marginTop: '40px' }} onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = 'var(--navy)'; }} onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = 'var(--slate)'; }} onClick={() => setSelectedApp(null)}>
-                          Close Review Portal
-                        </button>
+                    ) : decisionMode === 'approve' ? (
+                      <div className="decision-flow animate-fade" style={{ background: '#fff', padding: '30px', borderRadius: '24px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                          <div style={{ fontWeight: 800 }}>Confirm Approval</div>
+                          <button style={{ color: 'var(--sky)', border: 'none', background: 'none', cursor: 'pointer' }} onClick={() => setDecisionMode(null)}>Cancel</button>
+                        </div>
+                        <textarea className="f-area" placeholder="Approval notes..." style={{ width: '100%', height: '100px', marginBottom: '20px' }} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+                        <button className="confirm-btn" style={{ width: '100%', padding: '16px', background: '#10B981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800 }} onClick={() => handleReviewSubmit('Approved')}>Dispatch Approval</button>
                       </div>
+                    ) : decisionMode === 'reject' ? (
+                      <div className="decision-flow animate-fade" style={{ background: '#fff', padding: '30px', borderRadius: '24px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                          <div style={{ fontWeight: 800 }}>Confirm Rejection</div>
+                          <button style={{ color: 'var(--sky)', border: 'none', background: 'none', cursor: 'pointer' }} onClick={() => setDecisionMode(null)}>Cancel</button>
+                        </div>
+                        <textarea className="f-area" placeholder="Rejection reason..." style={{ width: '100%', height: '100px', marginBottom: '20px' }} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+                        <button className="confirm-btn" style={{ width: '100%', padding: '16px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800 }} onClick={() => handleReviewSubmit('Rejected')}>Dispatch Rejection</button>
+                      </div>
+                    ) : decisionMode === 'verify' ? (
+                      <div className="decision-flow animate-fade" style={{ background: '#fff', padding: '30px', borderRadius: '24px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                          <div style={{ fontWeight: 800 }}>Request Verification</div>
+                          <button style={{ color: 'var(--sky)', border: 'none', background: 'none', cursor: 'pointer' }} onClick={() => setDecisionMode(null)}>Cancel</button>
+                        </div>
+                        <textarea className="f-area" placeholder="List documents requested..." style={{ width: '100%', height: '100px', marginBottom: '20px' }} value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+                        <button className="confirm-btn" style={{ width: '100%', padding: '16px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800 }} onClick={() => handleReviewSubmit('Additional Verification Required')}>Send Request</button>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '20px', fontWeight: 900, padding: '24px', borderRadius: '20px', background: '#f8fafc', border: '1px solid var(--border)' }}>
+                          {selectedApp.status.toUpperCase()}
+                        </div>
+                        <div style={{ marginTop: '20px', fontSize: '13px', color: 'var(--slate)' }}>Decision recorded by officer.</div>
+                      </div>
+                    )}
 
-                    </div>
-                  )}
+                    <button style={{ width: '100%', padding: '18px', background: '#f1f5f9', color: 'var(--slate)', border: 'none', borderRadius: '14px', fontSize: '14px', fontWeight: 800, marginTop: 'auto' }} onClick={() => setSelectedApp(null)}>Close Review Portal</button>
+
+                  </div>
                 </div>
 
               </div>

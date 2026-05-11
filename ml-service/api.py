@@ -729,8 +729,8 @@ def review_application(app_id):
             return jsonify({'error': 'Unauthorized Access: You cannot review applications for other banks.'}), 403
 
         assigned_rate = data.get('assigned_rate')
-        assigned_term = data.get('assigned_term')
-        decision = data.get('decision')  # 'Approved' | 'Rejected' | 'Under Review'
+        # We no longer accept assigned_term from officer as per requirements (read-only from borrower)
+        decision = data.get('decision')  # 'Approved' | 'Rejected' | 'Under Review' | 'Additional Verification Required'
         note = data.get('note', '')
 
         # Update loan parameters if provided by the officer
@@ -739,12 +739,8 @@ def review_application(app_id):
             record.assigned_rate = rate
             record.interest_rate = rate # Sync for model consistency
 
-        if assigned_term is not None:
-            term = int(assigned_term)
-            record.loan_term = term
-
-        # Run ML assessment with updated parameters if it's an approval
-        if assigned_rate is not None or assigned_term is not None:
+        # Run ML assessment with updated parameters (Dynamic Risk)
+        if assigned_rate is not None:
             try:
                 ml_data = {
                     'Age': record.age, 'Income': record.income,
@@ -786,10 +782,15 @@ def review_application(app_id):
         db.refresh(record)
 
         # Send status update email if decision made
-        if decision in ['Approved', 'Rejected']:
+        if decision in ['Approved', 'Rejected', 'Additional Verification Required']:
             try:
                 email_type = 'approved' if decision == 'Approved' else 'rejected'
-                send_loan_email(email_type, record.full_name, record.id, {'reason': note})
+                if decision == 'Additional Verification Required':
+                    email_type = 'verification_requested'
+                
+                # Mock sending for verification requested if not in mailer, otherwise use standard
+                send_loan_email(email_type if email_type != 'verification_requested' else 'general', 
+                               record.full_name, record.id, {'reason': note, 'status': decision})
             except Exception as e:
                 logger.error(f"Failed to send decision email: {e}")
 
