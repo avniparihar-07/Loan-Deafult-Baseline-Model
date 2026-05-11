@@ -134,6 +134,12 @@ def prepare_features(data):
     if df['DTIRatio'].iloc[0] < 0 or df['DTIRatio'].iloc[0] > 1:
         raise ValueError("DTIRatio must be between 0 and 1")
 
+    age = df['Age'].iloc[0]
+    if age < 18:
+        raise ValueError("You must be at least 18 years old to apply for a loan.")
+    if not float(age).is_integer():
+        raise ValueError("Age must be a whole number.")
+
     # Feature Engineering
     df['Loan_Income_Ratio'] = df['LoanAmount'] / df['Income']
     df['Estimated_EMI'] = df['LoanAmount'] / df['LoanTerm']
@@ -281,6 +287,12 @@ def login():
                 user.officer_role = officer_role or 'Analyst'
                 db.commit()
                 db.refresh(user)
+            else:
+                # Update existing bank officer details if provided
+                if bank_name: user.bank_name = bank_name
+                if officer_role: user.officer_role = officer_role
+                db.commit()
+                db.refresh(user)
         
         if not user: 
             return jsonify({'error': 'Account not found. Please create one.'}), 404
@@ -403,6 +415,23 @@ def submit_application():
     if missing:
         return jsonify({'error': f'Missing fields: {", ".join(missing)}'}), 400
 
+    # Generate unique Loan ID: GZ-2026-X1Y2
+    import random
+    import string
+    year = datetime.utcnow().year
+    rand_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    loan_id = f"GZ-{year}-{rand_part}"
+
+    age = data.get('Age')
+    try:
+        age_val = float(age)
+        if age_val < 18:
+            return jsonify({'error': 'You must be at least 18 years old to apply for a loan.'}), 400
+        if not age_val.is_integer():
+            return jsonify({'error': 'Age must be a whole number.'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid age provided.'}), 400
+
     db = get_db()
     if not db:
         return jsonify({'error': 'DB offline'}), 500
@@ -412,6 +441,7 @@ def submit_application():
             full_name=str(data.get('FullName', '')).strip(),
             email=str(data.get('Email', '')).strip(),
             state=str(data.get('State', 'MH')),
+            loan_id=loan_id,
             created_at=datetime.utcnow(),
             age=int(data.get('Age', 0)),
             income=float(data.get('Income', 0)),
@@ -478,6 +508,11 @@ def review_application(app_id):
         record = db.query(PredictionRecord).filter(PredictionRecord.id == app_id).first()
         if not record:
             return jsonify({'error': 'Application not found'}), 404
+
+        # SECURITY: Verify the reviewer belongs to the target bank
+        reviewer_bank = data.get('bank_name', '').strip()
+        if not reviewer_bank or record.target_bank != reviewer_bank:
+            return jsonify({'error': 'Unauthorized Access: You cannot review applications for other banks.'}), 403
 
         assigned_rate = data.get('assigned_rate')
         decision = data.get('decision')  # 'Approved' | 'Rejected' | 'Under Review'
@@ -558,22 +593,25 @@ def get_applications():
     db = get_db()
     if not db: return jsonify({'error': 'DB offline'}), 500
 
-    # Bank officers can only see OFFICIAL applications targeted at their bank
+    # Bank officers MUST provide their bank_name to see applications
     bank_filter = request.args.get('bank_name', '').strip()
+    
+    # SECURITY: If no bank_name is provided, return empty list (Privacy by default)
+    if not bank_filter:
+        return jsonify([])
 
     try:
         query = db.query(PredictionRecord).filter(
             PredictionRecord.application_type == 'official',
-            PredictionRecord.target_bank != None,
-            PredictionRecord.target_bank != ''
+            PredictionRecord.target_bank == bank_filter
         ).order_by(PredictionRecord.created_at.desc())
-        if bank_filter:
-            query = query.filter(PredictionRecord.target_bank == bank_filter)
+        
         records = query.all()
         result = []
         for r in records:
             result.append({
                 'id': r.id,
+                'loan_id': r.loan_id,
                 'full_name': r.full_name,
                 'email': r.email,
                 'state': r.state,
@@ -633,7 +671,7 @@ def get_my_applications():
         result = []
         for r in records:
             result.append({
-                'id': r.id, 'full_name': r.full_name, 'email': r.email, 'state': r.state,
+                'id': r.id, 'loan_id': r.loan_id, 'full_name': r.full_name, 'email': r.email, 'state': r.state,
                 'age': r.age, 'income': r.income, 'loan_amount': r.loan_amount, 'credit_score': r.credit_score,
                 'loan_purpose': r.loan_purpose, 'risk_category': r.risk_category, 'probability': r.default_probability,
                 'created_at': r.created_at.isoformat() if r.created_at else None,

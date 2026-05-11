@@ -356,6 +356,15 @@ input[type=number] {
   box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
 }
 
+.finput.error {
+  border-color: var(--rose) !important;
+  background: rgba(225, 29, 72, 0.02);
+}
+
+.finput.error:focus {
+  box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.1);
+}
+
 .combo-field {
   display: flex;
   flex-direction: column;

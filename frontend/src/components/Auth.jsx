@@ -38,7 +38,9 @@ export default function Auth({ onLogin, theme, toggleTheme, initialRole = 'borro
         last_name: form.last,
         email: form.email,
         password: form.password,
-        role: role
+        role: role,
+        bank_name: role === 'bank' ? finalBank : undefined,
+        officer_role: role === 'bank' ? finalRole : undefined
       } : { 
         email: form.email, 
         password: form.password,

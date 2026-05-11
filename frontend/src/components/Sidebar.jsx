@@ -59,7 +59,9 @@ export default function Sidebar({ role, activePage, setPage, user, onLogout }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{user?.first} {user?.last}</span>
-            <span style={{ color: 'var(--gold)', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{role === 'bank' ? 'Bank Officer' : 'Portal Access'}</span>
+            <span style={{ color: 'var(--gold)', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {role === 'bank' ? (user?.officer_role || 'Bank Officer') : 'Portal Access'}
+            </span>
           </div>
         </div>
         <button 

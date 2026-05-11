@@ -79,10 +79,9 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [applyFlags, setApplyFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
   const [applyResult, setApplyResult] = useState(null); // { id, status }
   const [applySubmitting, setApplySubmitting] = useState(false);
-  const [idType, setIdType] = useState('');
-  const [idFile, setIdFile] = useState(null);
+  const [selectedIdType, setSelectedIdType] = useState('aadhaar');
   const [docs, setDocs] = useState({
-    aadhaarFront: null, aadhaarBack: null, panFront: null,
+    idFront: null, idBack: null,
     addressProof: null,
     salarySlip: null, bankStatement: null,
     selfie: null, empId: null, coApplicant: null
@@ -102,6 +101,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [draftResult, setDraftResult] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(true);
   const [showInsights, setShowInsights] = useState(false);
+
+  const [ageError, setAgeError] = useState('');
 
   const [selectedAsset, setSelectedAsset] = useState(null);
 
@@ -145,6 +146,25 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
 
   const update = (k, v) => {
     if (isReadOnly || isView) return;
+    
+    if (k === 'age') {
+      const val = v.toString();
+      if (val === '') {
+        setAgeError('Please enter your age.');
+      } else if (val.includes('.') || val.includes('e') || val.includes('E')) {
+        setAgeError('Age must be a whole number.');
+      } else {
+        const num = parseInt(val);
+        if (num < 0) {
+          setAgeError('Age cannot be negative.');
+        } else if (num < 18) {
+          setAgeError('You must be at least 18 years old to apply for a loan.');
+        } else {
+          setAgeError('');
+        }
+      }
+    }
+
     if (isApply) setApplyForm(prev => ({ ...prev, [k]: v }));
     else setFormData(prev => ({ ...prev, [k]: v }));
   };
@@ -200,7 +220,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       marital: app.marital_status?.toLowerCase(), state: app.state,
       extLoanAmt: 0, extEmi: 0, extBank: '', extLoanType: 'personal',
       jobChanges: app.job_changes || 0,
-      targetBank: app.target_bank, targetBankCustom: ''
+      targetBank: app.target_bank, targetBankCustom: '',
+      loan_id: app.loan_id
     });
     setViewFlags({
       mort: app.has_mortgage === 'Yes' ? 'Y' : 'N',
@@ -249,8 +270,13 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     setDraftData(null);
     setDraftFlags(null);
     setDraftResult(null);
-    setIdType('');
-    setIdFile(null);
+    setSelectedIdType('aadhaar');
+    setDocs({
+      idFront: null, idBack: null,
+      addressProof: null,
+      salarySlip: null, bankStatement: null,
+      selfie: null, empId: null, coApplicant: null
+    });
   };
 
   const handleOfficialApply = async () => {
@@ -271,8 +297,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       return;
     }
     if (!targetBankFinal) { alert('Please select the bank you are applying to.'); return; }
-    if (!idType) { alert('Please select a document type for identity verification.'); return; }
-    if (!idFile) { alert('Please upload your verification document.'); return; }
+    if (!docs.idFront) { alert('Please upload the front of your identity document.'); return; }
+    if (selectedIdType !== 'pan' && !docs.idBack) { alert('Please upload the back of your identity document.'); return; }
 
     setApplySubmitting(true);
     const payload = {
@@ -549,11 +575,36 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       </div>
                       <div>
                         <div className="flab">Age</div>
-                        <input type="number" className="finput" value={curData.age} onChange={e => update('age', +e.target.value)} disabled={isReadOnly} />
+                        <input 
+                          type="number" 
+                          className={`finput ${ageError ? 'error' : ''}`} 
+                          value={curData.age} 
+                          onChange={e => update('age', e.target.value)} 
+                          onKeyDown={e => {
+                            if (['.', 'e', 'E', '+', '-'].includes(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
+                          disabled={isReadOnly} 
+                          placeholder="e.g. 25"
+                        />
+                        {ageError && (
+                          <div style={{ 
+                            color: 'var(--rose)', 
+                            fontSize: '11px', 
+                            fontWeight: 600, 
+                            marginTop: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span style={{ fontSize: '12px' }}>⚠</span> {ageError}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="flab">Credit Score</div>
-                        <input type="number" className="finput" value={curData.credit} onChange={e => update('credit', +e.target.value)} disabled={isReadOnly} />
+                        <input type="number" className="finput" value={curData.credit} onChange={e => update('credit', e.target.value)} disabled={isReadOnly} />
                       </div>
                       <div>
                         <div className="flab">Education Level</div>
@@ -615,11 +666,18 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       </div>
                       <div>
                         <div className="flab">Annual Income (₹)</div>
-                        <input type="number" className="finput" value={curData.income} onChange={e => update('income', +e.target.value)} disabled={isReadOnly} />
+                        <input type="number" className="finput" value={curData.income} onChange={e => update('income', e.target.value)} disabled={isReadOnly} />
                       </div>
                       <div>
                         <div className="flab">Loan Amount (₹)</div>
-                        <input type="number" className="finput" value={curData.loanAmt} onChange={e => update('loanAmt', +e.target.value)} disabled={isReadOnly} />
+                        <input type="number" className="finput" value={curData.loanAmt} onChange={e => update('loanAmt', e.target.value)} disabled={isReadOnly} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', opacity: curData.income > 0 ? 1 : 0.4 }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '8px' }}>Income Stability</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--navy)' }}>₹{fmt(curData.income / 12)}</span>
+                          <span style={{ fontSize: '10px', color: 'var(--slate)', fontWeight: 600 }}>/ month</span>
+                        </div>
                       </div>
                       <div className="fg-full" style={{ gridColumn: '1 / -1', marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
                         <div className="flab" style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
@@ -628,36 +686,26 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         <div style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 400, marginBottom: '12px' }}>What % of your monthly income goes toward loan repayments?</div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                           <div>
-                            <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '4px' }}>💸 Total Monthly Debt Payments (₹)</div>
-                            <input
-                              type="number"
-                              className="finput"
-                              placeholder="e.g. 5000"
-                              value={curData.dtiDebt || ''}
-                              onChange={e => {
-                                const debt = +e.target.value || 0;
-                                const inc = curData.dtiIncome || (curData.income / 12) || 1;
-                                update('dtiDebt', +e.target.value);
-                                update('dti', inc > 0 ? Math.min(parseFloat((debt / inc).toFixed(4)), 0.99) : 0);
-                              }}
-                              disabled={isReadOnly}
-                            />
+                            <div className="flab">Monthly Debt (₹) <span className="combo-tag">Auto-DTI</span></div>
+                            <input type="number" className="finput" value={curData.dtiDebt} onChange={e => {
+                              const debt = e.target.value;
+                              const inc = curData.dtiIncome || curData.income;
+                              update('dtiDebt', debt);
+                              const dNum = debt === '' ? 0 : parseFloat(debt);
+                              const iNum = (inc === '' || !inc) ? 0 : parseFloat(inc);
+                              update('dti', iNum > 0 ? Math.min(parseFloat((dNum / iNum).toFixed(4)), 0.99) : 0);
+                            }} disabled={isReadOnly} />
                           </div>
                           <div>
-                            <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '4px' }}>💰 Your Monthly Income (₹)</div>
-                            <input
-                              type="number"
-                              className="finput"
-                              placeholder={curData.income > 0 ? `Auto: ₹${Math.round(curData.income / 12).toLocaleString('en-IN')}` : 'e.g. 50000'}
-                              value={curData.dtiIncome || ''}
-                              onChange={e => {
-                                const inc = +e.target.value || 1;
-                                const debt = curData.dtiDebt || 0;
-                                update('dtiIncome', +e.target.value);
-                                update('dti', inc > 0 ? Math.min(parseFloat((debt / inc).toFixed(4)), 0.99) : 0);
-                              }}
-                              disabled={isReadOnly}
-                            />
+                            <div className="flab">Pre-calculated Income (₹)</div>
+                            <input type="number" className="finput" value={curData.dtiIncome} placeholder={curData.income || "0"} onChange={e => {
+                              const inc = e.target.value;
+                              const debt = curData.dtiDebt;
+                              update('dtiIncome', inc);
+                              const dNum = (debt === '' || !debt) ? 0 : parseFloat(debt);
+                              const iNum = inc === '' ? 0 : parseFloat(inc);
+                              update('dti', iNum > 0 ? Math.min(parseFloat((dNum / iNum).toFixed(4)), 0.99) : 0);
+                            }} disabled={isReadOnly} />
                           </div>
                         </div>
                         {curData.dti !== '' && curData.dtiDebt >= 0 && (
@@ -672,8 +720,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         )}
                       </div>
                       <div>
-                        <div className="flab">Credit Lines <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: '11px' }}>(Total no. of active loans or cards)</span> <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '11px', marginLeft: '8px' }}>(Optional)</span></div>
-                        <input type="number" className="finput" value={curData.lines} onChange={e => update('lines', +e.target.value)} disabled={isReadOnly} />
+                        <div className="flab">Active Credit Lines</div>
+                        <input type="number" className="finput" value={curData.lines} onChange={e => update('lines', e.target.value)} disabled={isReadOnly} />
                       </div>
 
                       <div className="fg-sec" style={{ gridColumn: '1 / -1', borderBottom: '2px solid var(--ice)', paddingBottom: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
@@ -738,11 +786,11 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       </div>
                       <div>
                         <div className="flab">Months Employed</div>
-                        <input type="number" className="finput" value={curData.empl} onChange={e => update('empl', +e.target.value)} disabled={isReadOnly} />
+                        <input type="number" className="finput" value={curData.empl} onChange={e => update('empl', e.target.value)} disabled={isReadOnly} />
                       </div>
                       <div>
-                        <div className="flab">Job Changes (Last 5 Years)</div>
-                        <input type="number" className="finput" value={curData.jobChanges} onChange={e => update('jobChanges', +e.target.value)} disabled={isReadOnly} />
+                        <div className="flab">Past 5y Job Changes</div>
+                        <input type="number" className="finput" value={curData.jobChanges} onChange={e => update('jobChanges', e.target.value)} disabled={isReadOnly} />
                       </div>
 
                       <div className="fg-sec" style={{ gridColumn: '1 / -1', borderBottom: '2px solid var(--ice)', paddingBottom: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
@@ -840,11 +888,11 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                           <div style={{ gridColumn: '1/-1', fontSize: '11px', color: 'var(--rose)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Existing Debt Burden Assessment</div>
                           <div>
                             <div className="flab">Outstanding Loan Amount (₹)</div>
-                            <input type="number" className="finput" value={curData.extLoanAmt} onChange={e => update('extLoanAmt', +e.target.value)} disabled={isReadOnly} />
+                            <input type="number" className="finput" value={curData.extLoanAmt} onChange={e => update('extLoanAmt', e.target.value)} disabled={isReadOnly} />
                           </div>
                           <div>
                             <div className="flab">Monthly EMI Being Paid (₹)</div>
-                            <input type="number" className="finput" value={curData.extEmi} onChange={e => update('extEmi', +e.target.value)} disabled={isReadOnly} />
+                            <input type="number" className="finput" value={curData.extEmi} onChange={e => update('extEmi', e.target.value)} disabled={isReadOnly} />
                           </div>
                           <div>
                             <div className="flab">Interest Rate (% p.a.)</div>
@@ -924,11 +972,40 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
 
                           {/* 1. Identity Proof */}
                           <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>1. Identity Proof</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px' }}>1. Identity Proof</div>
+                              <select 
+                                className="fselect" 
+                                style={{ width: '200px', height: '32px', fontSize: '12px', padding: '0 12px' }}
+                                value={selectedIdType}
+                                onChange={e => {
+                                  setSelectedIdType(e.target.value);
+                                  setDocs(p => ({ ...p, idFront: null, idBack: null })); // Reset files on type change
+                                }}
+                              >
+                                <option value="aadhaar">Aadhaar Card</option>
+                                <option value="pan">PAN Card</option>
+                                <option value="passport">Passport</option>
+                                <option value="voterid">Voter ID</option>
+                                <option value="dl">Driving License</option>
+                              </select>
+                            </div>
+                            
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                              <DocCard label="Aadhaar Card (Front)" id="aadhaarFront" file={docs.aadhaarFront} onUpload={f => setDocs(p => ({ ...p, aadhaarFront: f }))} />
-                              <DocCard label="Aadhaar Card (Back)" id="aadhaarBack" file={docs.aadhaarBack} onUpload={f => setDocs(p => ({ ...p, aadhaarBack: f }))} />
-                              <DocCard label="PAN Card (Front)" id="panFront" file={docs.panFront} onUpload={f => setDocs(p => ({ ...p, panFront: f }))} />
+                              <DocCard 
+                                label={`${selectedIdType.toUpperCase()} (Front)`} 
+                                id="idFront" 
+                                file={docs.idFront} 
+                                onUpload={f => setDocs(p => ({ ...p, idFront: f }))} 
+                              />
+                              {selectedIdType !== 'pan' && (
+                                <DocCard 
+                                  label={`${selectedIdType.toUpperCase()} (Back)`} 
+                                  id="idBack" 
+                                  file={docs.idBack} 
+                                  onUpload={f => setDocs(p => ({ ...p, idBack: f }))} 
+                                />
+                              )}
                             </div>
                           </div>
 
@@ -971,7 +1048,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             <span><strong style={{ color: 'var(--gold)' }}>Check Eligibility.</strong> Use this tool to quickly see your loan approval chance. This is not a formal application. To apply for a real loan, use <strong>Apply Loan</strong>.</span>
                           </div>
                           <div className="fg-full mt18" style={{ gridColumn: '1 / -1' }}>
-                            <button className="btn-assess" onClick={handleSimulate}>
+                            <button 
+                              className="btn-assess" 
+                              onClick={handleSimulate}
+                              disabled={!!ageError || curData.age === ''}
+                              style={{ opacity: (!!ageError || curData.age === '') ? 0.6 : 1, cursor: (!!ageError || curData.age === '') ? 'not-allowed' : 'pointer' }}
+                            >
                               Check Approval Chance
                             </button>
                           </div>
@@ -989,7 +1071,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                             </div>
                           ) : (
                             <>
-                              <button className="btn-assess" onClick={handleOfficialApply} disabled={applySubmitting}>
+                              <button 
+                                className="btn-assess" 
+                                onClick={handleOfficialApply} 
+                                disabled={applySubmitting || !!ageError || curData.age === ''}
+                                style={{ opacity: (applySubmitting || !!ageError || curData.age === '') ? 0.6 : 1, cursor: (applySubmitting || !!ageError || curData.age === '') ? 'not-allowed' : 'pointer' }}
+                              >
                                 {applySubmitting ? 'Sending Request...' : 'Send Request to Bank'}
                               </button>
                               <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '12px', color: 'var(--text3)' }}>
@@ -1169,6 +1256,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                   <thead>
                     <tr>
                       <th style={{ paddingLeft: '32px' }}>Submission Date</th>
+                      <th>Loan ID</th>
                       <th>Target Institution</th>
                       <th>Principal (₹)</th>
                       <th>Term</th>
@@ -1183,6 +1271,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         <td style={{ paddingLeft: '32px', color: 'var(--slate)', fontSize: '13px', fontWeight: 600 }}>
                           {new Date(app.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                         </td>
+                        <td style={{ fontWeight: 800, color: 'var(--sky)' }}>{app.loan_id || `--`}</td>
                         <td style={{ fontWeight: 800, color: 'var(--navy-deep)' }}>{app.target_bank}</td>
                         <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--navy)' }}>{fmt(app.loan_amount)}</td>
                         <td style={{ fontWeight: 600 }}>{app.term} Months</td>
@@ -1512,6 +1601,7 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
       <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="h-serif" style={{ fontSize: '32px', margin: 0 }}>Application <span style={{ color: 'var(--gold)' }}>Summary</span></h1>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--sky)', marginTop: '4px' }}>Loan ID: {data.loan_id || 'N/A'}</div>
           <p style={{ color: 'var(--slate)', fontSize: '14px', marginTop: '4px' }}>Review your loan application status and risk assessment details.</p>
         </div>
         <button onClick={onBack} className="lp-btn-secondary" style={{ padding: '10px 24px', width: 'auto' }}>

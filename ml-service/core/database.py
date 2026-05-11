@@ -70,6 +70,7 @@ class PredictionRecord(Base):
     job_changes = Column(Integer, default=0)
     target_bank = Column(String)       # Bank the borrower is applying to
     industry = Column(String)          # Industry sector assigned during review
+    loan_id = Column(String, unique=True, index=True)
 
     # Workflow columns
     application_type = Column(String, default='official')  # 'official' | 'simulation'
@@ -134,6 +135,7 @@ try:
             ('bank_decision_note',  'VARCHAR'),
             ('target_bank',         'VARCHAR'),
             ('industry',            'VARCHAR'),
+            ('loan_id',             'VARCHAR'),
         ]
         try:
             inspector = inspect(engine)
