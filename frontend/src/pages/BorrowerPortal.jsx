@@ -26,6 +26,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [applySubmitting, setApplySubmitting] = useState(false);
   const [idType, setIdType] = useState('');
   const [idFile, setIdFile] = useState(null);
+  const [docs, setDocs] = useState({
+    aadhaarFront: null, aadhaarBack: null, panFront: null,
+    addressProof: null,
+    salarySlip: null, bankStatement: null,
+    selfie: null, empId: null, coApplicant: null
+  });
   const [viewForm, setViewForm] = useState(null);
   const [viewFlags, setViewFlags] = useState(null);
   const [result, setResult] = useState(null);
@@ -850,59 +856,55 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         </div>
                       )}
 
-                      {/* Identity Verification Section (Apply Only) */}
+                      {/* Document Verification Section (Apply Only) */}
                       {page === 'bpg-apply' && !isReadOnly && (
                         <>
-                          <div className="fg-sec" style={{ gridColumn: '1 / -1', borderBottom: '2px solid var(--ice)', paddingBottom: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
-                            <div style={{ width: '32px', height: '32px', background: 'var(--ice)', color: 'var(--navy)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 800 }}>07</div>
+                          <div className="fg-sec" style={{ gridColumn: '1 / -1', borderBottom: '2px solid var(--ice)', paddingBottom: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '24px' }}>
+                            <div style={{ width: '32px', height: '32px', background: 'var(--navy-glow)', color: 'var(--navy)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 800 }}>07</div>
                             <div>
-                              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Identity Verification</div>
-                              <div style={{ fontSize: '11px', color: 'var(--slate)', marginTop: '2px', fontWeight: 500 }}>Upload one government-approved ID for verification.</div>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Document Verification</div>
+                              <div style={{ fontSize: '11px', color: 'var(--slate)', marginTop: '2px', fontWeight: 500 }}>Please upload clear documents to expedite your loan processing. Max 5MB each (JPG, PNG, PDF).</div>
                             </div>
                           </div>
-                          
-                          <div className="fg-full" style={{ gridColumn: '1 / -1' }}>
-                            <div className="flab">Document Type <span className="combo-tag">Required</span></div>
-                            <select className="fselect" value={idType} onChange={e => setIdType(e.target.value)}>
-                              <option value="">Select Document Type</option>
-                              <option value="aadhaar">Aadhaar Card</option>
-                              <option value="pan">PAN Card</option>
-                              <option value="passport">Passport</option>
-                              <option value="driving">Driving License</option>
-                              <option value="voter">Voter ID</option>
-                            </select>
-                          </div>
-                          
-                          {idType && (
-                            <div className="fg-full" style={{ gridColumn: '1 / -1', marginTop: '8px' }}>
-                              <div className="flab">Upload Document <span className="combo-tag">Required</span></div>
-                              
-                              <div style={{ border: '2px dashed var(--border-strong)', borderRadius: '12px', padding: '32px', textAlign: 'center', background: 'var(--bg2)', transition: 'all 0.2s ease', cursor: 'pointer', position: 'relative' }}>
-                                <input 
-                                  type="file" 
-                                  accept=".jpg,.jpeg,.png,.pdf" 
-                                  onChange={e => { if(e.target.files && e.target.files[0]) setIdFile(e.target.files[0]); }} 
-                                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                                />
-                                {!idFile ? (
-                                  <>
-                                    <div style={{ fontSize: '24px', marginBottom: '12px', color: 'var(--slate)' }}>+</div>
-                                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--navy-deep)', marginBottom: '4px' }}>Click or drag file to upload</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--slate)' }}>Upload clear front-side image or PDF (Max 5MB)</div>
-                                  </>
-                                ) : (
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', marginBottom: '12px' }}>✓</div>
-                                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--navy-deep)' }}>{idFile.name}</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--teal)', fontWeight: 600, marginTop: '4px' }}>Document Uploaded</div>
-                                  </div>
-                                )}
-                              </div>
-                              <div style={{ fontSize: '11px', color: 'var(--slate)', marginTop: '8px', textAlign: 'center' }}>
-                                Your document is securely used only for identity verification.
-                              </div>
+
+                          {/* 1. Identity Proof */}
+                          <div style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>1. Identity Proof</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                              <DocCard label="Aadhaar Card (Front)" id="aadhaarFront" file={docs.aadhaarFront} onUpload={f => setDocs(p => ({ ...p, aadhaarFront: f }))} />
+                              <DocCard label="Aadhaar Card (Back)" id="aadhaarBack" file={docs.aadhaarBack} onUpload={f => setDocs(p => ({ ...p, aadhaarBack: f }))} />
+                              <DocCard label="PAN Card (Front)" id="panFront" file={docs.panFront} onUpload={f => setDocs(p => ({ ...p, panFront: f }))} />
                             </div>
-                          )}
+                          </div>
+
+                          {/* 2. Address Proof */}
+                          <div style={{ gridColumn: '1 / -1', marginTop: '24px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>2. Address Proof</div>
+                            <div style={{ fontSize: '11px', color: 'var(--slate)', opacity: 0.7, marginBottom: '16px' }}>Upload any valid utility bill, rental agreement, or government ID.</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                              <DocCard label="Address Proof Doc" id="addressProof" file={docs.addressProof} onUpload={f => setDocs(p => ({ ...p, addressProof: f }))} />
+                            </div>
+                          </div>
+
+                          {/* 3. Income Proof */}
+                          <div style={{ gridColumn: '1 / -1', marginTop: '24px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>3. Income Proof</div>
+                            <div style={{ fontSize: '11px', color: 'var(--slate)', opacity: 0.7, marginBottom: '16px' }}>Last 3 months preferred. Salary slips or bank statements.</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                              <DocCard label="Salary Slip (PDF)" id="salarySlip" file={docs.salarySlip} onUpload={f => setDocs(p => ({ ...p, salarySlip: f }))} accept=".pdf" />
+                              <DocCard label="Bank Statement (PDF)" id="bankStatement" file={docs.bankStatement} onUpload={f => setDocs(p => ({ ...p, bankStatement: f }))} accept=".pdf" />
+                            </div>
+                          </div>
+
+                          {/* 4. Optional Verification */}
+                          <div style={{ gridColumn: '1 / -1', marginTop: '24px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>4. Additional Verification <span style={{ fontWeight: 400, opacity: 0.6 }}>(Optional)</span></div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                              <DocCard label="Selfie Verification" id="selfie" file={docs.selfie} onUpload={f => setDocs(p => ({ ...p, selfie: f }))} />
+                              <DocCard label="Employment ID" id="empId" file={docs.empId} onUpload={f => setDocs(p => ({ ...p, empId: f }))} />
+                              <DocCard label="Co-applicant Doc" id="coApplicant" file={docs.coApplicant} onUpload={f => setDocs(p => ({ ...p, coApplicant: f }))} />
+                            </div>
+                          </div>
                         </>
                       )}
 
