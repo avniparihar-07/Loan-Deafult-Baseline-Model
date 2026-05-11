@@ -91,6 +91,40 @@ CORS(app, supports_credentials=True, resources={r"*": {"origins": get_cors_origi
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model_artifacts')
 
 
+def provision_officers():
+    """Ensure authorized officers exist in the database with institutional roles."""
+    db = get_db()
+    if not db: return
+    try:
+        officers = [
+            {"email": "thakkarstuti947@hdfc.com", "first": "Stuti", "last": "Thakkar"},
+            {"email": "thakkerstuti947@hdfc.com", "first": "Stuti", "last": "Thakker"},
+            {"email": "avniparihar07@sbi.co.in", "first": "Avni", "last": "Parihar"}
+        ]
+        for off in officers:
+            existing = db.query(User).filter(User.email == off['email']).first()
+            if not existing:
+                new_off = User(
+                    email=off['email'],
+                    first_name=off['first'],
+                    last_name=off['last'],
+                    password=hash_password("Secure123!"),
+                    role='bank',
+                    bank_name="HDFC Bank" if "hdfc" in off['email'] else "SBI",
+                    officer_role="Senior Analyst",
+                    bank_role="Admin"
+                )
+                db.add(new_off)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Error provisioning officers: {e}")
+    finally:
+        db.close()
+
+# Run provisioning
+provision_officers()
+
 def load_model():
     """Load model artifacts from disk."""
     model = joblib.load(os.path.join(MODEL_DIR, 'logistic_model.pkl'))
