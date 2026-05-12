@@ -127,7 +127,7 @@ export default function Navbar({ onEnterPortal }) {
         .nav-link {
           background: none;
           border: none;
-          font-size: 14px;
+          font-size: 16px;
           font-weight: 700;
           color: #1E293B;
           cursor: pointer;
@@ -182,9 +182,9 @@ export default function Navbar({ onEnterPortal }) {
         .logo-text-p { font-weight: 800; color: #0F172A; letter-spacing: -0.5px; font-size: 16px; }
 
         .nav-actions { display: flex; align-items: center; gap: 12px; }
-        .btn-p { background: #0F172A; color: white; border: none; padding: 10px 24px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-p { background: #0F172A; color: white; border: none; padding: 10px 24px; border-radius: 999px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
         .btn-p:hover { background: #020617; transform: translateY(-1px); }
-        .btn-s { background: transparent; color: #1E293B; border: 1px solid #E2E8F0; padding: 10px 24px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .btn-s { background: transparent; color: #1E293B; border: 1px solid #E2E8F0; padding: 10px 24px; border-radius: 999px; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
         .btn-s:hover { background: #F8FAFC; border-color: #CBD5E1; }
       `}</style>
 
