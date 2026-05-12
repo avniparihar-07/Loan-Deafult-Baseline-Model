@@ -24,8 +24,29 @@ export default function Sidebar({ role, activePage, setPage, user, onLogout }) {
     <header className="sidebar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 32px', background: 'var(--navy)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
       <div className="sb-header">
         <div className="lp-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className="logo-g" style={{ background: 'var(--gold)', color: '#fff', borderRadius: '4px', width: '32px', height: '32px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>G</span>
-          <span className="logo-text" style={{ color: '#fff', fontSize: '20px', letterSpacing: '-0.02em', fontWeight: 800 }}>GroundZero</span>
+          <div style={{ 
+            width: '36px', height: '36px', borderRadius: '50%', 
+            border: '2px solid #B5944B', display: 'flex', 
+            alignItems: 'center', justifyContent: 'center', 
+            background: '#0F172A', flexShrink: 0 
+          }}>
+            <div style={{ 
+              width: '28px', height: '28px', borderRadius: '50%', 
+              border: '1px solid rgba(181, 148, 75, 0.4)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center' 
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: '900', color: '#B5944B', fontFamily: "'Inter', sans-serif" }}>GZ</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', lineHeight: 1 }}>
+              <span style={{ fontSize: '18px', fontWeight: '800', color: '#FFFFFF', letterSpacing: '-0.2px', fontFamily: "'Inter', sans-serif" }}>Ground</span>
+              <span style={{ fontSize: '18px', fontWeight: '800', color: '#B5944B', letterSpacing: '-0.2px', fontFamily: "'Inter', sans-serif" }}>Zero</span>
+            </div>
+            <div style={{ fontSize: '6px', fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif", marginTop: '2px' }}>
+              Loan Intelligence Platform
+            </div>
+          </div>
         </div>
       </div>
 

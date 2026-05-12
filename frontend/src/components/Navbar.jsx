@@ -190,9 +190,32 @@ export default function Navbar({ onEnterPortal }) {
 
       <div className="gz-navbar-outer">
         <header className="gz-pill-nav">
-          <a href="#" className="lp-logo-pill" style={{ textDecoration: 'none' }}>
-            <div className="logo-box">G</div>
-            <div className="logo-text-p">GroundZero</div>
+          <a href="#" className="lp-logo-pill" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ 
+                width: '40px', height: '40px', borderRadius: '50%', 
+                border: '2px solid #B5944B', display: 'flex', 
+                alignItems: 'center', justifyContent: 'center', 
+                background: '#0F172A', flexShrink: 0 
+              }}>
+                <div style={{ 
+                  width: '32px', height: '32px', borderRadius: '50%', 
+                  border: '1px solid rgba(181, 148, 75, 0.4)', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                }}>
+                  <span style={{ fontSize: '12px', fontWeight: '900', color: '#B5944B', fontFamily: "'Inter', sans-serif" }}>GZ</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A', letterSpacing: '-0.2px', fontFamily: "'Inter', sans-serif" }}>Ground</span>
+                  <span style={{ fontSize: '20px', fontWeight: '800', color: '#B5944B', letterSpacing: '-0.2px', fontFamily: "'Inter', sans-serif" }}>Zero</span>
+                </div>
+                <div style={{ fontSize: '7px', fontWeight: '700', color: '#94A3B8', letterSpacing: '2px', textTransform: 'uppercase', fontFamily: "'Inter', sans-serif", marginTop: '2px' }}>
+                  Loan Intelligence Platform
+                </div>
+              </div>
+            </div>
           </a>
 
           <nav style={{ display: 'flex', alignItems: 'center', gap: '28px', height: '100%' }}>

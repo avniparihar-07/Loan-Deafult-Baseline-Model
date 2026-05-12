@@ -165,9 +165,27 @@ export default function LandingPage({ onEnterPortal }) {
         <div className="lp-content-wrap">
           <div className="footer-grid">
             <div className="footer-brand">
-              <div className="lp-logo">
-                <span className="logo-g">G</span>
-                <span className="logo-text">GroundZero</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                <div style={{ 
+                  width: '40px', height: '40px', borderRadius: '50%', 
+                  border: '2px solid #B5944B', display: 'flex', 
+                  alignItems: 'center', justifyContent: 'center', 
+                  background: '#0F172A', flexShrink: 0 
+                }}>
+                  <div style={{ 
+                    width: '32px', height: '32px', borderRadius: '50%', 
+                    border: '1px solid rgba(181, 148, 75, 0.4)', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                  }}>
+                    <span style={{ fontSize: '12px', fontWeight: '900', color: '#B5944B', fontFamily: "'Inter', sans-serif" }}>GZ</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: '20px', fontWeight: '800', color: '#FFFFFF', letterSpacing: '-0.2px', fontFamily: "'Inter', sans-serif" }}>Ground</span>
+                    <span style={{ fontSize: '20px', fontWeight: '800', color: '#B5944B', letterSpacing: '-0.2px', fontFamily: "'Inter', sans-serif" }}>Zero</span>
+                  </div>
+                </div>
               </div>
               <p>The institutional standard for AI-driven financial risk intelligence.</p>
             </div>
