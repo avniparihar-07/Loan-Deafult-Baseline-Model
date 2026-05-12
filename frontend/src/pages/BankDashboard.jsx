@@ -1349,7 +1349,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           },
 
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, grid: { color: g }, ticks: { callback: v => v >= 1000 ? fmtK(v) : v } }, y1: { position: 'right', grid: { display: false }, ticks: { callback: v => v >= 1000 ? fmtK(v) : v } } } }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, grid: { color: g }, ticks: { callback: v => v >= 1000 ? '₹' + fmtK(v) : v } }, y1: { position: 'right', grid: { display: false }, ticks: { callback: v => v >= 1000 ? '₹' + fmtK(v) : v } } } }
 
         });
 

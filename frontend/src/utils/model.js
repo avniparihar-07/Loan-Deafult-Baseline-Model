@@ -77,7 +77,7 @@ export function buildSched(p, r, t) {
 
 export const fmt = (n) => (+n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const fmtK = (n) => {
-  if (n >= 100000) return '₹' + (n / 100000).toFixed(1) + 'L';
-  if (n >= 1000) return '₹' + (n / 1000).toFixed(0) + 'K';
-  return '₹' + n;
+  if (n >= 100000) return (n / 100000).toFixed(1) + 'L';
+  if (n >= 1000) return (n / 1000).toFixed(0) + 'K';
+  return n;
 };
