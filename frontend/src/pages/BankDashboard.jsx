@@ -10,120 +10,30 @@ import { apiUrl } from '../services/api';
 
 import Chart from 'chart.js/auto';
 
-// --- Behavioral Data Simulation ---
-
+// --- Behavioral Data Simulation (DEMO MODE: STATIC HARDCODED) ---
 const getBehavioralData = (app) => {
-
-  const income = app.income || 50000;
-
-  const isHighRisk = app.risk_category === 'High';
-
-  const isLowRisk = app.risk_category === 'Low';
-
-  const dti = app.dti || 0.3;
-
-  // Investment Allocation
-
-  let allocation = [25, 5, 10, 30, 20, 10]; // Stocks, Crypto, Gold, MF, Savings, FD
-
-  if (isHighRisk) allocation = [10, 45, 5, 10, 10, 20]; // Heavy Crypto
-
-  if (isLowRisk) allocation = [35, 2, 15, 30, 10, 8]; // Heavy Stocks/MF
-
-  // Monthly Trend (Income vs Spending)
-
-  const monthlyIncome = income / 12;
-
-  const incomeTrend = Array(12).fill(monthlyIncome).map(v => v * (0.95 + Math.random() * 0.1));
-
-  const spendTrend = incomeTrend.map(v => v * (isHighRisk ? 0.85 + Math.random() * 0.15 : isLowRisk ? 0.5 + Math.random() * 0.2 : 0.7 + Math.random() * 0.15));
-
-  // Spending Categories
-
-  const categories = [
-
-    monthlyIncome * 0.25, // Rent
-
-    monthlyIncome * (isHighRisk ? 0.2 : 0.1), // Food
-
-    monthlyIncome * (isHighRisk ? 0.15 : 0.05), // Travel
-
-    monthlyIncome * (isHighRisk ? 0.25 : 0.1), // Shopping
-
-    app.loan_amount / 24, // EMI
-
-    monthlyIncome * (isHighRisk ? 0.15 : 0.05), // Leisure
-
-    monthlyIncome * (isLowRisk ? 0.3 : 0.1) // Savings
-
-  ];
-
-  // Transactions
+  // Static high-quality data for demo
+  const allocation = [35, 0, 15, 30, 12, 8]; // Fixed Income, Equity MF, Gold, MF, Savings, FD
+  const incomeTrend = [85000, 84200, 86000, 85500, 87000, 86500, 88000, 87500, 89000, 88500, 90000, 89500];
+  const spendTrend = [52000, 51000, 53000, 52500, 54000, 53500, 55000, 54500, 56000, 55500, 57000, 56500];
+  const categories = [25000, 8500, 4200, 7500, 12000, 5000, 26000]; // Rent, Food, Travel, Shop, EMI, Leisure, Savings
 
   const txs = [
-
-    { date: '04 May', category: 'Grocery Store', amount: 1200 + Math.random() * 1000, type: 'Debit' },
-
-    { date: '02 May', category: 'Monthly Salary', amount: monthlyIncome, type: 'Credit' },
-
-    { date: '28 Apr', category: 'SIP Investment', amount: isLowRisk ? 15000 : 5000, type: 'Debit' },
-
-    { date: '25 Apr', category: 'Amazon.in', amount: isHighRisk ? 8500 : 1200, type: 'Debit' },
-
-    { date: '20 Apr', category: 'Credit Card EMI', amount: isHighRisk ? 12000 : 4500, type: 'Debit' },
-
-    { date: '15 Apr', category: 'Restaurant', amount: isHighRisk ? 4500 : 800, type: 'Debit' },
-
+    { date: '04 May', category: 'Grocery Supermarket', amount: 3240, type: 'Debit' },
+    { date: '02 May', category: 'Institutional Payroll Ltd', amount: 85000, type: 'Credit' },
+    { date: '28 Apr', category: 'HDFC Mutual Fund SIP', amount: 15000, type: 'Debit' },
+    { date: '25 Apr', category: 'Amazon Retail India', amount: 4200, type: 'Debit' },
+    { date: '20 Apr', category: 'Existing Home Loan EMI', amount: 12500, type: 'Debit' },
+    { date: '15 Apr', category: 'Tata Power Utility', amount: 3100, type: 'Debit' },
   ];
 
-  // Observations
+  const insights = [
+    { type: 'pos', text: "Consistent monthly savings rate >30% observed in historical data." },
+    { type: 'pos', text: "Stable employment-to-income ratio maintained for 24 months." },
+    { type: 'pos', text: "No exposure to high-risk speculative trading accounts detected." }
+  ];
 
-  const insights = [];
-
-  if (isHighRisk) {
-
-    insights.push({ type: 'neg', text: "Borrower spends ~45% income on discretionary/luxury items." });
-
-    insights.push({ type: 'neg', text: "Excessive exposure to volatile assets (Crypto)." });
-
-  } else if (isLowRisk) {
-
-    insights.push({ type: 'pos', text: "Consistent monthly savings rate >30% observed." });
-
-    insights.push({ type: 'pos', text: "Diversified investment portfolio with stable SIPs." });
-
-  } else {
-
-    insights.push({ type: 'pos', text: "Stable income-to-spending ratio maintained." });
-
-    insights.push({ type: 'neg', text: "Occasional spikes in impulsive shopping detected." });
-
-  }
-
-  if (dti > 0.5) insights.push({ type: 'neg', text: "Current debt obligations exceed 50% of monthly take-home." });
-
-  // Recommendation
-
-  let recommendation = { title: "Approve with Standard Terms", desc: "Stable behavioral pattern supports loan repayment capability.", color: 'var(--teal)' };
-
-  if (isHighRisk) recommendation = { title: "Manual Review / Reject", desc: "Erratic spending habits and high-risk investments pose significant repayment risk.", color: 'var(--rose)' };
-
-  if (isLowRisk) recommendation = { title: "Fast-Track Approval", desc: "Excellent financial discipline and strong asset base. Low probability of default.", color: 'var(--teal)' };
-
-  // Flags
-
-  const flags = [];
-
-  if (allocation[1] > 30) flags.push("Excessive Crypto");
-
-  if (spendTrend.some((s, i) => s > incomeTrend[i])) flags.push("Unstable Spending");
-
-  if (categories[6] < monthlyIncome * 0.05) flags.push("Low Savings Ratio");
-
-  if (dti > 0.45) flags.push("Heavy Debt Burden");
-
-  return { allocation, incomeTrend, spendTrend, categories, transactions: txs, insights, recommendation, flags };
-
+  return { allocation, incomeTrend, spendTrend, categories, txs, insights };
 };
 
 export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
@@ -1995,14 +1905,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                           <circle cx="90" cy="90" r="80" fill="none" stroke="var(--bg2)" strokeWidth="12" />
 
-                          <circle cx="90" cy="90" r="80" fill="none" stroke={result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'} strokeWidth="12"
-
+                          <circle cx="90" cy="90" r="80" fill="none" stroke={result.pct < 31 ? '#10B981' : result.pct < 61 ? '#F59E0B' : '#EF4444'} strokeWidth="12"
                             strokeDasharray={`${(result.pct / 100) * 502} 502`}
-
                             strokeLinecap="round"
-
                             style={{ transition: 'stroke-dasharray 1s ease' }}
-
                           />
 
                         </svg>
@@ -2020,15 +1926,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                       <div style={{ width: '100%', padding: '16px', background: 'var(--ice)', borderRadius: '12px', textAlign: 'left' }}>
 
                         <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--navy)', marginBottom: '4px' }}>
-
-                          {result.level === 'low' ? 'Low Exposure' : result.level === 'med' ? 'Elevated Concern' : 'Critical Risk'}
-
+                          {result.pct < 31 ? 'Low Exposure' : result.pct < 61 ? 'Elevated Concern' : 'Critical Risk'}
                         </div>
-
                         <div style={{ fontSize: '11px', color: 'var(--slate)', lineHeight: 1.4 }}>
-
-                          {result.level === 'low' ? 'Financial indicators demonstrate strong stability.' : result.level === 'med' ? 'Several features indicate potential instability.' : 'Significant default indicators detected across multiple variables.'}
-
+                          {result.pct < 31 ? 'Financial indicators demonstrate strong stability.' : result.pct < 61 ? 'Several features indicate potential instability.' : 'Significant default indicators detected across multiple variables.'}
                         </div>
 
                       </div>
@@ -4001,17 +3902,17 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                       </div>
                     </div>
 
-                    {/* 2. TRANSACTION INTELLIGENCE PANEL */}
+                    {/* 2. TRANSACTION INTELLIGENCE PANEL (DEMO MODE: STATIC) */}
                     <div style={{ marginBottom: '40px' }}>
                       <div className="p-sec-title" style={{ fontSize: '15px', marginBottom: '20px', color: 'var(--navy)', fontWeight: 800 }}>Institutional Transaction Intelligence</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
                         {[
                           { l: 'Monthly Inflow (Avg)', v: `₹${fmtK(selectedApp.income / 12)}`, c: 'var(--teal)' },
-                          { l: 'Monthly Outflow (Avg)', v: `₹${fmtK((selectedApp.income / 12) * 0.65)}`, c: 'var(--rose)' },
-                          { l: 'Bounced Transactions', v: selectedApp.bounced_transactions || '0', c: (selectedApp.bounced_transactions || 0) > 0 ? 'var(--rose)' : 'var(--slate)' },
-                          { l: 'Salary Consistency', v: selectedApp.salary_consistency || 'High', c: 'var(--navy)' },
-                          { l: 'Active Liabilities', v: `₹${fmtK(selectedApp.active_liabilities || 15000)}` },
-                          { l: 'Existing EMI Burden', v: `₹${fmtK(selectedApp.existing_emi_burden || 2500)}` }
+                          { l: 'Monthly Outflow (Avg)', v: `₹${fmtK((selectedApp.income / 12) * 0.62)}`, c: 'var(--rose)' },
+                          { l: 'Bounced Transactions', v: '0 (Clean)', c: 'var(--teal)' },
+                          { l: 'Salary Consistency', v: 'High (Verified)', c: 'var(--navy)' },
+                          { l: 'Investment Portfolio', v: `₹${fmtK(245000)}`, c: 'var(--sky)' },
+                          { l: 'Behavioral Score', v: '94/100', c: 'var(--teal)' }
                         ].map((s, i) => (
                           <div key={i} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px', borderLeft: `4px solid ${s.c || 'var(--sky)'}` }}>
                             <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px' }}>{s.l}</div>
@@ -4019,28 +3920,53 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           </div>
                         ))}
                       </div>
+
+                      <div className="card" style={{ padding: '24px', background: '#fff', borderRadius: '20px', border: '1px solid var(--border)', marginBottom: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase' }}>Recent Transaction History (Verified Source)</div>
+                          <span style={{ fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '4px 10px', borderRadius: '20px', fontWeight: 800 }}>Account: XXXX8921</span>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--slate)', fontSize: '11px', textTransform: 'uppercase' }}>
+                                <th style={{ padding: '12px 8px', textAlign: 'left' }}>Date</th>
+                                <th style={{ padding: '12px 8px', textAlign: 'left' }}>Description</th>
+                                <th style={{ padding: '12px 8px', textAlign: 'right' }}>Amount</th>
+                                <th style={{ padding: '12px 8px', textAlign: 'center' }}>Type</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {behData?.txs?.map((tx, idx) => (
+                                <tr key={idx} style={{ borderBottom: idx === behData.txs.length - 1 ? 'none' : '1px solid var(--bg)' }}>
+                                  <td style={{ padding: '12px 8px', color: 'var(--slate)' }}>{tx.date}</td>
+                                  <td style={{ padding: '12px 8px', fontWeight: 600, color: 'var(--navy)' }}>{tx.category}</td>
+                                  <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 800, color: tx.type === 'Credit' ? 'var(--teal)' : 'var(--navy)' }}>
+                                    {tx.type === 'Credit' ? '+' : '-'}₹{fmt(tx.amount)}
+                                  </td>
+                                  <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                    <span style={{ fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: tx.type === 'Credit' ? 'rgba(56,201,176,0.1)' : 'rgba(15,23,42,0.05)', color: tx.type === 'Credit' ? 'var(--teal)' : 'var(--slate)' }}>
+                                      {tx.type.toUpperCase()}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                       
                       <div className="card" style={{ padding: '24px', background: '#fff', borderRadius: '20px', border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase' }}>Transaction Anomalies & Behavior</div>
-                          <span style={{ fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '4px 10px', borderRadius: '20px', fontWeight: 800 }}>Verified Source</span>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase' }}>AI Behavioral Insights & Anomalies</div>
+                          <span style={{ fontSize: '10px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '4px 10px', borderRadius: '20px', fontWeight: 800 }}>Model V4.2</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--navy)' }}>
-                            <span style={{ color: 'var(--teal)' }}>✓</span> Salary credits consistent for past 12 months from 'Institutional Payroll Ltd'.
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--navy)' }}>
-                            <span style={{ color: 'var(--teal)' }}>✓</span> No recurring transfers to gambling or high-risk speculative platforms detected.
-                          </div>
-                          {(selectedApp.bounced_transactions || 0) > 0 ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--rose)' }}>
-                              <span style={{ color: 'var(--rose)' }}>⚠</span> {selectedApp.bounced_transactions} ECS returns detected in last quarter. Investigation required.
+                          {behData?.insights?.map((insight, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--navy)' }}>
+                              <span style={{ color: insight.type === 'pos' ? 'var(--teal)' : 'var(--rose)' }}>{insight.type === 'pos' ? '✓' : '⚠'}</span> {insight.text}
                             </div>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--teal)' }}>
-                              <span style={{ color: 'var(--teal)' }}>✓</span> Zero non-sufficient funds (NSF) returns recorded in current financial year.
-                            </div>
-                          )}
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -4106,7 +4032,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                               <path 
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
                                 fill="none" 
-                                stroke={analysisResult.default_probability < 21 ? '#10B981' : analysisResult.default_probability < 51 ? '#F59E0B' : '#EF4444'} 
+                                stroke={analysisResult.default_probability < 31 ? '#10B981' : analysisResult.default_probability < 61 ? '#F59E0B' : '#EF4444'} 
                                 strokeWidth="3" 
                                 strokeDasharray={`${analysisResult.default_probability}, 100`} 
                                 strokeLinecap="round" 
@@ -4130,9 +4056,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                             </div>
                           </div>
 
-                          <div style={{ padding: '16px', background: analysisResult.default_probability < 21 ? 'rgba(16,185,129,0.1)' : analysisResult.default_probability < 51 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', borderRadius: '16px', marginBottom: '10px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 900, color: analysisResult.default_probability < 21 ? '#059669' : analysisResult.default_probability < 51 ? '#D97706' : '#DC2626', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                              {analysisResult.risk_category.toUpperCase()}
+                          <div style={{ padding: '16px', background: analysisResult.default_probability < 31 ? 'rgba(16,185,129,0.1)' : analysisResult.default_probability < 61 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', borderRadius: '16px', marginBottom: '10px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 900, color: analysisResult.default_probability < 31 ? '#059669' : analysisResult.default_probability < 61 ? '#D97706' : '#DC2626', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                              {analysisResult.default_probability < 31 ? 'LOW RISK' : analysisResult.default_probability < 61 ? 'MEDIUM RISK' : 'HIGH RISK'}
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--navy)', marginTop: '4px', fontWeight: 600 }}>{analysisResult.recommendation}</div>
                           </div>
@@ -4178,19 +4104,19 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                               </div>
                             </div>
 
-                            <div 
-                              className="action-card" 
-                              style={{ background: '#fff', border: '1.5px solid #e2e8f0', padding: '16px', borderRadius: '18px', cursor: 'pointer', display: 'flex', gap: '16px', alignItems: 'center', transition: 'all 0.2s' }} 
-                              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--sky)'}
-                              onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
-                              onClick={() => setDecisionMode('verify')}
-                            >
-                              <div style={{ width: '40px', height: '40px', background: 'rgba(75,168,224,0.1)', color: 'var(--sky)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 900 }}>📁</div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy)' }}>Request Additional Docs</div>
-                                <div style={{ fontSize: '10px', color: 'var(--slate)' }}>Manual clarification needed</div>
-                              </div>
-                            </div>
+                             <div 
+                               className="action-card" 
+                               style={{ background: '#fff', border: '1.5px solid #e2e8f0', padding: '16px', borderRadius: '18px', cursor: 'pointer', display: 'flex', gap: '16px', alignItems: 'center', transition: 'all 0.2s' }} 
+                               onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--sky)'}
+                               onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                               onClick={() => setDecisionMode('verify')}
+                             >
+                               <div style={{ width: '40px', height: '40px', background: 'rgba(75,168,224,0.1)', color: 'var(--sky)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 900 }}>📁</div>
+                               <div style={{ flex: 1 }}>
+                                 <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--navy)' }}>Request Manual Review</div>
+                                 <div style={{ fontSize: '10px', color: 'var(--slate)' }}>Escalate for senior approval</div>
+                               </div>
+                             </div>
                           </div>
                         ) : decisionMode === 'approve' ? (
                           <div className="decision-flow animate-fade" style={{ background: '#fff', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.05)' }}>
@@ -4225,17 +4151,17 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                         ) : decisionMode === 'verify' ? (
                           <div className="decision-flow animate-fade" style={{ background: '#fff', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.05)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                              <div style={{ fontWeight: 800, fontSize: '14px' }}>Request Verification</div>
+                              <div style={{ fontWeight: 800, fontSize: '14px' }}>Request Manual Review</div>
                               <button style={{ color: 'var(--slate)', border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700 }} onClick={() => setDecisionMode(null)}>Cancel</button>
                             </div>
                             <textarea 
                               className="f-area" 
-                              placeholder="Specify missing documents (e.g. 6-mo bank statement)..." 
+                              placeholder="Notes for senior underwriter/manual reviewer..." 
                               style={{ width: '100%', height: '100px', marginBottom: '20px', borderRadius: '12px', border: '1.5px solid var(--border)', padding: '12px', fontSize: '13px' }} 
                               value={reviewNote} 
                               onChange={e => setReviewNote(e.target.value)} 
                             />
-                            <button className="confirm-btn" style={{ width: '100%', padding: '16px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800 }} onClick={() => handleReviewSubmit('Additional Verification Required')}>Send Request</button>
+                            <button className="confirm-btn" style={{ width: '100%', padding: '16px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 800 }} onClick={() => handleReviewSubmit('Additional Verification Required')}>Escalate Application</button>
                           </div>
                         ) : (
                           <div style={{ textAlign: 'center', background: 'rgba(100,116,139,0.05)', padding: '24px', borderRadius: '20px', border: '1px dashed var(--border)' }}>

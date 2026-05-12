@@ -754,10 +754,10 @@ def analyze_application(app_id):
         features_scaled = scaler.transform(features_df)
         probability = float(model.predict_proba(features_scaled)[0][1])
         
-        # Professional Risk Category
+        # Demo-optimized Risk Category (Professional ranges)
         risk_cat = "Low Risk"
-        if probability > 0.5: risk_cat = "High Risk"
-        elif probability > 0.2: risk_cat = "Medium Risk"
+        if probability > 0.6: risk_cat = "High Risk"
+        elif probability > 0.3: risk_cat = "Medium Risk"
         
         risk_score = int(850 - (probability * 400))
 
