@@ -1,29 +1,11 @@
-import React from 'react';
+import Navbar from '../components/Navbar';
 
 export default function LandingPage({ onEnterPortal }) {
   const heroImg = '/hero.png';
 
   return (
     <div className="lp-container">
-      {/* Navigation Header */}
-      <header className="lp-header sticky">
-        <div className="lp-header-wrap">
-          <div className="lp-logo">
-            <span className="logo-g">G</span>
-            <span className="logo-text">GroundZero</span>
-          </div>
-          <nav className="lp-nav">
-            <a href="#about">About</a>
-            <a href="#workflow">Workflow</a>
-            <a href="#solutions">Solutions</a>
-            <a href="#platform">Platform</a>
-          </nav>
-          <div className="lp-auth-btns">
-            <button className="lp-btn-outline" onClick={() => onEnterPortal('borrower')}>Borrower Portal</button>
-            <button className="lp-btn-solid" onClick={() => onEnterPortal('bank')}>Bank Portal</button>
-          </div>
-        </div>
-      </header>
+      <Navbar onEnterPortal={onEnterPortal} />
 
       {/* Hero Section */}
       <section className="lp-hero">

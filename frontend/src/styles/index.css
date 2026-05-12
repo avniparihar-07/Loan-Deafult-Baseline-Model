@@ -1,3 +1,4 @@
+@import "tailwindcss";
 /* ═══ CORPORATE BANKING THEME ═══ */
 /* ═══ MODERN BANKING THEME (GROUNDZERO) ═══ */
 :root {
@@ -976,7 +977,7 @@ input[type=number] {
 
 /* Hero */
 .lp-hero {
-  padding: 120px 0 160px;
+  padding: 160px 0 160px;
   background: #fdfdfd;
   overflow: hidden;
 }
