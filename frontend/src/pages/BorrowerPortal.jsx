@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import ArthaAI from '../components/ArthaAI';
-import { calcRisk, buildSched, fmt, fmtK } from '../utils/model';
+import { calcRisk, calibrateProbability, buildSched, fmt, fmtK } from '../utils/model';
 import { apiUrl } from '../services/api';
 
 const DocCard = ({ label, id, file, onUpload, accept = ".jpg,.jpeg,.png,.pdf" }) => {
@@ -425,23 +425,14 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       if (!res.ok) throw new Error('API error');
       const apiResult = await res.json();
 
-      const prob = apiResult.default_probability;
+      const rawProb = apiResult.default_probability / 100; // API returns 0-100
       const sched = buildSched(formData.loanAmt, formData.rate, effectiveTerm);
       
-      // --- Institutional Risk Guard (Sanity Check for Demo) ---
-      // If EMI is more than 60% of monthly income, it's definitely High Risk
-      const moInc = formData.income / 12 || 1;
-      const emiRatio = (sched.emi / moInc);
-      
-      let adjustedProb = prob;
-      if (emiRatio > 0.6) {
-        // Force high risk probability if DTI is extreme
-        adjustedProb = Math.max(prob, 0.75 + (emiRatio * 0.05)); 
-        if (adjustedProb > 0.99) adjustedProb = 0.99;
-      }
+      // Apply Underwriting Calibration (Sanity Check for Demo)
+      const prob = calibrateProbability(rawProb, formData);
 
-      const pct = Math.round(adjustedProb * 100);
-      const level = adjustedProb < 0.31 ? 'low' : adjustedProb < 0.61 ? 'med' : 'high';
+      const pct = Math.round(prob * 100);
+      const level = prob < 0.31 ? 'low' : prob < 0.61 ? 'med' : 'high';
       
       const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
       const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
@@ -451,21 +442,14 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       setPage('bpg-simulator');
     } catch (err) {
       console.warn('[GroundZero] API unreachable, using local model fallback:', err);
-      const prob = calcRisk(adjustedD, { mort: flags.mort === 'Y' || (hasExtLoan && formData.extLoanType === 'home') ? 'Y' : 'N', dep: flags.dep, co: flags.co });
+      const rawProb = calcRisk(adjustedD, { mort: flags.mort === 'Y' || (hasExtLoan && formData.extLoanType === 'home') ? 'Y' : 'N', dep: flags.dep, co: flags.co });
       const sched = buildSched(formData.loanAmt, formData.rate, effectiveTerm);
 
-      // --- Institutional Risk Guard (Sanity Check for Demo) ---
-      const moInc = formData.income / 12 || 1;
-      const emiRatio = (sched.emi / moInc);
-      
-      let adjustedProb = prob;
-      if (emiRatio > 0.6) {
-        adjustedProb = Math.max(prob, 0.75 + (emiRatio * 0.05));
-        if (adjustedProb > 0.99) adjustedProb = 0.99;
-      }
+      // Apply Underwriting Calibration (Sanity Check for Demo)
+      const prob = calibrateProbability(rawProb, formData);
 
-      const pct = Math.round(adjustedProb * 100);
-      const level = adjustedProb < 0.31 ? 'low' : adjustedProb < 0.61 ? 'med' : 'high';
+      const pct = Math.round(prob * 100);
+      const level = prob < 0.31 ? 'low' : prob < 0.61 ? 'med' : 'high';
       
       const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
       const pctWithout = probWithout ? Math.round(probWithout * 100) : null;

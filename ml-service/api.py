@@ -149,12 +149,60 @@ except Exception as e:
 # --- Risk Category Assignment ---
 def get_risk_category(probability):
     """Assign risk category based on default probability."""
-    if probability < 0.3:
+    if probability < 0.31:
         return 'Low'
-    elif probability < 0.6:
+    elif probability < 0.61:
         return 'Medium'
     else:
         return 'High'
+
+
+def calibrate_probability(prob, data):
+    """
+    Adjust the model's raw probability to align with realistic underwriting standards.
+    The demo model can be overly optimistic; this adds institutional sanity checks.
+    """
+    # 1. Base Probability
+    calibrated = prob
+
+    # 2. Credit Score Penalties (Institutional Hard Stops)
+    credit = float(data.get('CreditScore', data.get('credit_score', 600)) or 600)
+    if credit < 500:
+        calibrated = max(calibrated, 0.75) # Deep High Risk
+    elif credit < 580:
+        calibrated = max(calibrated, 0.55) # High Risk
+    elif credit < 650:
+        calibrated = max(calibrated, 0.40) # Medium Risk
+
+    # 3. Interest Rate Penalties (Risk-based Pricing indicator)
+    rate = float(data.get('InterestRate', data.get('assigned_rate', 10)) or 10)
+    if rate > 20:
+        calibrated = max(calibrated, 0.65) # Extreme Rate = High Risk
+    elif rate > 15:
+        calibrated = max(calibrated, 0.45) # Elevated Risk
+
+    # 4. Income and Debt Penalties
+    income = float(data.get('Income', data.get('income', 1)) or 1)
+    loan_amt = float(data.get('LoanAmount', data.get('loan_amount', 0)) or 0)
+    term = float(data.get('LoanTerm', data.get('loan_term', 24)) or 24)
+    emi = loan_amt / term if term > 0 else 0
+    
+    # EMI to Monthly Income ratio
+    mo_inc = income / 12 if income > 0 else 1
+    emi_ratio = emi / mo_inc
+    
+    if emi_ratio > 0.6:
+        calibrated = max(calibrated, 0.80) # Extreme EMI burden
+    elif emi_ratio > 0.4:
+        calibrated = max(calibrated, 0.50) # High EMI burden
+
+    # 5. Age Penalties (Very young/inexperienced)
+    age = float(data.get('Age', data.get('age', 30)) or 30)
+    if age < 24 and credit < 600:
+        calibrated = max(calibrated, 0.60)
+
+    # Cap at 0.99
+    return min(calibrated, 0.99)
 
 
 def get_risk_color(category):
@@ -560,7 +608,11 @@ def predict():
         features_scaled = scaler.transform(features_df)
 
         # Predict
-        probability = model.predict_proba(features_scaled)[0][1]
+        raw_probability = model.predict_proba(features_scaled)[0][1]
+        
+        # Apply Underwriting Calibration
+        probability = calibrate_probability(raw_probability, data)
+        
         prediction = int(probability >= 0.5)
         risk_category = get_risk_category(probability)
 
@@ -752,14 +804,17 @@ def analyze_application(app_id):
         }
         features_df = prepare_features(ml_data)
         features_scaled = scaler.transform(features_df)
-        probability = float(model.predict_proba(features_scaled)[0][1])
+        raw_probability = float(model.predict_proba(features_scaled)[0][1])
+        
+        # Apply Underwriting Calibration
+        # We pass both record data and the new assigned_rate
+        cal_data = {**ml_data, 'InterestRate': rate}
+        probability = calibrate_probability(raw_probability, cal_data)
         
         # Demo-optimized Risk Category (Professional ranges)
-        risk_cat = "Low Risk"
-        if probability > 0.6: risk_cat = "High Risk"
-        elif probability > 0.3: risk_cat = "Medium Risk"
+        risk_cat = get_risk_category(probability)
         
-        risk_score = int(850 - (probability * 400))
+        risk_score = int(850 - (probability * 450))
 
         # Institutional Recommendation
         recommendation = "Standard Approval Recommended"

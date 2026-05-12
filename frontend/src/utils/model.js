@@ -32,6 +32,43 @@ export function buildFV(d, f) {
   ];
 }
 
+export function calibrateProbability(prob, d) {
+  /*
+    Adjust the model's raw probability to align with realistic underwriting standards.
+    The demo model can be overly optimistic; this adds institutional sanity checks.
+  */
+  // 1. Base Probability
+  let calibrated = prob;
+
+  // 2. Credit Score Penalties (Institutional Hard Stops)
+  const credit = parseFloat(d.credit || 600);
+  if (credit < 500) calibrated = Math.max(calibrated, 0.75);
+  else if (credit < 580) calibrated = Math.max(calibrated, 0.55);
+  else if (credit < 650) calibrated = Math.max(calibrated, 0.40);
+
+  // 3. Interest Rate Penalties
+  const rate = parseFloat(d.rate || 10);
+  if (rate > 20) calibrated = Math.max(calibrated, 0.65);
+  else if (rate > 15) calibrated = Math.max(calibrated, 0.45);
+
+  // 4. EMI to Monthly Income ratio
+  const income = parseFloat(d.income || 1);
+  const loanAmt = parseFloat(d.loanAmt || 0);
+  const term = parseFloat(d.term || 24);
+  const emi = loanAmt / (term || 24);
+  const moInc = income / 12 || 1;
+  const emiRatio = emi / moInc;
+
+  if (emiRatio > 0.6) calibrated = Math.max(calibrated, 0.80);
+  else if (emiRatio > 0.4) calibrated = Math.max(calibrated, 0.50);
+
+  // 5. Age Penalties
+  const age = parseFloat(d.age || 30);
+  if (age < 24 && credit < 600) calibrated = Math.max(calibrated, 0.60);
+
+  return Math.min(calibrated, 0.99);
+}
+
 export function calcRisk(d, f) {
   const x = buildFV(d, f);
   let z = MODEL.intercept;
