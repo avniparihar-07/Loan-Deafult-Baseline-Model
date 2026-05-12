@@ -444,6 +444,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       const level = adjustedProb < 0.31 ? 'low' : adjustedProb < 0.61 ? 'med' : 'high';
       
       const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
+      const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
+      const riskDelta = hasExtLoan ? (pct - pctWithout) : 0;
 
       setResult({ pct, level, sched, prob, hasExtLoan, extAmt, extEmi, pctWithout, riskDelta, adjustedD });
       setPage('bpg-simulator');
@@ -466,6 +468,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       const level = adjustedProb < 0.31 ? 'low' : adjustedProb < 0.61 ? 'med' : 'high';
       
       const probWithout = hasExtLoan ? calcRisk(formData, { mort: flags.mort, dep: flags.dep, co: flags.co }) : null;
+      const pctWithout = probWithout ? Math.round(probWithout * 100) : null;
+      const riskDelta = hasExtLoan ? (pct - pctWithout) : 0;
       setResult({ pct, level, sched, prob, hasExtLoan, extAmt, extEmi, pctWithout, riskDelta, adjustedD });
       setPage('bpg-simulator');
     }
