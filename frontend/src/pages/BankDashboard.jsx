@@ -3993,33 +3993,35 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     <div className="p-sec-title" style={{ fontSize: '14px', color: 'var(--navy)', border: 'none', padding: 0, flexShrink: 0 }}>Underwriter Workspace</div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                      {/* STEP 1: ASSIGN RATE */}
-                      <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '24px', borderRadius: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Sanction Parameters</div>
-                        <div style={{ marginBottom: '16px' }}>
-                          <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--navy)', display: 'block', marginBottom: '8px' }}>Institutional Interest Rate (%)</label>
-                          <div style={{ position: 'relative' }}>
-                            <input 
-                              type="number" 
-                              step="0.05" 
-                              placeholder="e.g. 11.5" 
-                              className="f-inp" 
-                              style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1.5px solid var(--border)', fontWeight: 800, fontSize: '18px', background: 'var(--bg)' }} 
-                              value={assignedRate} 
-                              onChange={e => setAssignedRate(e.target.value)} 
-                            />
-                            <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: 'var(--slate)' }}>%</span>
+                      {/* STEP 1: ASSIGN RATE (Only show if pending) */}
+                      {selectedApp && selectedApp.status === 'Pending' && (
+                        <div style={{ background: '#fff', border: '1px solid var(--border)', padding: '24px', borderRadius: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Sanction Parameters</div>
+                          <div style={{ marginBottom: '16px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--navy)', display: 'block', marginBottom: '8px' }}>Institutional Interest Rate (%)</label>
+                            <div style={{ position: 'relative' }}>
+                              <input 
+                                type="number" 
+                                step="0.05" 
+                                placeholder="e.g. 11.5" 
+                                className="f-inp" 
+                                style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1.5px solid var(--border)', fontWeight: 800, fontSize: '18px', background: 'var(--bg)' }} 
+                                value={assignedRate} 
+                                onChange={e => setAssignedRate(e.target.value)} 
+                              />
+                              <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: 'var(--slate)' }}>%</span>
+                            </div>
                           </div>
+                          <button 
+                            className="confirm-btn" 
+                            style={{ width: '100%', padding: '18px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: 800, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', opacity: isAnalyzing ? 0.7 : 1 }} 
+                            disabled={isAnalyzing}
+                            onClick={handleAnalyze}
+                          >
+                            {isAnalyzing ? 'Analyzing Metrics...' : 'Analyze Application'}
+                          </button>
                         </div>
-                        <button 
-                          className="confirm-btn" 
-                          style={{ width: '100%', padding: '18px', background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: 800, fontSize: '14px', cursor: 'pointer', transition: 'all 0.2s', opacity: isAnalyzing ? 0.7 : 1 }} 
-                          disabled={isAnalyzing}
-                          onClick={handleAnalyze}
-                        >
-                          {isAnalyzing ? 'Analyzing Metrics...' : 'Analyze Application'}
-                        </button>
-                      </div>
+                      )}
 
                       {/* STEP 2: ML OUTPUT PANEL */}
                       {analysisResult ? (
