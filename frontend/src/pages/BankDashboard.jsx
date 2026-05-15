@@ -984,7 +984,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
             labels: ['Home', 'Auto', 'Education', 'Business', 'Personal', 'Medical', 'Travel'],
 
             datasets: [{
-              data: ['Home', 'Auto', 'Education', 'Business', 'Personal', 'Medical', 'Travel'].map(l => analytics?.purpose_distribution?.[l] || 0),
+              data: ['Home', 'Auto', 'Education', 'Business', 'Personal', 'Medical', 'Travel'].map(l => apps.filter(a => (a.loan_purpose || '').includes(l)).length),
               backgroundColor: ['#38C9B0', '#C9973C', '#4BA8E0', '#E85475', '#A072F0', '#FF8C42', '#38C9B0'],
               borderWidth: 0
             }]
@@ -1007,16 +1007,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: ['Maharashtra', 'Karnataka', 'Tamil Nadu', 'Delhi', 'Gujarat', 'Others'],
-
+            labels: Array.from(new Set(apps.map(a => a.state || 'Other'))).slice(0, 6).map(s => ({ MH: 'Maharashtra', KA: 'Karnataka', TN: 'Tamil Nadu', DL: 'Delhi', GJ: 'Gujarat', Other: 'Others' }[s] || s)),
             datasets: [{
-
-              data: ['MH', 'KA', 'TN', 'DL', 'GJ', 'Other'].map(s => apps.filter(a => (a.state || 'MH') === s).length),
-
+              data: Array.from(new Set(apps.map(a => a.state || 'Other'))).slice(0, 6).map(s => apps.filter(a => (a.state || 'Other') === s).length),
               backgroundColor: '#4BA8E0',
-
               borderRadius: 4
-
             }]
 
           },
@@ -2580,56 +2575,32 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '30px' }}>
 
-                    {['Home', 'Education', 'Other', 'Business'].map((purpose, i) => {
-
-                      const filtered = apps.filter(a => a.loan_purpose === purpose);
-
-                      const amt = filtered.reduce((s, a) => s + a.loan_amount, 0);
-
-                      const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + a.probability, 0) / filtered.length) * 100 : 0;
-
-                      const icons = { Home: '', Education: '', Other: '', Business: '' };
-
-                      const colors = { Home: 'var(--teal)', Education: 'var(--teal)', Other: 'var(--gold)', Business: 'var(--rose)' };
+                    {['Home', 'Education', 'Personal', 'Business'].map((purpose, i) => {
+                      const filtered = apps.filter(a => (a.loan_purpose || '').includes(purpose));
+                      const amt = filtered.reduce((s, a) => s + (a.loan_amount || 0), 0);
+                      const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + (a.probability || 0), 0) / filtered.length) * 100 : 0;
+                      const icons = { Home: '🏠', Education: '🎓', Personal: '👤', Business: '💼' };
+                      const colors = { Home: 'var(--teal)', Education: 'var(--sky)', Personal: 'var(--gold)', Business: 'var(--rose)' };
 
                       return (
-
                         <div key={purpose} style={{ display: 'flex', alignItems: 'center' }}>
-
                           <div style={{ width: '30px', fontSize: '18px' }}>{icons[purpose]}</div>
-
                           <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{purpose} Loans</div>
-
                           <div style={{ width: '80px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace", fontSize: '12px' }}>₹{(amt / 10000000).toFixed(1)}Cr</div>
-
                           <div style={{ width: '100px', margin: '0 16px', height: '4px', background: 'var(--bg2)', borderRadius: '2px', position: 'relative' }}>
-
                             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${avgProb}%`, background: colors[purpose], borderRadius: '2px' }}></div>
-
                           </div>
-
                           <div style={{ width: '40px', textAlign: 'right', fontWeight: 700, fontSize: '12px', color: colors[purpose] }}>{avgProb.toFixed(1)}%</div>
-
                         </div>
-
                       );
-
                     })}
-
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>
-
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#E85475' }}></span> Home</span>
-
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#4BA8E0' }}></span> Education</span>
-
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#38C9B0' }}></span> Auto</span>
-
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#A072F0' }}></span> Other</span>
-
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#C9973C' }}></span> Business</span>
-
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--teal)' }}></span> Home</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--sky)' }}></span> Education</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--gold)' }}></span> Personal</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--rose)' }}></span> Business</span>
                   </div>
 
                   <div style={{ height: '180px', position: 'relative' }}><canvas id="cht-sector-doughnut"></canvas></div>
@@ -2654,32 +2625,21 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                     <tbody style={{ fontSize: '13px', color: 'var(--text)' }}>
 
-                      {['MH', 'KA', 'TN', 'DL', 'GJ', 'Other'].map(code => {
-
-                        const filtered = apps.filter(a => (a.state || 'MH') === code);
-
+                      {Array.from(new Set(apps.map(a => a.state || 'Other'))).slice(0, 6).map(code => {
+                        const filtered = apps.filter(a => (a.state || 'Other') === code);
                         const names = { MH: 'Maharashtra', KA: 'Karnataka', TN: 'Tamil Nadu', DL: 'Delhi', GJ: 'Gujarat', Other: 'Others' };
-
-                        const avgLoan = filtered.length > 0 ? (filtered.reduce((s, a) => s + a.loan_amount, 0) / filtered.length / 1000).toFixed(1) : '0';
-
-                        const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + a.probability, 0) / filtered.length * 100).toFixed(1) : '0';
+                        const name = names[code] || code;
+                        const avgLoan = filtered.length > 0 ? (filtered.reduce((s, a) => s + (a.loan_amount || 0), 0) / filtered.length / 100000).toFixed(1) : '0';
+                        const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + (a.probability || 0), 0) / filtered.length * 100).toFixed(1) : '0';
 
                         return (
-
                           <tr key={code} style={{ borderBottom: '1px solid var(--border)' }}>
-
-                            <td style={{ padding: '12px 8px', fontWeight: 600 }}>{names[code]}</td>
-
+                            <td style={{ padding: '12px 8px', fontWeight: 600 }}>{name}</td>
                             <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace" }}>{filtered.length}</td>
-
                             <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace" }}>{avgProb}%</td>
-
                             <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace" }}>₹{avgLoan}L</td>
-
                           </tr>
-
                         );
-
                       })}
 
                     </tbody>
