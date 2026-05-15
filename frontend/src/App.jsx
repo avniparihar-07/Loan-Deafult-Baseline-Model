@@ -6,10 +6,20 @@ import Auth from './components/Auth';
 import './styles/index.css';
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [theme, setTheme] = useState('light');
-  const [view, setView] = useState('landing'); // 'landing' | 'auth'
-  const [authRole, setAuthRole] = useState('borrower');
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('gz_user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('gz_theme') || 'light';
+  });
+  const [view, setView] = useState(() => {
+    const savedUser = localStorage.getItem('gz_user');
+    return savedUser ? 'dashboard' : 'landing';
+  });
+  const [authRole, setAuthRole] = useState(() => {
+    return localStorage.getItem('gz_authRole') || 'borrower';
+  });
   const [sessionExpired, setSessionExpired] = useState(false);
 
   // Global Session Timeout: 15 minutes
@@ -38,23 +48,33 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('gz_theme', theme);
   }, [theme]);
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
+  const handleRoleChange = (role) => {
+    setAuthRole(role);
+    localStorage.setItem('gz_authRole', role);
+  };
+
   const handleLogin = (userData) => {
+    localStorage.setItem('gz_user', JSON.stringify(userData));
+    localStorage.setItem('gz_authRole', authRole);
     setUser(userData);
     setView('dashboard');
     setSessionExpired(false);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('gz_user');
+    localStorage.removeItem('gz_authRole');
     setUser(null);
     setView('landing');
   };
 
   const navigateToAuth = (role) => {
-    setAuthRole(role);
+    handleRoleChange(role);
     setView('auth');
     setSessionExpired(false);
   };
@@ -110,7 +130,7 @@ export default function App() {
     return (
       <Auth 
         onLogin={handleLogin} 
-        onRoleChange={setAuthRole}
+        onRoleChange={handleRoleChange}
         theme={theme} 
         toggleTheme={toggleTheme} 
         initialRole={authRole} 
