@@ -1842,7 +1842,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div style={{
 
-                    background: result.level === 'low' ? 'linear-gradient(135deg, #0D9488 0%, #10B981 100%)' : result.level === 'med' ? 'linear-gradient(135deg, #997D30 0%, #C3A44F 100%)' : 'linear-gradient(135deg, #BE123C 0%, #E11D48 100%)',
+                    background: result.level.toLowerCase().includes('low') ? 'linear-gradient(135deg, var(--teal) 0%, #10B981 100%)' : result.level.toLowerCase().includes('med') ? 'linear-gradient(135deg, var(--gold) 0%, #D4AF37 100%)' : 'linear-gradient(135deg, var(--rose) 0%, #E11D48 100%)',
 
                     padding: '24px 32px', borderRadius: '16px', marginBottom: '24px', color: '#fff',
 
@@ -1858,7 +1858,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                       <div style={{ fontSize: '24px', fontWeight: 900 }}>
 
-                        {result.level === 'low' ? 'Recommended for Approval' : result.level === 'med' ? 'Manual Underwriter Review Required' : 'High Probability of Default - Reject'}
+                        {result.level.toLowerCase().includes('low') ? 'Recommended for Approval' : result.level.toLowerCase().includes('med') ? 'Manual Underwriter Review Required' : 'High Probability of Default - Reject'}
 
                       </div>
 
@@ -3232,9 +3232,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                       <div style={{ textAlign: 'center', padding: '10px 0 20px' }}>
 
-                        <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(${result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'} ${isNaN(result.pct) ? 0 : result.pct}%, var(--bg2) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: `conic-gradient(${result.level.toLowerCase().includes('low') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)'} ${isNaN(result.pct) ? 0 : result.pct}%, var(--bg2) 0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
 
-                          <div style={{ width: '136px', height: '136px', borderRadius: '50%', background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Fraunces',serif", fontSize: '48px', fontWeight: 700, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }}>
+                          <div style={{ width: '136px', height: '136px', borderRadius: '50%', background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Fraunces',serif", fontSize: '48px', fontWeight: 700, color: result.level.toLowerCase().includes('low') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)' }}>
 
                             {isNaN(result.pct) ? '—' : result.pct + '%'}
 
@@ -3246,7 +3246,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                         <div style={{ width: '100%', height: '4px', background: 'var(--bg2)', borderRadius: '2px', marginTop: '20px', overflow: 'hidden' }}>
 
-                          <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }}></div>
+                          <div style={{ height: '100%', width: `${result.pct}%`, background: result.level.toLowerCase().includes('low') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)' }}></div>
 
                         </div>
 
@@ -3254,17 +3254,17 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                       <div style={{ padding: '16px', background: result.level === 'low' ? 'rgba(56,201,176,0.06)' : result.level === 'med' ? 'rgba(201,151,60,0.06)' : 'rgba(232,84,117,0.06)', border: `1px solid ${result.level === 'low' ? 'rgba(56,201,176,0.2)' : result.level === 'med' ? 'rgba(201,151,60,0.2)' : 'rgba(232,84,117,0.2)'}`, borderRadius: '10px' }}>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)', marginBottom: '8px', fontSize: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: result.level.toLowerCase().includes('low') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)', marginBottom: '8px', fontSize: '14px' }}>
 
-                          {result.level === 'low' ? 'Low Risk — Likely Approved' : result.level === 'med' ? 'Medium Risk — Manual Review' : 'High Risk — Likely Rejected'}
+                          {result.level.toLowerCase().includes('low') ? 'LOW RISK — Likely Approved' : result.level.toLowerCase().includes('med') ? 'MEDIUM RISK — Manual Review' : 'HIGH RISK — Likely Rejected'}
 
                         </div>
 
                         <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.5 }}>
 
-                          {result.level === 'low' ? 'Strong repayment profile. Default probability below 30%. Loan recommended for approval.' :
+                          {result.level.toLowerCase().includes('low') ? 'Strong repayment profile. Default probability below 30%. Loan recommended for approval.' :
 
-                            result.level === 'med' ? 'Borderline profile. Default probability between 30% and 60%. Manual underwriter review required.' :
+                            result.level.toLowerCase().includes('med') ? 'Borderline profile. Default probability between 30% and 60%. Manual underwriter review required.' :
 
                               'Weak repayment profile. Default probability exceeds 60%. Loan recommended for rejection.'}
 
@@ -3967,11 +3967,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           
                           <div style={{ position: 'relative', width: '160px', height: '160px', margin: '0 auto 24px' }}>
                             <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-                              <path 
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                                fill="none" 
-                                stroke={analysisResult.default_probability < 31 ? '#10B981' : analysisResult.default_probability < 61 ? '#F59E0B' : '#EF4444'} 
+                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth=                                stroke={analysisResult.default_probability < 31 ? 'var(--teal)' : analysisResult.default_probability < 61 ? 'var(--gold)' : 'var(--rose)'} 
                                 strokeWidth="3" 
                                 strokeDasharray={`${analysisResult.default_probability}, 100`} 
                                 strokeLinecap="round" 
@@ -3980,7 +3976,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                             </svg>
                             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
                               <div style={{ fontSize: '32px', fontWeight: 900, color: 'var(--navy)', letterSpacing: '-1px' }}>{analysisResult.default_probability}%</div>
-                              <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Default Prob.</div>
+                              <div style={{ fontSize: '9px', fontWeight: 800, color: analysisResult.default_probability < 31 ? 'var(--teal)' : analysisResult.default_probability < 61 ? 'var(--gold)' : 'var(--rose)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Default Prob.</div>
                             </div>
                           </div>
 
@@ -3995,8 +3991,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                             </div>
                           </div>
 
-                          <div style={{ padding: '16px', background: analysisResult.default_probability < 31 ? 'rgba(16,185,129,0.1)' : analysisResult.default_probability < 61 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', borderRadius: '16px', marginBottom: '10px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 900, color: analysisResult.default_probability < 31 ? '#059669' : analysisResult.default_probability < 61 ? '#D97706' : '#DC2626', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          <div style={{ padding: '16px', background: analysisResult.default_probability < 31 ? 'rgba(13,148,136,0.1)' : analysisResult.default_probability < 61 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', borderRadius: '16px', marginBottom: '10px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 900, color: analysisResult.default_probability < 31 ? 'var(--teal)' : analysisResult.default_probability < 61 ? 'var(--gold)' : 'var(--rose)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                              {analysisResult.default_probability < 31 ? 'LOW RISK' : analysisResult.default_probability < 61 ? 'MEDIUM RISK' : 'HIGH RISK'}
+                            </div>
+ing: '1px' }}>
                               {analysisResult.default_probability < 31 ? 'LOW RISK' : analysisResult.default_probability < 61 ? 'MEDIUM RISK' : 'HIGH RISK'}
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--navy)', marginTop: '4px', fontWeight: 600 }}>{analysisResult.recommendation}</div>

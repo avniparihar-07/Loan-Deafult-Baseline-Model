@@ -1253,14 +1253,14 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                 <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                   <span style={{
                     padding: '6px 12px',
-                    background: result.level === 'low' ? 'rgba(13, 148, 136, 0.1)' : result.level === 'med' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444',
+                    background: result.level.toLowerCase().includes('low') ? 'rgba(13, 148, 136, 0.1)' : result.level.toLowerCase().includes('med') ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: result.level.toLowerCase().includes('low') ? '#0d9488' : result.level.toLowerCase().includes('med') ? '#f59e0b' : '#ef4444',
                     borderRadius: '6px', fontSize: '10px', fontWeight: 800,
-                    border: `1px solid ${result.level === 'low' ? 'rgba(13, 148, 136, 0.2)' : result.level === 'med' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                    border: `1px solid ${result.level.toLowerCase().includes('low') ? 'rgba(13, 148, 136, 0.2)' : result.level.toLowerCase().includes('med') ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
                     display: 'flex', alignItems: 'center', gap: '6px'
                   }}>
-                    <span style={{ width: '8px', height: '8px', background: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444', borderRadius: '2px' }} />
-                    {result.level === 'low' ? 'Likely Approved' : result.level === 'med' ? 'Review Required' : 'High Risk Profile'}
+                    <span style={{ width: '8px', height: '8px', background: result.level.toLowerCase().includes('low') ? '#0d9488' : result.level.toLowerCase().includes('med') ? '#f59e0b' : '#ef4444', borderRadius: '2px' }} />
+                    {result.level.toLowerCase().includes('low') ? 'Likely Approved (Low Risk)' : result.level.toLowerCase().includes('med') ? 'Review Required (Medium Risk)' : 'High Risk Profile'}
                   </span>
                   <span style={{ padding: '6px 12px', background: 'rgba(14, 165, 233, 0.08)', color: 'var(--sky)', borderRadius: '6px', fontSize: '10px', fontWeight: 800, border: '1px solid rgba(14, 165, 233, 0.15)' }}>
                     ₹{fmt(formData.loanAmt)} · {effectiveTerm} months · {displayPurpose}
@@ -1275,12 +1275,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                     <span style={{ width: '8px', height: '8px', background: 'var(--teal)', borderRadius: '50%' }} /> Your Risk Score
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '80px', fontWeight: 800, color: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444', lineHeight: 1, fontFamily: "'Georgia', serif" }}>{result.pct}%</div>
+                    <div style={{ fontSize: '80px', fontWeight: 800, color: result.level.toLowerCase().includes('low') ? '#0d9488' : result.level.toLowerCase().includes('med') ? '#f59e0b' : '#ef4444', lineHeight: 1, fontFamily: "'Georgia', serif" }}>{result.pct}%</div>
                     <div style={{ fontSize: '10px', color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '2px', marginTop: '12px', fontWeight: 700 }}>Default Probability</div>
                     <div style={{ height: '6px', background: 'var(--bg)', borderRadius: '3px', marginTop: '40px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? '#0d9488' : result.level === 'med' ? '#f59e0b' : '#ef4444' }} />
+                      <div style={{ height: '100%', width: `${result.pct}%`, background: result.level.toLowerCase().includes('low') ? '#0d9488' : result.level.toLowerCase().includes('med') ? '#f59e0b' : '#ef4444' }} />
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--slate)', marginTop: '20px', fontWeight: 600 }}>Category: {result.level === 'low' ? 'Low (<30%)' : result.level === 'med' ? 'Medium (30-60%)' : 'High (>60%)'}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--slate)', marginTop: '20px', fontWeight: 600 }}>Category: {result.level.toLowerCase().includes('low') ? 'Low Risk (<30%)' : result.level.toLowerCase().includes('med') ? 'Medium Risk (30-60%)' : 'High Risk (>60%)'}</div>
                   </div>
                 </div>
 
