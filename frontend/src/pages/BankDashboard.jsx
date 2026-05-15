@@ -2573,12 +2573,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                       const filtered = apps.filter(a => (a.loan_purpose || '').includes(purpose));
                       const amt = filtered.reduce((s, a) => s + (a.loan_amount || 0), 0);
                       const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + (a.probability || 0), 0) / filtered.length) * 100 : 0;
-                      const icons = { Home: '🏠', Education: '🎓', Personal: '👤', Business: '💼', Medical: '🏥' };
                       const colors = { Home: 'var(--teal)', Education: 'var(--sky)', Personal: 'var(--gold)', Business: 'var(--rose)', Medical: '#FF8C42' };
-
+                      
                       return (
                         <div key={purpose} style={{ display: 'flex', alignItems: 'center' }}>
-                          <div style={{ width: '30px', fontSize: '18px' }}>{icons[purpose]}</div>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: colors[purpose], marginRight: '12px' }} />
                           <div style={{ flex: 1, fontSize: '13px', fontWeight: 600 }}>{purpose} Loans</div>
                           <div style={{ width: '80px', textAlign: 'right', fontFamily: "'IBM Plex Mono',monospace", fontSize: '12px' }}>₹{(amt / 10000000).toFixed(1)}Cr</div>
                           <div style={{ width: '100px', margin: '0 16px', height: '4px', background: 'var(--bg2)', borderRadius: '2px', position: 'relative' }}>
