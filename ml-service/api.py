@@ -1203,11 +1203,19 @@ def get_dashboard_stats():
             PredictionRecord.status == 'Pending'
         ).scalar() or 0
 
+        # Manual Review
+        manual_review = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.status == 'Additional Verification Required'
+        ).scalar() or 0
+
         return jsonify({
             'total': total,
             'approved': approved,
             'pending': pending,
             'rejected': rejected,
+            'manual_review': manual_review,
             'high_risk': high_risk,
             'last_updated': datetime.utcnow().isoformat()
         })
@@ -1300,6 +1308,13 @@ def get_dashboard_analytics():
                 PredictionRecord.risk_category == r_cat
             ).scalar() or 0 for r_cat in ['Low', 'Medium', 'High']
         }
+        
+        # Catch null predictions or missing risk categories
+        risk_dist['Unscored'] = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.risk_category.is_(None)
+        ).scalar() or 0
 
         # 3. Loan Purpose Distribution
         purposes = ["Home", "Auto", "Education", "Business", "Personal", "Medical", "Travel"]

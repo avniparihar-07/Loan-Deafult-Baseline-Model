@@ -718,10 +718,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
       if (ctxDist) {
 
-        const d = analytics?.risk_distribution || { Low: 0, Medium: 0, High: 0 };
+        const d = analytics?.risk_distribution || { Low: 0, Medium: 0, High: 0, Unscored: 0 };
         distChart = new Chart(ctxDist, {
           type: 'doughnut',
-          data: { labels: ['Low Risk (<30%)', 'Medium Risk', 'High Risk (>60%)'], datasets: [{ data: [d.Low || 0, d.Medium || 0, d.High || 0], backgroundColor: ['#38C9B0', '#C9973C', '#E85475'], borderColor: theme === 'dark' ? '#162030' : '#fff', borderWidth: 3, hoverOffset: 8 }] },
+          data: { labels: ['Low Risk (<30%)', 'Medium Risk', 'High Risk (>60%)', 'Unscored'], datasets: [{ data: [d.Low || 0, d.Medium || 0, d.High || 0, d.Unscored || 0], backgroundColor: ['#38C9B0', '#C9973C', '#E85475', '#A4B0C8'], borderColor: theme === 'dark' ? '#162030' : '#fff', borderWidth: 3, hoverOffset: 8 }] },
 
           options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } } }
 
@@ -1423,21 +1423,35 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 </div>
 
                 <div className="kpi teal fade-up fade-up-d1">
-                  <div className="kpi-lbl">Approved Applications</div>
+                  <div className="kpi-lbl">Approved</div>
                   <div className="kpi-val">{(stats.approved || 0).toLocaleString()}</div>
                   <div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>● Sanctioned & Dispatched</div>
                 </div>
 
                 <div className="kpi rose fade-up fade-up-d2">
-                  <div className="kpi-lbl">High Risk Cases</div>
-                  <div className="kpi-val">{(stats.high_risk || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Requires urgent review</div>
+                  <div className="kpi-lbl">Rejected</div>
+                  <div className="kpi-val">{(stats.rejected || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Declined</div>
+                </div>
+              </div>
+
+              <div className="kpi-row" style={{ marginTop: '20px' }}>
+                <div className="kpi gold fade-up fade-up-d3">
+                  <div className="kpi-lbl">Pending Review</div>
+                  <div className="kpi-val">{(stats.pending || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Not evaluated</div>
                 </div>
 
-                <div className="kpi gold fade-up fade-up-d3">
-                  <div className="kpi-lbl">Review Queue</div>
-                  <div className="kpi-val">{(stats.pending || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Manual review pending</div>
+                <div className="kpi sky fade-up fade-up-d4">
+                  <div className="kpi-lbl">Manual Review</div>
+                  <div className="kpi-val">{(stats.manual_review || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--sky)', fontWeight: 600 }}>● Verification Requested</div>
+                </div>
+
+                <div className="kpi rose fade-up fade-up-d5">
+                  <div className="kpi-lbl">High Risk Cases</div>
+                  <div className="kpi-val">{(stats.high_risk || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Pending urgent review</div>
                 </div>
               </div>
 
@@ -1469,6 +1483,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#E85475' }}></div>
                       <span style={{ color: 'var(--slate)', fontWeight: 600 }}>High Risk</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#A4B0C8' }}></div>
+                      <span style={{ color: 'var(--slate)', fontWeight: 600 }}>Unscored</span>
                     </div>
                   </div>
 
