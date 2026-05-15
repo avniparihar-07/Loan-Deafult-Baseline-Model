@@ -1459,7 +1459,6 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     </div>
                   </div>
 
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginTop: '16px' }}>Thresholds from notebook cell 47: [0, 0.3, 0.6, 1]</div>
 
                 </div>
 
