@@ -1713,7 +1713,7 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
   const effectiveTerm = data.term === 'custom' ? data.customTerm : data.term;
 
   const statusStr = (result.adjustedD?.status || data.status || 'Pending').toLowerCase();
-  const isPending = statusStr === 'pending' || !data.assigned_rate || data.assigned_rate === '-';
+  const isPending = statusStr === 'pending' || !result.adjustedD?.assigned_rate || result.adjustedD?.assigned_rate === '-';
   const isRejected = statusStr === 'rejected';
   const isApproved = statusStr === 'approved' && !isPending;
 
