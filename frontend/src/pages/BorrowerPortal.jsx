@@ -347,8 +347,6 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       State: applyForm.state || 'MH',
       TargetBank: targetBankFinal,
     };
-    // DEBUG: log payload before sending — remove after verification
-    console.log('[BorrowerPortal] Submitting payload:', JSON.stringify(payload, null, 2));
     try {
       const res = await fetch(apiUrl('/api/apply'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
