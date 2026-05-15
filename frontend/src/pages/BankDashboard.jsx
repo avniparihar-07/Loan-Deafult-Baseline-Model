@@ -3967,7 +3967,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           
                           <div style={{ position: 'relative', width: '160px', height: '160px', margin: '0 auto 24px' }}>
                             <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth=                                stroke={analysisResult.default_probability < 31 ? 'var(--teal)' : analysisResult.default_probability < 61 ? 'var(--gold)' : 'var(--rose)'} 
+                              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth="3" />
+                              <path 
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                fill="none" 
+                                stroke={analysisResult.default_probability < 31 ? 'var(--teal)' : analysisResult.default_probability < 61 ? 'var(--gold)' : 'var(--rose)'} 
                                 strokeWidth="3" 
                                 strokeDasharray={`${analysisResult.default_probability}, 100`} 
                                 strokeLinecap="round" 
@@ -3993,9 +3997,6 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                           <div style={{ padding: '16px', background: analysisResult.default_probability < 31 ? 'rgba(13,148,136,0.1)' : analysisResult.default_probability < 61 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)', borderRadius: '16px', marginBottom: '10px' }}>
                             <div style={{ fontSize: '12px', fontWeight: 900, color: analysisResult.default_probability < 31 ? 'var(--teal)' : analysisResult.default_probability < 61 ? 'var(--gold)' : 'var(--rose)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                              {analysisResult.default_probability < 31 ? 'LOW RISK' : analysisResult.default_probability < 61 ? 'MEDIUM RISK' : 'HIGH RISK'}
-                            </div>
-ing: '1px' }}>
                               {analysisResult.default_probability < 31 ? 'LOW RISK' : analysisResult.default_probability < 61 ? 'MEDIUM RISK' : 'HIGH RISK'}
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--navy)', marginTop: '4px', fontWeight: 600 }}>{analysisResult.recommendation}</div>
