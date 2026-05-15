@@ -1636,7 +1636,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div>
 
-                    <div className="flab">DTI RATIO <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL)</span></div>
+                    <div className="flab">DTI RATIO <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL · decimal 0.0–1.0)</span></div>
 
                     <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', e.target.value)} onWheel={e => e.target.blur()} />
 
@@ -1654,17 +1654,17 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div>
 
-                    <div className="flab">LOAN PURPOSE <span className="combo-tag">+ CUSTOM</span></div>
+                    <div className="flab">LOAN PURPOSE <span className="combo-tag">+ ENTER MANUALLY</span></div>
 
                     <div className="combo-field">
 
                       <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)}>
 
-                        <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="medical">Medical</option><option value="personal">Personal Loan</option><option value="other">Other</option><option value="custom">Custom</option>
+                        <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="medical">Medical</option><option value="personal">Personal Loan</option><option value="custom">Enter manually...</option>
 
                       </select>
 
-                      <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
+                      <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} placeholder="e.g. Wedding, Machinery..." value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
 
                     </div>
 
@@ -1672,13 +1672,13 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div>
 
-                    <div className="flab">LOAN TERM <span className="combo-tag">+ CUSTOM</span></div>
+                    <div className="flab">LOAN TERM <span className="combo-tag">+ ENTER MANUALLY</span></div>
 
                     <div className="combo-field">
 
                       <select className="combo-select" value={formData.term} onChange={e => update('term', e.target.value)}>
 
-                        <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">60 months</option><option value="custom">Custom</option>
+                        <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">60 months</option><option value="custom">Enter manually...</option>
 
                       </select>
 
@@ -3075,7 +3075,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                   <div style={{ gridColumn: '1 / -1', marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '20px', marginBottom: '10px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                       <div>
-                        <div className="flab">DTI RATIO <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL)</span></div>
+                        <div className="flab">DTI RATIO <span style={{ color: 'var(--slate)', fontWeight: 400, fontSize: '10px', marginLeft: '4px' }}>(OPTIONAL · decimal 0.0–1.0)</span></div>
                         <input type="number" step="0.01" className="finput" value={formData.dti} onChange={e => update('dti', e.target.value)} onWheel={e => e.target.blur()} />
                       </div>
                       <div>
@@ -3089,17 +3089,17 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div>
 
-                    <div className="flab">LOAN PURPOSE <span className="combo-tag">+ CUSTOM</span></div>
+                    <div className="flab">LOAN PURPOSE <span className="combo-tag">+ ENTER MANUALLY</span></div>
 
                     <div className="combo-field">
 
                       <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)}>
 
-                        <option value="home">Ã°Å¸ÂÂ  Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Ã°Å¸ÂÂ¢ Business</option><option value="medical">Ã°Å¸ÂÂ¥ Medical</option><option value="personal">Personal Loan</option><option value="other">Other</option><option value="custom">Ã¢Å“ÂÃ¯Â¸Â Custom</option>
+                        <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="medical">Medical</option><option value="personal">Personal Loan</option><option value="custom">Enter manually...</option>
 
                       </select>
 
-                      <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
+                      <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} placeholder="e.g. Wedding, Machinery..." value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
 
                     </div>
 
@@ -3107,13 +3107,13 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div>
 
-                    <div className="flab">LOAN TERM <span className="combo-tag">+ CUSTOM</span></div>
+                    <div className="flab">LOAN TERM <span className="combo-tag">+ ENTER MANUALLY</span></div>
 
                     <div className="combo-field">
 
                       <select className="combo-select" value={formData.term} onChange={e => update('term', e.target.value)}>
 
-                        <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">60 months</option><option value="custom">Ã¢Å“ÂÃ¯Â¸Â Custom</option>
+                        <option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months</option><option value="60">60 months</option><option value="custom">Enter manually...</option>
 
                       </select>
 
