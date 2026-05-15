@@ -1423,35 +1423,21 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 </div>
 
                 <div className="kpi teal fade-up fade-up-d1">
-                  <div className="kpi-lbl">Approved</div>
+                  <div className="kpi-lbl">Approved Applications</div>
                   <div className="kpi-val">{(stats.approved || 0).toLocaleString()}</div>
                   <div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>● Sanctioned & Dispatched</div>
                 </div>
 
                 <div className="kpi rose fade-up fade-up-d2">
-                  <div className="kpi-lbl">Rejected</div>
-                  <div className="kpi-val">{(stats.rejected || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Declined</div>
-                </div>
-              </div>
-
-              <div className="kpi-row" style={{ marginTop: '20px' }}>
-                <div className="kpi gold fade-up fade-up-d3">
-                  <div className="kpi-lbl">Pending Review</div>
-                  <div className="kpi-val">{(stats.pending || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Not evaluated</div>
-                </div>
-
-                <div className="kpi sky fade-up fade-up-d4">
-                  <div className="kpi-lbl">Manual Review</div>
-                  <div className="kpi-val">{(stats.manual_review || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--sky)', fontWeight: 600 }}>● Verification Requested</div>
-                </div>
-
-                <div className="kpi rose fade-up fade-up-d5">
                   <div className="kpi-lbl">High Risk Cases</div>
                   <div className="kpi-val">{(stats.high_risk || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Pending urgent review</div>
+                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Requires urgent review</div>
+                </div>
+
+                <div className="kpi gold fade-up fade-up-d3">
+                  <div className="kpi-lbl">Review Queue</div>
+                  <div className="kpi-val">{((stats.pending || 0) + (stats.manual_review || 0)).toLocaleString()}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Manual review pending</div>
                 </div>
               </div>
 
