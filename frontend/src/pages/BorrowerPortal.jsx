@@ -1770,7 +1770,7 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
               <div style={{ height: '100%', width: `${result.pct}%`, background: isPending ? 'var(--gold)' : (result.level.toLowerCase().includes('low') || statusStr === 'approved') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)' }} />
             </div>
             <div style={{ marginTop: '12px', fontSize: '11px', fontWeight: 600, color: 'var(--slate)' }}>
-              Risk Level: <span style={{ color: isPending ? 'var(--gold)' : (result.level.toLowerCase().includes('low') || statusStr === 'approved') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)'), fontWeight: 800 }}>{isPending ? 'PENDING' : result.level.toUpperCase().includes('LOW') ? 'LOW RISK' : result.level.toUpperCase()}</span>
+              Risk Level: <span style={{ color: isPending ? 'var(--gold)' : (result.level.toLowerCase().includes('low') || statusStr === 'approved') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)', fontWeight: 800 }}>{isPending ? 'PENDING' : result.level.toUpperCase().includes('LOW') ? 'LOW RISK' : result.level.toUpperCase()}</span>
             </div>
           </div>
 
