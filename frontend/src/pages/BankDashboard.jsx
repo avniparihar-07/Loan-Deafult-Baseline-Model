@@ -2569,12 +2569,12 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '30px' }}>
 
-                    {['Home', 'Education', 'Personal', 'Business'].map((purpose, i) => {
+                    {['Home', 'Education', 'Personal', 'Business', 'Medical'].map((purpose, i) => {
                       const filtered = apps.filter(a => (a.loan_purpose || '').includes(purpose));
                       const amt = filtered.reduce((s, a) => s + (a.loan_amount || 0), 0);
                       const avgProb = filtered.length > 0 ? (filtered.reduce((s, a) => s + (a.probability || 0), 0) / filtered.length) * 100 : 0;
-                      const icons = { Home: '🏠', Education: '🎓', Personal: '👤', Business: '💼' };
-                      const colors = { Home: 'var(--teal)', Education: 'var(--sky)', Personal: 'var(--gold)', Business: 'var(--rose)' };
+                      const icons = { Home: '🏠', Education: '🎓', Personal: '👤', Business: '💼', Medical: '🏥' };
+                      const colors = { Home: 'var(--teal)', Education: 'var(--sky)', Personal: 'var(--gold)', Business: 'var(--rose)', Medical: '#FF8C42' };
 
                       return (
                         <div key={purpose} style={{ display: 'flex', alignItems: 'center' }}>
@@ -2590,11 +2590,12 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     })}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', fontSize: '11px', color: 'var(--text3)', marginBottom: '14px', flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--teal)' }}></span> Home</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--sky)' }}></span> Education</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--gold)' }}></span> Personal</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: 'var(--rose)' }}></span> Business</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '8px', background: '#FF8C42' }}></span> Medical</span>
                   </div>
 
                   <div style={{ height: '180px', position: 'relative' }}><canvas id="cht-sector-doughnut"></canvas></div>
