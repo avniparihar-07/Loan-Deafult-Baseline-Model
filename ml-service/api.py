@@ -1173,13 +1173,16 @@ def get_dashboard_stats():
         
         modified = False
         for r in all_records:
-            if r.status is None or r.status == '':
+            s_clean = (r.status or "").strip().lower()
+            
+            if not s_clean:
                 r.status = 'pending'
+                s_clean = 'pending'
                 modified = True
                 
             # Force rejected applications to be High Risk
-            if r.status and r.status.lower() == 'rejected':
-                if r.risk_category != 'High Risk':
+            if s_clean == 'rejected':
+                if (r.risk_category or "").strip().lower() != 'high risk':
                     r.risk_category = 'High Risk'
                     modified = True
                 if r.default_probability is None or r.default_probability < 0.6:
@@ -1187,8 +1190,8 @@ def get_dashboard_stats():
                     modified = True
                     
             # Force approved applications to be Low Risk (to fix demo data anomalies)
-            if r.status and r.status.lower() == 'approved':
-                if r.risk_category != 'Low Risk':
+            if s_clean == 'approved':
+                if (r.risk_category or "").strip().lower() != 'low risk':
                     r.risk_category = 'Low Risk'
                     modified = True
                 if r.default_probability is None or r.default_probability > 0.3:
@@ -1238,14 +1241,15 @@ def get_dashboard_stats():
         rejected = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.status == 'Rejected'
+            func.lower(PredictionRecord.status) == 'rejected'
         ).scalar() or 0
 
-        # 4. High Risk Cases
+        # 4. High Risk Cases (Analytical subset: excluding approved to prevent sum confusion)
         high_risk = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.risk_category.ilike('%high%')
+            PredictionRecord.risk_category.ilike('%high%'),
+            func.lower(PredictionRecord.status) != 'approved'
         ).scalar() or 0
 
         # Miscellaneous stats (optional, for other purposes)
