@@ -1,4 +1,5 @@
 @import "tailwindcss";
+
 /* ═══ CORPORATE BANKING THEME ═══ */
 /* ═══ MODERN BANKING THEME (GROUNDZERO) ═══ */
 :root {
@@ -696,7 +697,9 @@ input[type=number] {
   box-shadow: 0 8px 20px rgba(225, 29, 72, 0.2);
 }
 
-.f-inp, .f-select, .f-area {
+.f-inp,
+.f-select,
+.f-area {
   width: 100%;
   padding: 14px 18px;
   border-radius: 12px;
@@ -709,7 +712,9 @@ input[type=number] {
   outline: none;
 }
 
-.f-inp:focus, .f-select:focus, .f-area:focus {
+.f-inp:focus,
+.f-select:focus,
+.f-area:focus {
   border-color: var(--navy);
   box-shadow: 0 0 0 4px rgba(10, 25, 49, 0.05);
   background: #fcfdfe;
@@ -1757,20 +1762,20 @@ input[type=number] {
 
 /* ── Missing CSS Variables ── */
 :root {
-  --border-bank:   #E2E8F0;
-  --bg2:           #F8FAFC;
-  --panel:         #FFFFFF;
-  --text2:         #475569;
-  --text3:         #94A3B8;
-  --gold-glow:     rgba(181, 148, 75, 0.10);
-  --gold-brushed:  #C9973C;
-  --teal-glow:     rgba(13, 148, 136, 0.10);
-  --rose-glow:     rgba(225, 29, 72, 0.10);
-  --sky-glow:      rgba(14, 165, 233, 0.10);
-  --shadow-card:   0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
-  --shadow-hover:  0 8px 24px rgba(0,0,0,.10);
-  --shadow-inset:  inset 0 1px 2px rgba(0,0,0,.04);
-  --font-serif:    'Inter', sans-serif;
+  --border-bank: #E2E8F0;
+  --bg2: #F8FAFC;
+  --panel: #FFFFFF;
+  --text2: #475569;
+  --text3: #94A3B8;
+  --gold-glow: rgba(181, 148, 75, 0.10);
+  --gold-brushed: #C9973C;
+  --teal-glow: rgba(13, 148, 136, 0.10);
+  --rose-glow: rgba(225, 29, 72, 0.10);
+  --sky-glow: rgba(14, 165, 233, 0.10);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, .06), 0 4px 12px rgba(0, 0, 0, .04);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, .10);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, .04);
+  --font-serif: 'Inter', sans-serif;
 }
 
 /* ── Section Page Header ── */
@@ -1798,7 +1803,7 @@ input[type=number] {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
 }
 
 /* ── Card Header Row (ch) ── */
@@ -1831,15 +1836,38 @@ input[type=number] {
   flex-shrink: 0;
 }
 
-.pip-sky  { background: var(--sky);  box-shadow: 0 0 8px var(--sky); }
-.pip-teal { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
-.pip-gold { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
-.pip-rose { background: var(--rose); box-shadow: 0 0 8px var(--rose); }
+.pip-sky {
+  background: var(--sky);
+  box-shadow: 0 0 8px var(--sky);
+}
+
+.pip-teal {
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal);
+}
+
+.pip-gold {
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
+}
+
+.pip-rose {
+  background: var(--rose);
+  box-shadow: 0 0 8px var(--rose);
+}
 
 /* ── Spacing Helpers ── */
-.mb18 { margin-bottom: 18px; }
-.mb24 { margin-bottom: 24px; }
-.mb32 { margin-bottom: 32px; }
+.mb18 {
+  margin-bottom: 18px;
+}
+
+.mb24 {
+  margin-bottom: 24px;
+}
+
+.mb32 {
+  margin-bottom: 32px;
+}
 
 /* ── Combo Tag (inline label next to field label) ── */
 .combo-tag {
@@ -1988,27 +2016,51 @@ input[type=number] {
 
 .kpi:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
 }
 
 .kpi::before {
   content: '';
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 3px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
   background: var(--border);
   border-radius: 16px 16px 0 0;
 }
 
-.kpi.sky::before   { background: var(--sky); }
-.kpi.teal::before  { background: var(--teal); }
-.kpi.rose::before  { background: var(--rose); }
-.kpi.gold::before  { background: var(--gold); }
+.kpi.sky::before {
+  background: var(--sky);
+}
 
-.kpi.sky::after   { display: none; }
-.kpi.teal::after  { display: none; }
-.kpi.rose::after  { display: none; }
-.kpi.gold::after  { display: none; }
+.kpi.teal::before {
+  background: var(--teal);
+}
+
+.kpi.rose::before {
+  background: var(--rose);
+}
+
+.kpi.gold::before {
+  background: var(--gold);
+}
+
+.kpi.sky::after {
+  display: none;
+}
+
+.kpi.teal::after {
+  display: none;
+}
+
+.kpi.rose::after {
+  display: none;
+}
+
+.kpi.gold::after {
+  display: none;
+}
 
 .kpi-lbl {
   font-size: 11px;
@@ -2084,9 +2136,17 @@ input[type=number] {
 }
 
 /* ── Fade-up stagger delays ── */
-.fade-up-d1 { animation-delay: 0.05s; }
-.fade-up-d2 { animation-delay: 0.10s; }
-.fade-up-d3 { animation-delay: 0.15s; }
+.fade-up-d1 {
+  animation-delay: 0.05s;
+}
+
+.fade-up-d2 {
+  animation-delay: 0.10s;
+}
+
+.fade-up-d3 {
+  animation-delay: 0.15s;
+}
 
 
 /* ══════════════════════════════════════════════
@@ -2102,11 +2162,11 @@ input[type=number] {
   overflow: hidden;
   border-radius: 16px;
   border: 1px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .06);
 }
 
 /* 2. Navy banner — the .ch row becomes the dark header */
-.card.glass > .ch {
+.card.glass>.ch {
   background: linear-gradient(135deg, #0F2040 0%, #152B52 60%, #1A3566 100%);
   padding: 28px 36px 28px 36px;
   margin: 0;
@@ -2120,7 +2180,7 @@ input[type=number] {
 }
 
 /* 3. "SECURE GATEWAY" eyebrow label via ::before pseudo-element */
-.card.glass > .ch::before {
+.card.glass>.ch::before {
   content: 'SECURE GATEWAY';
   position: absolute;
   top: 18px;
@@ -2134,7 +2194,7 @@ input[type=number] {
 }
 
 /* 4. Title text (.ct) — white, large, pushed below eyebrow */
-.card.glass > .ch > .ct {
+.card.glass>.ch>.ct {
   color: #ffffff;
   font-size: 22px;
   font-weight: 800;
@@ -2145,12 +2205,12 @@ input[type=number] {
 }
 
 /* 5. Hide the status pip inside the navy banner */
-.card.glass > .ch > .ct > .pip {
+.card.glass>.ch>.ct>.pip {
   display: none;
 }
 
 /* 6. Badge pill (.mbadge-gold) → "ML ENGINE ACTIVE" style */
-.card.glass > .ch > .mbadge-gold {
+.card.glass>.ch>.mbadge-gold {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
@@ -2167,7 +2227,7 @@ input[type=number] {
 }
 
 /* 6b. Green glowing dot before badge text */
-.card.glass > .ch > .mbadge-gold::before {
+.card.glass>.ch>.mbadge-gold::before {
   content: '';
   display: inline-block;
   width: 8px;
@@ -2179,12 +2239,12 @@ input[type=number] {
 }
 
 /* 7. Restore padding to the form content area below the banner */
-.card.glass > .form-grid {
+.card.glass>.form-grid {
   padding: 36px 36px 40px;
 }
 
 /* 8. Step card appearance for the first .fg-sec in .card.glass */
-.card.glass .form-grid > .fg-sec:first-of-type {
+.card.glass .form-grid>.fg-sec:first-of-type {
   grid-column: span 3;
   background: #ffffff;
   border: 1px solid var(--border);
@@ -2203,18 +2263,18 @@ input[type=number] {
   color: var(--navy);
   text-transform: none;
   letter-spacing: 0;
-  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .04);
 }
 
 /* 8b. Removed duplicate 01 counter */
 
 /* 8c. Hide the dot inside the first step section */
-.card.glass .form-grid > .fg-sec:first-of-type > .fg-sec-dot {
+.card.glass .form-grid>.fg-sec:first-of-type>.fg-sec-dot {
   display: none;
 }
 
 /* 9. All subsequent .fg-sec rows retain gold-bar style */
-.card.glass .form-grid > .fg-sec:not(:first-of-type) {
+.card.glass .form-grid>.fg-sec:not(:first-of-type) {
   grid-column: span 3;
   padding: 28px 0 12px;
   border-top: 1px solid var(--border);
@@ -2280,7 +2340,7 @@ input[type=number] {
 
 .kpi-row .kpi:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 28px rgba(0,0,0,.07);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .07);
 }
 
 .kpi-row .kpi .kpi-lbl {
@@ -2304,7 +2364,7 @@ input[type=number] {
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.04);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .04);
   padding: 32px !important;
 }
 
@@ -2507,11 +2567,11 @@ input[type=number] {
   overflow: hidden;
   border-radius: 16px;
   border: 1px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .06);
 }
 
 /* 2. Navy banner — the .ch row becomes the dark header */
-.card.glass > .ch {
+.card.glass>.ch {
   background: linear-gradient(135deg, #0F2040 0%, #152B52 60%, #1A3566 100%);
   padding: 28px 36px 28px 36px;
   margin: 0;
@@ -2525,7 +2585,7 @@ input[type=number] {
 }
 
 /* 3. "SECURE GATEWAY" eyebrow label via ::before pseudo-element */
-.card.glass > .ch::before {
+.card.glass>.ch::before {
   content: 'SECURE GATEWAY';
   position: absolute;
   top: 18px;
@@ -2539,23 +2599,24 @@ input[type=number] {
 }
 
 /* 4. Title text (.ct) — white, large, pushed below eyebrow */
-.card.glass > .ch > .ct {
+.card.glass>.ch>.ct {
   color: #ffffff;
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.3px;
-  padding-top: 18px;   /* leave room for ::before eyebrow label */
+  padding-top: 18px;
+  /* leave room for ::before eyebrow label */
   gap: 12px;
   align-items: center;
 }
 
 /* 5. Hide the status pip inside the navy banner — it clashes */
-.card.glass > .ch > .ct > .pip {
+.card.glass>.ch>.ct>.pip {
   display: none;
 }
 
 /* 6. Badge pill (.mbadge-gold) → "ML ENGINE ACTIVE" style */
-.card.glass > .ch > .mbadge-gold {
+.card.glass>.ch>.mbadge-gold {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
@@ -2572,7 +2633,7 @@ input[type=number] {
 }
 
 /* 6b. Green glowing dot before badge text */
-.card.glass > .ch > .mbadge-gold::before {
+.card.glass>.ch>.mbadge-gold::before {
   content: '';
   display: inline-block;
   width: 8px;
@@ -2584,12 +2645,12 @@ input[type=number] {
 }
 
 /* 7. Restore padding to the form content area below the banner */
-.card.glass > .form-grid {
+.card.glass>.form-grid {
   padding: 36px 36px 40px;
 }
 
 /* 8. Step card appearance for the first .fg-sec in .card.glass */
-.card.glass .form-grid > .fg-sec:first-of-type {
+.card.glass .form-grid>.fg-sec:first-of-type {
   grid-column: span 3;
   background: #ffffff;
   border: 1px solid var(--border);
@@ -2597,8 +2658,10 @@ input[type=number] {
   padding: 22px 28px;
   margin-bottom: 8px;
   margin-top: 0;
-  border-top: none;   /* override normal fg-sec top border */
-  padding-top: 22px;  /* override normal fg-sec top padding */
+  border-top: none;
+  /* override normal fg-sec top border */
+  padding-top: 22px;
+  /* override normal fg-sec top padding */
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -2608,18 +2671,18 @@ input[type=number] {
   color: var(--navy);
   text-transform: none;
   letter-spacing: 0;
-  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .04);
 }
 
 /* 8b. Removed duplicate 01 counter */
 
 /* 8c. Hide the dot inside the first step section */
-.card.glass .form-grid > .fg-sec:first-of-type > .fg-sec-dot {
+.card.glass .form-grid>.fg-sec:first-of-type>.fg-sec-dot {
   display: none;
 }
 
 /* 9. All subsequent .fg-sec rows retain gold-bar style */
-.card.glass .form-grid > .fg-sec:not(:first-of-type) {
+.card.glass .form-grid>.fg-sec:not(:first-of-type) {
   grid-column: span 3;
   padding: 28px 0 12px;
   border-top: 1px solid var(--border);
@@ -2660,12 +2723,14 @@ input[type=number] {
 .section-header {
   margin-bottom: 32px;
 }
+
 /* Hide spin buttons for number inputs */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
 input[type=number] {
   -moz-appearance: textfield;
 }

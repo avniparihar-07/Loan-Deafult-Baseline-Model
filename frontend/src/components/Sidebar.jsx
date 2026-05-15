@@ -2,12 +2,12 @@ import React from 'react';
 
 export default function Sidebar({ role, activePage, setPage, user, onLogout }) {
   const bankMenu = [
-    { id: 'bd-overview',     label: 'Dashboard' },
-    { id: 'bd-portfolio',    label: 'Customers' },
-    { id: 'bd-risk',         label: 'Risk Review' },
+    { id: 'bd-overview', label: 'Dashboard' },
+    { id: 'bd-portfolio', label: 'Customers' },
+    { id: 'bd-risk', label: 'Risk Review' },
     { id: 'bd-underwriting', label: 'Applications' },
-    { id: 'bd-reports',      label: 'Reports' },
-    { id: 'bd-behaviour',    label: 'Customer Activity' }
+    { id: 'bd-reports', label: 'Reports' },
+    { id: 'bd-behaviour', label: 'Customer Activity' }
   ];
 
   const borrowerMenu = [
@@ -24,16 +24,16 @@ export default function Sidebar({ role, activePage, setPage, user, onLogout }) {
     <header className="sidebar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 32px', background: 'var(--navy)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
       <div className="sb-header">
         <div className="lp-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ 
-            width: '36px', height: '36px', borderRadius: '50%', 
-            border: '2px solid #B5944B', display: 'flex', 
-            alignItems: 'center', justifyContent: 'center', 
-            background: '#0F172A', flexShrink: 0 
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '50%',
+            border: '2px solid #B5944B', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            background: '#0F172A', flexShrink: 0
           }}>
-            <div style={{ 
-              width: '28px', height: '28px', borderRadius: '50%', 
-              border: '1px solid rgba(181, 148, 75, 0.4)', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center' 
+            <div style={{
+              width: '28px', height: '28px', borderRadius: '50%',
+              border: '1px solid rgba(181, 148, 75, 0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
               <span style={{ fontSize: '11px', fontWeight: '900', color: '#B5944B', fontFamily: "'Inter', sans-serif" }}>GZ</span>
             </div>
@@ -52,12 +52,12 @@ export default function Sidebar({ role, activePage, setPage, user, onLogout }) {
 
       <nav className="sb-nav" style={{ display: 'flex', gap: '48px', alignItems: 'center' }}>
         {menu.map(item => (
-          <div 
-            key={item.id} 
+          <div
+            key={item.id}
             className={`sb-item ${activePage === item.id ? 'active' : ''}`}
             onClick={() => setPage(item.id)}
-            style={{ 
-              cursor: 'pointer', 
+            style={{
+              cursor: 'pointer',
               color: activePage === item.id ? 'var(--gold)' : 'rgba(255,255,255,0.6)',
               fontWeight: 700,
               fontSize: '13px',
@@ -85,7 +85,7 @@ export default function Sidebar({ role, activePage, setPage, user, onLogout }) {
             </span>
           </div>
         </div>
-        <button 
+        <button
           onClick={onLogout}
           style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: '0.2s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#fff'; e.currentTarget.style.color = '#fff'; }}
