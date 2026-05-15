@@ -1231,39 +1231,72 @@ def get_dashboard_analytics():
     try:
         from sqlalchemy import func, extract
         
-        # 1. Volume over time (last 12 months)
-        trend_data = []
+        # 1. Volume & Trend over time (last 12 months, 1 to 12)
+        volume_trend = []
+        default_rate_trend = []
+        emi_trend = []
+        risk_trend = {'Low': [], 'Medium': [], 'High': []}
+
         for i in range(1, 13): 
             try:
+                # Volume
                 count = db.query(func.count(PredictionRecord.id)).filter(
                     PredictionRecord.application_type == 'official',
                     PredictionRecord.target_bank == bank_name,
                     extract('month', PredictionRecord.created_at) == i
                 ).scalar() or 0
-                trend_data.append(count)
+                volume_trend.append(count)
+
+                # Default Rate (Avg probability * 100)
+                avg_prob = db.query(func.avg(PredictionRecord.default_probability)).filter(
+                    PredictionRecord.application_type == 'official',
+                    PredictionRecord.target_bank == bank_name,
+                    extract('month', PredictionRecord.created_at) == i,
+                    PredictionRecord.default_probability.isnot(None)
+                ).scalar() or 0
+                default_rate_trend.append(round(avg_prob * 100, 1))
+
+                # EMI Sum
+                sum_emi = db.query(func.sum(PredictionRecord.emi)).filter(
+                    PredictionRecord.application_type == 'official',
+                    PredictionRecord.target_bank == bank_name,
+                    extract('month', PredictionRecord.created_at) == i,
+                    PredictionRecord.emi.isnot(None)
+                ).scalar() or 0
+                emi_trend.append(round(sum_emi, 2))
+
+                # Risk Categories
+                for r_cat in ['Low', 'Medium', 'High']:
+                    r_count = db.query(func.count(PredictionRecord.id)).filter(
+                        PredictionRecord.application_type == 'official',
+                        PredictionRecord.target_bank == bank_name,
+                        extract('month', PredictionRecord.created_at) == i,
+                        PredictionRecord.risk_category == r_cat
+                    ).scalar() or 0
+                    # Convert to percentage
+                    pct = round((r_count / count * 100) if count > 0 else 0, 1)
+                    risk_trend[r_cat].append(pct)
+
             except Exception as e:
                 logger.warning(f"Trend extraction failed for month {i}: {e}")
-                trend_data.append(0)
+                volume_trend.append(0)
+                default_rate_trend.append(0)
+                emi_trend.append(0)
+                for r_cat in ['Low', 'Medium', 'High']: risk_trend[r_cat].append(0)
 
         # 2. Risk Distribution
         risk_dist = {
-            'Low': db.query(func.count(PredictionRecord.id)).filter(
+            r_cat: db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.application_type == 'official',
                 PredictionRecord.target_bank == bank_name,
-                PredictionRecord.risk_category == 'Low'
-            ).scalar() or 0,
-            'Medium': db.query(func.count(PredictionRecord.id)).filter(
-                PredictionRecord.target_bank == bank_name,
-                PredictionRecord.risk_category == 'Medium'
-            ).scalar() or 0,
-            'High': db.query(func.count(PredictionRecord.id)).filter(
-                PredictionRecord.target_bank == bank_name,
-                PredictionRecord.risk_category == 'High'
-            ).scalar() or 0
+                PredictionRecord.risk_category == r_cat
+            ).scalar() or 0 for r_cat in ['Low', 'Medium', 'High']
         }
 
         # 3. Loan Purpose Distribution
         purposes = ["Home", "Auto", "Education", "Business", "Other"]
         purpose_dist = {p: db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
             PredictionRecord.loan_purpose == p
         ).scalar() or 0 for p in purposes}
@@ -1273,6 +1306,7 @@ def get_dashboard_analytics():
         credit_dist = []
         for low, high in credit_ranges:
             count = db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.application_type == 'official',
                 PredictionRecord.target_bank == bank_name,
                 PredictionRecord.credit_score >= low,
                 PredictionRecord.credit_score < high
@@ -1282,6 +1316,7 @@ def get_dashboard_analytics():
         # 5. Employment Type Distribution
         emp_types = ['Full-time', 'Self-employed', 'Part-time', 'Unemployed']
         emp_dist = {t: db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
             PredictionRecord.employment_type == t
         ).scalar() or 0 for t in emp_types}
@@ -1291,14 +1326,20 @@ def get_dashboard_analytics():
         dti_dist = []
         for low, high in dti_ranges:
             count = db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.application_type == 'official',
                 PredictionRecord.target_bank == bank_name,
                 PredictionRecord.dti_ratio >= low,
                 PredictionRecord.dti_ratio < high
             ).scalar() or 0
             dti_dist.append(count)
 
+        logger.info(f"[/api/bank-dashboard/analytics] Computed purpose_dist: {purpose_dist}")
+        
         return jsonify({
-            'volume_trend': trend_data,
+            'volume_trend': volume_trend,
+            'default_rate_trend': default_rate_trend,
+            'emi_trend': emi_trend,
+            'risk_trend': risk_trend,
             'risk_distribution': risk_dist,
             'purpose_distribution': purpose_dist,
             'credit_distribution': credit_dist,

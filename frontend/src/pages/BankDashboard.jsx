@@ -192,7 +192,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
     fetch(apiUrl(`/api/bank-dashboard/stats${bankParam}`))
       .then(r => r.json())
       .then(data => {
-        if (!data.error) setStats(data);
+        if (!data.error) {
+          setStats(data);
+          console.log('[BankDashboard] Raw DB Stats:', data);
+        }
       })
       .catch(e => console.error("Error fetching stats:", e));
 
@@ -200,7 +203,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
     fetch(apiUrl(`/api/bank-dashboard/analytics${bankParam}`))
       .then(r => r.json())
       .then(data => {
-        if (!data.error) setAnalytics(data);
+        if (!data.error) {
+          setAnalytics(data);
+          console.log('[BankDashboard] Grouped Analytics API Payload:', data);
+        }
       })
       .catch(e => console.error("Error fetching analytics:", e));
   };
@@ -696,7 +702,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
               {
                 label: 'Default Rate %', 
-                data: [12.1, 11.8, 11.5, 11.9, 11.4, 11.2, 11.7, 11.6, 11.3, 11.6],
+                data: analytics?.default_rate_trend || Array(12).fill(0),
                 borderColor: '#E85475', 
                 borderWidth: 2.5, 
                 backgroundColor: '#E85475', 
@@ -841,19 +847,19 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
       if (ctxCoef) {
 
-        const coefs = [
+          const coefs = [
 
-          { name: 'Age', val: -0.60 },
+            { name: 'Credit Score', val: -0.62 },
 
-          { name: 'Income', val: -0.45 },
+            { name: 'Income', val: -0.45 },
 
-          { name: 'LoanAmt', val: 0.38 },
+            { name: 'Loan Amt', val: 0.38 },
 
-          { name: 'CreditScore', val: -0.52 },
+            { name: 'Age', val: -0.22 },
 
-          { name: 'DTI', val: 0.25 }
+            { name: 'DTI', val: 0.25 }
 
-        ];
+          ];
 
         coefChart = new Chart(ctxCoef, {
 
@@ -891,11 +897,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 
             datasets: [{
 
-              data: [18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000, 18000],
+              data: analytics?.emi_trend || Array(12).fill(0),
 
               backgroundColor: ['#38C9B0', '#38C9B0', '#38C9B0', '#38C9B0', '#38C9B0', '#C9973C', '#38C9B0', '#38C9B0', '#38C9B0', '#38C9B0', '#C9973C', '#38C9B0'],
 
@@ -933,15 +939,15 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 
             datasets: [
 
-              { label: 'Low', data: [60, 62, 63, 61, 62, 61, 61], backgroundColor: '#38C9B0' },
+              { label: 'Low', data: analytics?.risk_trend?.Low || Array(12).fill(0), backgroundColor: '#38C9B0' },
 
-              { label: 'Medium', data: [28, 26, 26, 27, 26, 27, 27], backgroundColor: '#C9973C' },
+              { label: 'Medium', data: analytics?.risk_trend?.Medium || Array(12).fill(0), backgroundColor: '#C9973C' },
 
-              { label: 'High', data: [12, 12, 11, 12, 12, 12, 12], backgroundColor: '#E85475' }
+              { label: 'High', data: analytics?.risk_trend?.High || Array(12).fill(0), backgroundColor: '#E85475' }
 
             ]
 
@@ -963,9 +969,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: ['Oct 23', 'Dec', 'Feb', 'Apr', 'Jun', 'Aug', 'Oct', 'Dec', 'Feb'],
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 
-            datasets: [{ data: [12.8, 12.1, 11.9, 11.8, 11.5, 11.6, 11.2, 11.3, 11.0], borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2 }]
+            datasets: [{ data: analytics?.default_rate_trend || Array(12).fill(0), borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2 }]
 
           },
 
@@ -1486,17 +1492,15 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                 <div className="card fade-up">
 
-                  <div className="ch"><div className="ct"><div className="pip pip-teal"></div>Default Rate by Loan Purpose</div></div>
+                  <div className="ch"><div className="ct"><div className="pip pip-teal"></div>Application Volume by Loan Purpose</div></div>
 
                   <div style={{ height: '260px', position: 'relative' }}><canvas id="cht-purpose"></canvas></div>
-
-                  <div style={{ fontSize: '13px', color: 'var(--text)', marginTop: '12px' }}>Home: 10.2% · Business: 12.3% · Auto: 11.9%</div>
 
                 </div>
 
                 <div className="card fade-up">
 
-                  <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Credit Score vs Default Rate</div></div>
+                  <div className="ch"><div className="ct"><div className="pip pip-sky"></div>Credit Score Distribution</div></div>
 
                   <div style={{ height: '260px', position: 'relative' }}><canvas id="cht-credit"></canvas></div>
 
