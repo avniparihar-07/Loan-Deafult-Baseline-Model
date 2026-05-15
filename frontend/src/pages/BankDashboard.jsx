@@ -2284,7 +2284,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                           <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace" }}>{a.credit_score}</td>
 
-                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace" }}>{a.dti}</td>
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace" }}>{a.dti != null ? ((a.dti) * 100).toFixed(1) + '%' : '-'}</td>
 
                           <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace", fontWeight: 700, color: a.probability < 0.3 ? 'var(--teal)' : a.probability < 0.6 ? 'var(--gold)' : 'var(--rose)' }}>{a.probability != null ? Math.round(a.probability * 100) + '%' : '-'}</td>
 
@@ -3884,12 +3884,13 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                           { l: 'Age', v: `${selectedApp.age}y` },
                           { l: 'Credit Score', v: selectedApp.credit_score, c: 'var(--gold)' },
                           { l: 'Annual Income', v: `₹${fmtK(selectedApp.income)}` },
-                          { l: 'DTI Ratio', v: (selectedApp.dti || 0).toFixed(2) },
+                          { l: 'DTI Ratio', v: `${((selectedApp.dti || 0) * 100).toFixed(1)}%` },
                           { l: 'Loan Requested', v: `₹${fmt(selectedApp.loan_amount)}`, c: 'var(--teal)' },
-                          { l: 'Purpose', v: selectedApp.loan_purpose },
+                          { l: 'Loan Purpose', v: selectedApp.loan_purpose || 'Other' },
                           { l: 'Employment', v: selectedApp.employment_type },
-                          { l: 'Duration', v: `${selectedApp.months_employed}m` },
-                          { l: 'Education', v: selectedApp.education || 'Bachelor\'s' },
+                          { l: 'Loan Term', v: `${selectedApp.term}m`, c: 'var(--sky)' },
+                          { l: 'Months Employed', v: `${selectedApp.months_employed}m` },
+                          { l: 'Education', v: selectedApp.education || "Bachelor's" },
                           { l: 'Co-Signer', v: selectedApp.has_cosigner || 'No' },
                           { l: 'Dependents', v: selectedApp.has_dependents || 'No' },
                           { l: 'Loan ID', v: selectedApp.loan_id || 'N/A', c: 'var(--sky)' }

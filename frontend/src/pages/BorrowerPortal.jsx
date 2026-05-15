@@ -212,12 +212,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     const stdTerms = [12, 24, 36, 48, 60];
     const stdPurposes = ['home', 'auto', 'education', 'business', 'medical', 'personal', 'other'];
     const isCustomTerm = !stdTerms.includes(parseInt(app.term));
-    const isCustomPurp = !stdPurposes.includes(app.loan_purpose?.toLowerCase());
+    const isCustomPurp = !stdPurposes.includes((app.loan_purpose || '').toLowerCase());
 
     setViewForm({
       age: app.age, credit: app.credit_score, income: app.income, loanAmt: app.loan_amount,
       dti: app.dti, lines: app.num_credit_lines,
-      purpose: isCustomPurp ? 'custom' : app.loan_purpose?.toLowerCase(),
+      purpose: isCustomPurp ? 'custom' : (app.loan_purpose?.toLowerCase() || 'other'),
       customPurpose: isCustomPurp ? app.loan_purpose : '',
       term: isCustomTerm ? 'custom' : parseInt(app.term),
       customTerm: isCustomTerm ? app.term : '',
@@ -309,6 +309,19 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     if (selectedIdType !== 'pan' && !docs.idBack) { alert('Please upload the back of your identity document.'); return; }
 
     setApplySubmitting(true);
+    // Ensure DTI is stored as a valid decimal (0-1 range). Auto-calc is already in decimal.
+    const safeDti = Math.max(0, Math.min(parseFloat(applyForm.dti) || 0, 0.99));
+    // Purpose: map form key to human-readable label, preserving specificity for the analyst
+    const loanPurposeFull = {
+      home: 'Home', auto: 'Auto', education: 'Education', business: 'Business',
+      medical: 'Medical', personal: 'Personal', other: 'Other'
+    };
+    // ML model only accepts: Home, Business, Education, Auto, Other — so we normalize for storage
+    const mlPurposeMap = { home: 'Home', auto: 'Auto', education: 'Education', business: 'Business', medical: 'Other', personal: 'Other', other: 'Other', custom: 'Other' };
+    // Store the full human-readable purpose (analyst sees this); ML will use its own mapping at analyze time
+    const storedPurpose = effectivePurpose2 === 'custom'
+      ? (applyForm.customPurpose || 'Other')
+      : (loanPurposeFull[effectivePurpose2] || mlPurposeMap[effectivePurpose2] || 'Other');
     const payload = {
       FullName: `${user?.first} ${user?.last}`.trim(),
       Email: user?.email,
@@ -319,13 +332,13 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       MonthsEmployed: applyForm.empl,
       NumCreditLines: applyForm.lines || 1,
       LoanTerm: effectiveTerm2,
-      DTIRatio: applyForm.dti || 0,
+      DTIRatio: safeDti,
       Education: eduMap2[applyForm.edu] || "Bachelor's",
       EmploymentType: empMap2[applyForm.empType] || 'Full-time',
       MaritalStatus: marMap2[applyForm.marital] || 'Single',
       HasMortgage: applyFlags.mort === 'Y' ? 'Yes' : 'No',
       HasDependents: applyFlags.dep === 'Y' ? 'Yes' : 'No',
-      LoanPurpose: purposeMap[effectivePurpose2] || 'Other',
+      LoanPurpose: storedPurpose,
       HasCoSigner: applyFlags.co === 'Y' ? 'Yes' : 'No',
       HasExistingLoan: applyFlags.extloan === 'Y' ? 'Yes' : 'No',
       JobChanges: applyForm.jobChanges || 0,

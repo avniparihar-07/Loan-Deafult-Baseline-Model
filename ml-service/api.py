@@ -788,6 +788,14 @@ def analyze_application(app_id):
         emi = (amount * monthly_rate * pow(1 + monthly_rate, term)) / (pow(1 + monthly_rate, term) - 1)
 
         # ML Prediction
+        # Normalize purpose to ML-accepted values (Home/Auto/Education/Business/Other)
+        # DB may store human-readable labels like 'Medical', 'Personal' — map those to 'Other' for ML
+        _ml_purpose_map = {'home': 'Home', 'auto': 'Auto', 'education': 'Education',
+                           'business': 'Business', 'medical': 'Other', 'personal': 'Other', 'other': 'Other'}
+        raw_purpose = (record.loan_purpose or 'Other').strip()
+        ml_purpose = _ml_purpose_map.get(raw_purpose.lower(), raw_purpose)
+        if ml_purpose not in ('Home', 'Auto', 'Education', 'Business', 'Other'):
+            ml_purpose = 'Other'
         ml_data = {
             'Age': record.age, 'Income': record.income,
             'LoanAmount': record.loan_amount, 'CreditScore': record.credit_score or 600,
@@ -799,7 +807,7 @@ def analyze_application(app_id):
             'MaritalStatus': record.marital_status or 'Single',
             'HasMortgage': record.has_mortgage or 'No',
             'HasDependents': record.has_dependents or 'No',
-            'LoanPurpose': record.loan_purpose or 'Other',
+            'LoanPurpose': ml_purpose,
             'HasCoSigner': record.has_cosigner or 'No',
         }
         features_df = prepare_features(ml_data)
