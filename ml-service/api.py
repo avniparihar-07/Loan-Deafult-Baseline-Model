@@ -1168,10 +1168,11 @@ def get_dashboard_stats():
     try:
         from sqlalchemy import func
         
-        # Total official applications for this bank
+        # Total official applications for this bank (Active in pipeline, exclude Rejected)
         total = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
-            PredictionRecord.target_bank == bank_name
+            PredictionRecord.target_bank == bank_name,
+            PredictionRecord.status != 'Rejected'
         ).scalar() or 0
 
         # Approved
@@ -1181,11 +1182,12 @@ def get_dashboard_stats():
             PredictionRecord.status == 'Approved'
         ).scalar() or 0
 
-        # Pending
+        # Pending (excluding high risk to avoid double counting in dashboard)
         pending = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.status == 'Pending'
+            PredictionRecord.status == 'Pending',
+            (PredictionRecord.default_probability <= 0.6) | (PredictionRecord.default_probability.is_(None))
         ).scalar() or 0
 
         # Rejected
