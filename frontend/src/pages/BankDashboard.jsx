@@ -1164,17 +1164,12 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
               data: [
 
-                apps.length > 0 ? (apps.reduce((s, a) => s + a.income, 0) / apps.length / 2000) : 70,
-
-                apps.length > 0 ? (apps.reduce((s, a) => s + a.credit_score, 0) / apps.length / 10) : 65,
-
-                apps.length > 0 ? (apps.reduce((s, a) => s + a.months_employed, 0) / apps.length) : 80,
-
-                apps.length > 0 ? (100 - (apps.reduce((s, a) => s + a.dti, 0) / apps.length * 100)) : 75,
-
-                apps.length > 0 ? (apps.filter(a => a.months_employed > 24).length / apps.length * 100) : 85,
-
-                apps.length > 0 ? (100 - (apps.reduce((s, a) => s + a.probability, 0) / apps.length * 100)) : 70
+                apps.length > 0 ? Math.min(100, (apps.reduce((s, a) => s + (a.income || 0), 0) / apps.length / 1500000) * 100) : 70,
+                apps.length > 0 ? ((apps.reduce((s, a) => s + (a.credit_score || 0), 0) / apps.length - 300) / 600 * 100) : 65,
+                apps.length > 0 ? Math.min(100, (apps.reduce((s, a) => s + (a.months_employed || 0), 0) / apps.length) * 2) : 80,
+                apps.length > 0 ? (100 - (apps.reduce((s, a) => s + (a.dti || 0), 0) / apps.length * 100)) : 75,
+                apps.length > 0 ? (apps.filter(a => (a.months_employed || 0) > 24).length / apps.length * 100) : 85,
+                apps.length > 0 ? (100 - (apps.reduce((s, a) => s + (a.probability || 0), 0) / apps.length * 100)) : 70
 
               ],
 
@@ -1210,9 +1205,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
             datasets: [
 
-              { label: 'Avg User Spending', data: Array(12).fill(0).map(() => (apps.reduce((s, a) => s + a.income, 0) / (apps.length || 1) / 12) * (0.6 + Math.random() * 0.2)), borderColor: theme === 'dark' ? '#ECF0F8' : '#0C1428', borderWidth: 2.5, pointBackgroundColor: '#38C9B0', pointBorderColor: theme === 'dark' ? '#ECF0F8' : '#0C1428', pointBorderWidth: 2, pointRadius: 4, tension: 0.4 },
-
-              { label: 'Avg Monthly Income', data: Array(12).fill(apps.reduce((s, a) => s + a.income, 0) / (apps.length || 1) / 12), borderColor: theme === 'dark' ? '#A4B0C8' : '#5E6E88', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0 }
+              { label: 'Avg User Spending', data: [0.65, 0.72, 0.68, 0.55, 0.70, 0.75, 0.62, 0.68, 0.71, 0.58, 0.64, 0.69].map(factor => (apps.reduce((s, a) => s + (a.income || 0), 0) / (apps.length || 1) / 12) * factor * (1 + (apps.reduce((s, a) => s + (a.dti || 0), 0) / (apps.length || 1)))), borderColor: theme === 'dark' ? '#ECF0F8' : '#0C1428', borderWidth: 2.5, pointBackgroundColor: '#38C9B0', pointBorderColor: theme === 'dark' ? '#ECF0F8' : '#0C1428', pointBorderWidth: 2, pointRadius: 4, tension: 0.4 },
+              { label: 'Avg Monthly Income', data: Array(12).fill(apps.reduce((s, a) => s + (a.income || 0), 0) / (apps.length || 1) / 12), borderColor: theme === 'dark' ? '#A4B0C8' : '#5E6E88', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, tension: 0 }
 
             ]
 
@@ -1242,9 +1236,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: ['Fixed Income', 'Equity MF', 'Direct Equity', 'Govt Bonds'],
-
-            datasets: [{ data: [35, 30, 20, 15], backgroundColor: ['#38C9B0', '#4BA8E0', '#C9973C', '#A072F0'], borderWidth: 0 }]
+            labels: ['Home', 'Education', 'Personal', 'Business'],
+            datasets: [{ data: ['Home', 'Education', 'Personal', 'Business'].map(l => apps.filter(a => (a.loan_purpose || '').includes(l)).length), backgroundColor: ['#38C9B0', '#4BA8E0', '#C9973C', '#A072F0'], borderWidth: 0 }]
 
           },
 
@@ -2731,24 +2724,15 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                 <div style={{ position: 'relative', paddingLeft: '20px', borderLeft: '1px solid var(--border)', marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-                  {apps.slice(0, 3).map((a, i) => (
-
+                  {apps.slice(0, 6).map((a, i) => (
                     <div key={i} style={{ position: 'relative' }}>
-
-                      <div style={{ position: 'absolute', left: '-25px', top: '4px', width: '9px', height: '9px', borderRadius: '50%', background: a.months_employed > 24 ? 'var(--teal)' : 'var(--rose)', border: '2px solid var(--panel)' }}></div>
-
+                      <div style={{ position: 'absolute', left: '-25px', top: '4px', width: '9px', height: '9px', borderRadius: '50%', background: (a.months_employed || 0) > 24 ? 'var(--teal)' : 'var(--rose)', border: '2px solid var(--panel)' }}></div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-
                         <span style={{ fontWeight: 700, fontSize: '13px' }}>{a.full_name || 'Manual Entry'}</span>
-
-                        <span style={{ fontSize: '10px', background: a.months_employed > 24 ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: a.months_employed > 24 ? 'var(--teal)' : 'var(--rose)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>{a.months_employed}mo</span>
-
+                        <span style={{ fontSize: '10px', background: (a.months_employed || 0) > 24 ? 'rgba(56,201,176,0.1)' : 'rgba(232,84,117,0.1)', color: (a.months_employed || 0) > 24 ? 'var(--teal)' : 'var(--rose)', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>{a.months_employed || 0}mo</span>
                       </div>
-
                       <div style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'IBM Plex Mono',monospace" }}>{a.employment_type || 'Full-time'} ·{a.job_changes || 0} changes</div>
-
                     </div>
-
                   ))}
 
                 </div>
