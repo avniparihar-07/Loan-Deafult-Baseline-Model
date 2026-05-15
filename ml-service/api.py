@@ -1164,7 +1164,9 @@ def get_dashboard_stats():
 
     db = get_db()
     if not db: return jsonify({'error': 'DB offline'}), 500
-    
+    try:
+        from sqlalchemy import func
+
         # --- DATA MIGRATION FOR SEED/DEMO RECORDS ---
         # Ensure every application has a workflow_status, risk_category, and default_probability
         missing_records = db.query(PredictionRecord).filter(
