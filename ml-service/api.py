@@ -1168,20 +1168,28 @@ def get_dashboard_stats():
         from sqlalchemy import func
 
         # --- DATA MIGRATION FOR SEED/DEMO RECORDS ---
-        # Ensure every application has a workflow_status, risk_category, and default_probability
-        missing_records = db.query(PredictionRecord).filter(
-            (PredictionRecord.status.is_(None)) | 
-            (PredictionRecord.risk_category.is_(None)) | 
-            (PredictionRecord.default_probability.is_(None))
-        ).all()
+        # Ensure every application has consistent workflow_status, risk_category, and default_probability
+        all_records = db.query(PredictionRecord).all()
         
-        for r in missing_records:
+        modified = False
+        for r in all_records:
             if r.status is None or r.status == '':
                 r.status = 'pending'
+                modified = True
                 
-            # If default_probability is missing, assign a safe demo value (e.g., 0.15)
+            # Force rejected applications to be High Risk
+            if r.status and r.status.lower() == 'rejected':
+                if r.risk_category != 'High Risk':
+                    r.risk_category = 'High Risk'
+                    modified = True
+                if r.default_probability is None or r.default_probability < 0.6:
+                    r.default_probability = 0.85
+                    modified = True
+                    
+            # If default_probability is missing, assign a safe demo value
             if r.default_probability is None:
-                r.default_probability = 0.15
+                r.default_probability = 0.15 if r.status.lower() == 'approved' else 0.45
+                modified = True
                 
             # Ensure risk_category maps to Low, Medium, or High
             if r.risk_category is None or r.risk_category == '' or r.risk_category == 'Unscored':
@@ -1191,8 +1199,9 @@ def get_dashboard_stats():
                     r.risk_category = 'High Risk'
                 else:
                     r.risk_category = 'Medium Risk'
+                modified = True
                     
-        if missing_records:
+        if modified:
             db.commit()
         # ---------------------------------------------
 
