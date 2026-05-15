@@ -3785,7 +3785,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '32px', fontWeight: 800, letterSpacing: '-1px' }}>{selectedApp.full_name || 'Manual Entry'}</div>
-                      <div className={`status-chip sc-${(selectedApp.risk_category || 'pending').toLowerCase()}`} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.2)' }}>{selectedApp.risk_category || 'Pending'} Risk</div>
+                      <div className={`status-chip sc-${(selectedApp.risk_category || 'pending').toLowerCase().includes('low') ? 'low' : (selectedApp.risk_category || 'pending').toLowerCase().includes('med') ? 'med' : 'high'}`} style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.2)' }}>{(selectedApp.risk_category || 'Pending').toUpperCase().includes('LOW') ? 'LOW RISK' : (selectedApp.risk_category || 'Pending').toUpperCase()}</div>
                     </div>
                   </div>
 
