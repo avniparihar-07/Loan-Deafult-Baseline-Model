@@ -2304,7 +2304,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                           <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace" }}>{a.dti != null ? ((a.dti) * 100).toFixed(1) + '%' : '-'}</td>
 
-                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace", fontWeight: 700, color: a.probability < 0.3 ? 'var(--teal)' : a.probability < 0.6 ? 'var(--gold)' : 'var(--rose)' }}>{a.probability != null ? Math.round(a.probability * 100) + '%' : '-'}</td>
+                          <td style={{ padding: '16px 14px', fontFamily: "'IBM Plex Mono',monospace", fontWeight: 700, color: a.probability < 0.3 ? 'var(--teal)' : a.probability < 0.6 ? 'var(--gold)' : 'var(--rose)' }}>
+                            {(a.status === 'Pending' || !a.assigned_rate || a.assigned_rate === '-') ? '-' : (a.probability != null ? Math.round(a.probability * 100) + '%' : '-')}
+                          </td>
 
                           <td style={{ padding: '16px 14px' }}>
 
