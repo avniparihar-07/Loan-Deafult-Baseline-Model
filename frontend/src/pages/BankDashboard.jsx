@@ -149,7 +149,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
     fullName: '', age: '', credit: '', income: '', loanAmt: '', dti: '', lines: '',
 
-    purpose: 'other', term: '24', rate: '', empType: 'full', empl: '', jobChanges: '',
+    purpose: 'home', term: '24', rate: '', empType: 'full', empl: '', jobChanges: '',
 
     edu: 'bach', marital: 'single', state: 'MH', customPurpose: '', customTerm: '',
 
@@ -468,19 +468,9 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
     }
 
-    if (formData.purpose === 'custom' && !formData.customPurpose) {
+    const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", personal: "Personal", medical: "Medical", travel: "Travel" };
 
-      alert('Please enter a custom loan purpose');
-
-      return;
-
-    }
-
-    const effectiveTerm = formData.term === 'custom' ? (parseInt(formData.customTerm) || 24) : (parseInt(formData.term) || 24);
-
-    const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", medical: "Other", personal: "Other", other: "Other", custom: "Other" };
-
-    const effectivePurpose = formData.purpose === 'custom' ? (formData.customPurpose || "Other") : (formData.purpose || "other");
+    const effectivePurpose = formData.purpose;
 
     const payload = {
 
@@ -512,7 +502,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
       HasDependents: flags.dep === 'Y' ? 'Yes' : 'No',
 
-      LoanPurpose: purposeMap[effectivePurpose] || "Other",
+      LoanPurpose: purposeMap[effectivePurpose] || "Personal",
 
       HasCoSigner: flags.co === 'Y' ? 'Yes' : 'No',
 
@@ -749,17 +739,17 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: ['Home', 'Other', 'Education', 'Auto', 'Business'],
+            labels: ['Home', 'Auto', 'Education', 'Business', 'Personal', 'Medical', 'Travel'],
 
             datasets: [{
-              data: ['Home', 'Other', 'Education', 'Auto', 'Business'].map(l => analytics?.purpose_distribution?.[l] || 0),
-              backgroundColor: ['#38C9B0', '#A072F0', '#4BA8E0', '#C9973C', '#E85475'],
+              data: ['Home', 'Auto', 'Education', 'Business', 'Personal', 'Medical', 'Travel'].map(l => analytics?.purpose_distribution?.[l] || 0),
+              backgroundColor: ['#38C9B0', '#C9973C', '#4BA8E0', '#E85475', '#A072F0', '#FF8C42', '#38C9B0'],
               borderRadius: 4
             }]
 
           },
 
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: g }, ticks: { callback: v => v + '%' } } } }
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: g }, ticks: { precision: 0 } } } }
 
         });
 
@@ -991,11 +981,11 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
           data: {
 
-            labels: ['Home', 'Education', 'Auto', 'Other', 'Business'],
+            labels: ['Home', 'Auto', 'Education', 'Business', 'Personal', 'Medical', 'Travel'],
 
             datasets: [{
-              data: ['Home', 'Education', 'Auto', 'Other', 'Business'].map(l => analytics?.purpose_distribution?.[l] || 0),
-              backgroundColor: ['#E85475', '#4BA8E0', '#38C9B0', '#A072F0', '#C9973C'],
+              data: ['Home', 'Auto', 'Education', 'Business', 'Personal', 'Medical', 'Travel'].map(l => analytics?.purpose_distribution?.[l] || 0),
+              backgroundColor: ['#38C9B0', '#C9973C', '#4BA8E0', '#E85475', '#A072F0', '#FF8C42', '#38C9B0'],
               borderWidth: 0
             }]
 
@@ -1697,17 +1687,15 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div>
 
-                    <div className="flab">LOAN PURPOSE <span className="combo-tag">+ ENTER MANUALLY</span></div>
+                    <div className="flab">LOAN PURPOSE</div>
 
                     <div className="combo-field">
 
                       <select className="combo-select" value={formData.purpose} onChange={e => update('purpose', e.target.value)}>
 
-                        <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="medical">Medical</option><option value="personal">Personal Loan</option><option value="custom">Enter manually...</option>
+                        <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="personal">Personal</option><option value="medical">Medical</option><option value="travel">Travel</option>
 
                       </select>
-
-                      <input className={`combo-manual ${formData.purpose === 'custom' ? 'show' : ''}`} placeholder="e.g. Wedding, Machinery..." value={formData.customPurpose} onChange={e => update('customPurpose', e.target.value)} />
 
                     </div>
 

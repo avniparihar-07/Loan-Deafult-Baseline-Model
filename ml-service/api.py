@@ -1135,8 +1135,7 @@ def feature_options():
         'EmploymentType': ["Full-time", "Part-time", "Self-employed", "Unemployed"],
         'MaritalStatus': ["Divorced", "Married", "Single"],
         'HasMortgage': ["Yes", "No"],
-        'HasDependents': ["Yes", "No"],
-        'LoanPurpose': ["Auto", "Business", "Education", "Home", "Other"],
+        'LoanPurpose': ["Auto", "Business", "Education", "Home", "Personal", "Medical", "Travel"],
         'HasCoSigner': ["Yes", "No"],
         'numeric_ranges': {
             'Age': {'min': 18, 'max': 80, 'step': 1},
@@ -1196,11 +1195,12 @@ def get_dashboard_stats():
             PredictionRecord.status == 'Rejected'
         ).scalar() or 0
 
-        # High Risk (ML Probability > 60%)
+        # High Risk (ML Probability > 60% AND pending review)
         high_risk = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.default_probability > 0.6
+            PredictionRecord.default_probability > 0.6,
+            PredictionRecord.status == 'Pending'
         ).scalar() or 0
 
         return jsonify({
@@ -1230,6 +1230,14 @@ def get_dashboard_analytics():
 
     try:
         from sqlalchemy import func, extract
+        
+        # 0. Migrate 'Other' purposes to 'Personal' dynamically to clean up old DB records
+        try:
+            db.query(PredictionRecord).filter(PredictionRecord.loan_purpose == 'Other').update({"loan_purpose": "Personal"})
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Failed to auto-migrate 'Other' to 'Personal': {e}")
         
         # 1. Volume & Trend over time (last 12 months, 1 to 12)
         volume_trend = []
@@ -1294,7 +1302,7 @@ def get_dashboard_analytics():
         }
 
         # 3. Loan Purpose Distribution
-        purposes = ["Home", "Auto", "Education", "Business", "Other"]
+        purposes = ["Home", "Auto", "Education", "Business", "Personal", "Medical", "Travel"]
         purpose_dist = {p: db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,

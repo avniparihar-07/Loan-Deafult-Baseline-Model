@@ -317,13 +317,10 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     // Purpose: always use the actual form key, map to human-readable label
     const loanPurposeFull = {
       home: 'Home', auto: 'Auto', education: 'Education', business: 'Business',
-      medical: 'Medical', personal: 'Personal', other: 'Other'
+      medical: 'Medical', personal: 'Personal', travel: 'Travel'
     };
-    // For custom purpose: use the text the borrower typed; otherwise map the key
-    const rawPurposeKey = applyForm.purpose; // e.g. 'home', 'auto', 'custom'
-    const storedPurpose = rawPurposeKey === 'custom'
-      ? (applyForm.customPurpose.trim() || 'Other')
-      : (loanPurposeFull[rawPurposeKey] || 'Other');
+    const rawPurposeKey = applyForm.purpose; // e.g. 'home', 'auto'
+    const storedPurpose = loanPurposeFull[rawPurposeKey] || 'Personal';
     const payload = {
       FullName: `${user?.first} ${user?.last}`.trim(),
       Email: user?.email,
@@ -830,16 +827,9 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                       <div>
                         <div className="flab">Purpose</div>
                         <div className="combo-field">
-                          <select className={`fselect ${curData.purpose === 'custom' ? 'has-manual' : ''}`} value={curData.purpose} onChange={e => update('purpose', e.target.value)} disabled={isReadOnly}>
-                            <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="medical">Medical</option><option value="personal">Personal Loan</option><option value="custom">Write your own…</option>
+                          <select className="fselect" value={curData.purpose} onChange={e => update('purpose', e.target.value)} disabled={isReadOnly}>
+                            <option value="home">Home</option><option value="auto">Auto</option><option value="education">Education</option><option value="business">Business</option><option value="personal">Personal</option><option value="medical">Medical</option><option value="travel">Travel</option>
                           </select>
-                          <input
-                            className={`combo-manual ${curData.purpose === 'custom' ? 'show' : ''}`}
-                            placeholder="e.g. Wedding, Medical, Machinery…"
-                            value={curData.customPurpose}
-                            onChange={e => update('customPurpose', e.target.value)}
-                            disabled={isReadOnly}
-                          />
                         </div>
                       </div>
                       <div>
