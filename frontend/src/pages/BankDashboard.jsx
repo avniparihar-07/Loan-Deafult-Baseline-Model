@@ -808,31 +808,6 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
       }
 
-      const ctxDti = document.getElementById('cht-dti');
-
-      if (ctxDti) {
-
-        dtiChart = new Chart(ctxDti, {
-
-          type: 'line',
-
-          data: {
-
-            labels: ['0—œ0.2', '0.2—œ0.4', '0.4—œ0.6', '0.6—œ0.8', '0.8—œ1.0'],
-
-            datasets: [{
-              label: 'Users',
-              data: analytics?.dti_distribution || Array(5).fill(0),
-              borderColor: lineC, borderWidth: 2.5, backgroundColor: lineC, pointBackgroundColor: bgC, pointBorderColor: lineC, pointBorderWidth: 2, pointRadius: 4, tension: 0.2
-            }]
-
-          },
-
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { grid: { color: g }, ticks: { callback: v => v + '%' } } } }
-
-        });
-
-      }
 
       const ctxCoef = document.getElementById('cht-coef');
 
@@ -1486,7 +1461,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr', gap: '20px', marginBottom: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
 
                 <div className="card fade-up">
 
@@ -1498,11 +1473,6 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                 </div>
 
-                <div className="card fade-up">
-
-                  <div style={{ height: '200px', position: 'relative', background: 'var(--gold-glow)', borderRadius: '8px', padding: '10px' }}><canvas id="cht-dti"></canvas></div>
-
-                </div>
 
                 <div className="card fade-up">
 
