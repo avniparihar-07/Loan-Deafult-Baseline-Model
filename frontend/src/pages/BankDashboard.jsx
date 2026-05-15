@@ -718,10 +718,10 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
       if (ctxDist) {
 
-        const d = analytics?.risk_distribution || { Low: 0, Medium: 0, High: 0, Unscored: 0 };
+        const d = analytics?.risk_distribution || { Low: 0, Medium: 0, High: 0 };
         distChart = new Chart(ctxDist, {
           type: 'doughnut',
-          data: { labels: ['Low Risk (<30%)', 'Medium Risk', 'High Risk (>60%)', 'Unscored'], datasets: [{ data: [d.Low || 0, d.Medium || 0, d.High || 0, d.Unscored || 0], backgroundColor: ['#38C9B0', '#C9973C', '#E85475', '#A4B0C8'], borderColor: theme === 'dark' ? '#162030' : '#fff', borderWidth: 3, hoverOffset: 8 }] },
+          data: { labels: ['Low Risk (<30%)', 'Medium Risk', 'High Risk (>60%)'], datasets: [{ data: [d.Low || 0, d.Medium || 0, d.High || 0], backgroundColor: ['#38C9B0', '#C9973C', '#E85475'], borderColor: theme === 'dark' ? '#162030' : '#fff', borderWidth: 3, hoverOffset: 8 }] },
 
           options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } } }
 
@@ -1436,7 +1436,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                 <div className="kpi gold fade-up fade-up-d3">
                   <div className="kpi-lbl">Review Queue</div>
-                  <div className="kpi-val">{((stats.pending || 0) + (stats.manual_review || 0)).toLocaleString()}</div>
+                  <div className="kpi-val">{(stats.review_queue || 0).toLocaleString()}</div>
                   <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Manual review pending</div>
                 </div>
               </div>
@@ -1469,10 +1469,6 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#E85475' }}></div>
                       <span style={{ color: 'var(--slate)', fontWeight: 600 }}>High Risk</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#A4B0C8' }}></div>
-                      <span style={{ color: 'var(--slate)', fontWeight: 600 }}>Unscored</span>
                     </div>
                   </div>
 

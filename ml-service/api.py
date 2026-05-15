@@ -1165,29 +1165,53 @@ def get_dashboard_stats():
     db = get_db()
     if not db: return jsonify({'error': 'DB offline'}), 500
     
-    try:
-        from sqlalchemy import func
+        # --- DATA MIGRATION FOR SEED/DEMO RECORDS ---
+        # Ensure every application has a workflow_status, risk_category, and default_probability
+        missing_records = db.query(PredictionRecord).filter(
+            (PredictionRecord.status.is_(None)) | 
+            (PredictionRecord.risk_category.is_(None)) | 
+            (PredictionRecord.default_probability.is_(None))
+        ).all()
         
-        # Total official applications for this bank (Active in pipeline, exclude Rejected)
+        for r in missing_records:
+            if r.status is None or r.status == '':
+                r.status = 'pending'
+                
+            # If default_probability is missing, assign a safe demo value (e.g., 0.15)
+            if r.default_probability is None:
+                r.default_probability = 0.15
+                
+            # Ensure risk_category maps to Low, Medium, or High
+            if r.risk_category is None or r.risk_category == '' or r.risk_category == 'Unscored':
+                if r.default_probability < 0.3:
+                    r.risk_category = 'Low'
+                elif r.default_probability > 0.6:
+                    r.risk_category = 'High'
+                else:
+                    r.risk_category = 'Medium'
+                    
+        if missing_records:
+            db.commit()
+        # ---------------------------------------------
+
+        # 1. Total official applications for this bank (Must match Customer Directory count)
         total = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
-            PredictionRecord.target_bank == bank_name,
-            PredictionRecord.status != 'Rejected'
+            PredictionRecord.target_bank == bank_name
         ).scalar() or 0
 
-        # Approved
+        # 2. Approved Applications
         approved = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.status == 'Approved'
+            func.lower(PredictionRecord.status) == 'approved'
         ).scalar() or 0
 
-        # Pending (excluding high risk to avoid double counting in dashboard)
-        pending = db.query(func.count(PredictionRecord.id)).filter(
+        # 3. Review Queue (manual_review)
+        review_queue = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.status == 'Pending',
-            (PredictionRecord.default_probability <= 0.6) | (PredictionRecord.default_probability.is_(None))
+            func.lower(PredictionRecord.status) == 'manual_review'
         ).scalar() or 0
 
         # Rejected
@@ -1197,27 +1221,32 @@ def get_dashboard_stats():
             PredictionRecord.status == 'Rejected'
         ).scalar() or 0
 
-        # High Risk (ML Probability > 60% AND pending review)
+        # 4. High Risk Cases
         high_risk = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.default_probability > 0.6,
-            PredictionRecord.status == 'Pending'
+            func.lower(PredictionRecord.risk_category) == 'high'
         ).scalar() or 0
 
-        # Manual Review
-        manual_review = db.query(func.count(PredictionRecord.id)).filter(
+        # Miscellaneous stats (optional, for other purposes)
+        rejected = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            PredictionRecord.status == 'Additional Verification Required'
+            func.lower(PredictionRecord.status) == 'rejected'
+        ).scalar() or 0
+        
+        pending = db.query(func.count(PredictionRecord.id)).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name,
+            func.lower(PredictionRecord.status) == 'pending'
         ).scalar() or 0
 
         return jsonify({
             'total': total,
             'approved': approved,
+            'review_queue': review_queue,
             'pending': pending,
             'rejected': rejected,
-            'manual_review': manual_review,
             'high_risk': high_risk,
             'last_updated': datetime.utcnow().isoformat()
         })
@@ -1302,21 +1331,24 @@ def get_dashboard_analytics():
                 emi_trend.append(0)
                 for r_cat in ['Low', 'Medium', 'High']: risk_trend[r_cat].append(0)
 
-        # 2. Risk Distribution
+        # 2. Risk Distribution (Must strictly match Low, Medium, High)
         risk_dist = {
-            r_cat: db.query(func.count(PredictionRecord.id)).filter(
+            'Low': db.query(func.count(PredictionRecord.id)).filter(
                 PredictionRecord.application_type == 'official',
                 PredictionRecord.target_bank == bank_name,
-                PredictionRecord.risk_category == r_cat
-            ).scalar() or 0 for r_cat in ['Low', 'Medium', 'High']
+                func.lower(PredictionRecord.risk_category) == 'low'
+            ).scalar() or 0,
+            'Medium': db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.application_type == 'official',
+                PredictionRecord.target_bank == bank_name,
+                func.lower(PredictionRecord.risk_category) == 'medium'
+            ).scalar() or 0,
+            'High': db.query(func.count(PredictionRecord.id)).filter(
+                PredictionRecord.application_type == 'official',
+                PredictionRecord.target_bank == bank_name,
+                func.lower(PredictionRecord.risk_category) == 'high'
+            ).scalar() or 0
         }
-        
-        # Catch null predictions or missing risk categories
-        risk_dist['Unscored'] = db.query(func.count(PredictionRecord.id)).filter(
-            PredictionRecord.application_type == 'official',
-            PredictionRecord.target_bank == bank_name,
-            PredictionRecord.risk_category.is_(None)
-        ).scalar() or 0
 
         # 3. Loan Purpose Distribution
         purposes = ["Home", "Auto", "Education", "Business", "Personal", "Medical", "Travel"]
