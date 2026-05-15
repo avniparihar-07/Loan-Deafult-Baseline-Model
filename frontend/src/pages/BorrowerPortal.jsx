@@ -71,7 +71,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
   const [flags, setFlags] = useState({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
   // Official application form state
   const [applyForm, setApplyForm] = useState({
-    age: '', credit: '', income: '', loanAmt: '', purpose: 'other', customPurpose: '', term: 24, customTerm: '',
+    age: '', credit: '', income: '', loanAmt: '', purpose: 'home', customPurpose: '', term: 24, customTerm: '',
     empType: 'full', empl: '', jobChanges: '', edu: 'bach', marital: 'married',
     state: '', dtiDebt: '', dtiIncome: '', dti: '', lines: '',
     targetBank: '', targetBankCustom: ''
@@ -267,7 +267,7 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     });
     setFlags({ mort: 'N', dep: 'N', co: 'N', extloan: 'N' });
     setApplyForm({
-      age: '', credit: '', income: '', loanAmt: '', purpose: 'other', customPurpose: '', term: 24, customTerm: '',
+      age: '', credit: '', income: '', loanAmt: '', purpose: 'home', customPurpose: '', term: 24, customTerm: '',
       empType: 'full', empl: '', jobChanges: '', edu: 'bach', marital: 'married',
       state: '', dtiDebt: '', dtiIncome: '', dti: '', lines: '',
       targetBank: '', targetBankCustom: ''
@@ -309,28 +309,30 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
     if (selectedIdType !== 'pan' && !docs.idBack) { alert('Please upload the back of your identity document.'); return; }
 
     setApplySubmitting(true);
-    // Ensure DTI is stored as a valid decimal (0-1 range). Auto-calc is already in decimal.
+    // Ensure DTI is stored as a valid decimal (0-1 range).
     const safeDti = Math.max(0, Math.min(parseFloat(applyForm.dti) || 0, 0.99));
-    // Purpose: map form key to human-readable label, preserving specificity for the analyst
+    // Ensure jobChanges is sent as a proper integer (not string or empty)
+    const safeJobChanges = parseInt(applyForm.jobChanges, 10);
+    const finalJobChanges = Number.isNaN(safeJobChanges) ? 0 : safeJobChanges;
+    // Purpose: always use the actual form key, map to human-readable label
     const loanPurposeFull = {
       home: 'Home', auto: 'Auto', education: 'Education', business: 'Business',
       medical: 'Medical', personal: 'Personal', other: 'Other'
     };
-    // ML model only accepts: Home, Business, Education, Auto, Other — so we normalize for storage
-    const mlPurposeMap = { home: 'Home', auto: 'Auto', education: 'Education', business: 'Business', medical: 'Other', personal: 'Other', other: 'Other', custom: 'Other' };
-    // Store the full human-readable purpose (analyst sees this); ML will use its own mapping at analyze time
-    const storedPurpose = effectivePurpose2 === 'custom'
-      ? (applyForm.customPurpose || 'Other')
-      : (loanPurposeFull[effectivePurpose2] || mlPurposeMap[effectivePurpose2] || 'Other');
+    // For custom purpose: use the text the borrower typed; otherwise map the key
+    const rawPurposeKey = applyForm.purpose; // e.g. 'home', 'auto', 'custom'
+    const storedPurpose = rawPurposeKey === 'custom'
+      ? (applyForm.customPurpose.trim() || 'Other')
+      : (loanPurposeFull[rawPurposeKey] || 'Other');
     const payload = {
       FullName: `${user?.first} ${user?.last}`.trim(),
       Email: user?.email,
-      Age: applyForm.age || 25,
-      Income: applyForm.income || 0,
-      LoanAmount: applyForm.loanAmt,
-      CreditScore: applyForm.credit || 0,
-      MonthsEmployed: applyForm.empl,
-      NumCreditLines: applyForm.lines || 1,
+      Age: parseInt(applyForm.age, 10) || 25,
+      Income: parseFloat(applyForm.income) || 0,
+      LoanAmount: parseFloat(applyForm.loanAmt) || 0,
+      CreditScore: parseInt(applyForm.credit, 10) || 0,
+      MonthsEmployed: parseInt(applyForm.empl, 10) || 0,
+      NumCreditLines: parseInt(applyForm.lines, 10) || 1,
       LoanTerm: effectiveTerm2,
       DTIRatio: safeDti,
       Education: eduMap2[applyForm.edu] || "Bachelor's",
@@ -341,10 +343,12 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
       LoanPurpose: storedPurpose,
       HasCoSigner: applyFlags.co === 'Y' ? 'Yes' : 'No',
       HasExistingLoan: applyFlags.extloan === 'Y' ? 'Yes' : 'No',
-      JobChanges: applyForm.jobChanges || 0,
+      JobChanges: finalJobChanges,
       State: applyForm.state || 'MH',
       TargetBank: targetBankFinal,
     };
+    // DEBUG: log payload before sending — remove after verification
+    console.log('[BorrowerPortal] Submitting payload:', JSON.stringify(payload, null, 2));
     try {
       const res = await fetch(apiUrl('/api/apply'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();

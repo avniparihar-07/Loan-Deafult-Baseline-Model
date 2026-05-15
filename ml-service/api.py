@@ -703,6 +703,10 @@ def submit_application():
         return jsonify({'error': 'DB offline'}), 500
 
     try:
+        # DEBUG: log received payload for verification — remove after confirming fix
+        logger.info(f"[/api/apply] Received payload keys: {list(data.keys())}")
+        logger.info(f"[/api/apply] LoanPurpose='{data.get('LoanPurpose')}' | JobChanges='{data.get('JobChanges')}' | LoanTerm='{data.get('LoanTerm')}'")
+
         record = PredictionRecord(
             full_name=str(data.get('FullName', '')).strip(),
             email=str(data.get('Email', '')).strip(),
@@ -737,6 +741,7 @@ def submit_application():
             default_probability=None,
             risk_category=None,
         )
+        logger.info(f"[/api/apply] DB insert — loan_purpose='{record.loan_purpose}' | job_changes={record.job_changes}")
         db.add(record)
         db.commit()
         db.refresh(record)
