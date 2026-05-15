@@ -2741,7 +2741,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
 
 
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+
 
 
 
