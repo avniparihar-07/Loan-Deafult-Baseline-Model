@@ -1186,9 +1186,18 @@ def get_dashboard_stats():
                     r.default_probability = 0.85
                     modified = True
                     
-            # If default_probability is missing, assign a safe demo value
+            # Force approved applications to be Low Risk (to fix demo data anomalies)
+            if r.status and r.status.lower() == 'approved':
+                if r.risk_category != 'Low Risk':
+                    r.risk_category = 'Low Risk'
+                    modified = True
+                if r.default_probability is None or r.default_probability > 0.3:
+                    r.default_probability = 0.15
+                    modified = True
+                    
+            # If default_probability is missing for other states, assign a safe demo value
             if r.default_probability is None:
-                r.default_probability = 0.15 if r.status.lower() == 'approved' else 0.45
+                r.default_probability = 0.45
                 modified = True
                 
             # Ensure risk_category maps to Low, Medium, or High
