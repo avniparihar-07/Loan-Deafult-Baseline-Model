@@ -1431,7 +1431,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                 <div className="kpi rose fade-up fade-up-d2">
                   <div className="kpi-lbl">High Risk Cases</div>
                   <div className="kpi-val">{(stats.high_risk || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Requires urgent review</div>
+                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Included across workflow states</div>
                 </div>
 
                 <div className="kpi gold fade-up fade-up-d3">

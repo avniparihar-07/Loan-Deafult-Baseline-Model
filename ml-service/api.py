@@ -1186,11 +1186,11 @@ def get_dashboard_stats():
             # Ensure risk_category maps to Low, Medium, or High
             if r.risk_category is None or r.risk_category == '' or r.risk_category == 'Unscored':
                 if r.default_probability < 0.3:
-                    r.risk_category = 'Low'
+                    r.risk_category = 'Low Risk'
                 elif r.default_probability > 0.6:
-                    r.risk_category = 'High'
+                    r.risk_category = 'High Risk'
                 else:
-                    r.risk_category = 'Medium'
+                    r.risk_category = 'Medium Risk'
                     
         if missing_records:
             db.commit()
@@ -1227,7 +1227,7 @@ def get_dashboard_stats():
         high_risk = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            func.lower(PredictionRecord.risk_category) == 'high'
+            PredictionRecord.risk_category.ilike('%high%')
         ).scalar() or 0
 
         # Miscellaneous stats (optional, for other purposes)
@@ -1320,7 +1320,7 @@ def get_dashboard_analytics():
                         PredictionRecord.application_type == 'official',
                         PredictionRecord.target_bank == bank_name,
                         extract('month', PredictionRecord.created_at) == i,
-                        PredictionRecord.risk_category == r_cat
+                        PredictionRecord.risk_category.ilike(f'%{r_cat}%')
                     ).scalar() or 0
                     # Convert to percentage
                     pct = round((r_count / count * 100) if count > 0 else 0, 1)
@@ -1338,17 +1338,17 @@ def get_dashboard_analytics():
             'Low': db.query(func.count(PredictionRecord.id)).filter(
                 PredictionRecord.application_type == 'official',
                 PredictionRecord.target_bank == bank_name,
-                func.lower(PredictionRecord.risk_category) == 'low'
+                PredictionRecord.risk_category.ilike('%low%')
             ).scalar() or 0,
             'Medium': db.query(func.count(PredictionRecord.id)).filter(
                 PredictionRecord.application_type == 'official',
                 PredictionRecord.target_bank == bank_name,
-                func.lower(PredictionRecord.risk_category) == 'medium'
+                PredictionRecord.risk_category.ilike('%medium%')
             ).scalar() or 0,
             'High': db.query(func.count(PredictionRecord.id)).filter(
                 PredictionRecord.application_type == 'official',
                 PredictionRecord.target_bank == bank_name,
-                func.lower(PredictionRecord.risk_category) == 'high'
+                PredictionRecord.risk_category.ilike('%high%')
             ).scalar() or 0
         }
 
