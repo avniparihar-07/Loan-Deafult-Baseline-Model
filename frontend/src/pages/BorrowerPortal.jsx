@@ -1433,8 +1433,8 @@ export default function BorrowerPortal({ user, onLogout, theme, toggleTheme }) {
                         <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--navy)' }}>{fmt(app.loan_amount)}</td>
                         <td style={{ fontWeight: 600 }}>{app.term} Months</td>
                         <td>
-                          <span className={`mock-status ${app.status === 'Approved' ? 's-ok' : app.status === 'Rejected' ? 's-err' : 's-wait'}`}>
-                            {app.status}
+                          <span className={`mock-status ${(app.status === 'Approved' && app.assigned_rate && app.assigned_rate !== '-') ? 's-ok' : app.status === 'Rejected' ? 's-err' : 's-wait'}`}>
+                            {(!app.status || app.status === 'Pending' || !app.assigned_rate || app.assigned_rate === '-') ? 'Pending Review' : app.status}
                           </span>
                         </td>
                         <td style={{ fontWeight: 800, color: 'var(--sky)' }}>
@@ -1712,9 +1712,10 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
   const displayPurpose = data.purpose === 'custom' ? data.customPurpose : (purposeMap[data.purpose] || data.purpose);
   const effectiveTerm = data.term === 'custom' ? data.customTerm : data.term;
 
-  const status = result.adjustedD?.status || 'Under Review';
-  const isRejected = status === 'Rejected';
-  const isApproved = status === 'Approved';
+  const statusStr = (result.adjustedD?.status || data.status || 'Pending').toLowerCase();
+  const isPending = statusStr === 'pending' || !data.assigned_rate || data.assigned_rate === '-';
+  const isRejected = statusStr === 'rejected';
+  const isApproved = statusStr === 'approved' && !isPending;
 
   return (
     <div className="fade-in">
@@ -1744,7 +1745,7 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
                 color: isApproved ? 'var(--teal)' : isRejected ? 'var(--rose)' : 'var(--gold)',
                 border: `1px solid ${isApproved ? 'var(--teal)' : isRejected ? 'var(--rose)' : 'var(--gold)'}22`
               }}>
-                {status.toUpperCase()}
+                {isPending ? 'PENDING REVIEW' : statusStr.toUpperCase()}
               </span>
               <span style={{ fontSize: '12px', color: 'var(--slate)', fontWeight: 500 }}>
                 {isApproved ? 'Congratulations! Your loan has been approved.' : isRejected ? 'Your application requires adjustments for approval.' : 'Your application is currently being evaluated by our underwriters.'}
@@ -1769,7 +1770,7 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
               <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }} />
             </div>
             <div style={{ marginTop: '12px', fontSize: '11px', fontWeight: 600, color: 'var(--slate)' }}>
-              Risk Level: <span style={{ color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)', fontWeight: 800 }}>{result.level.toUpperCase()}</span>
+              Risk Level: <span style={{ color: isPending ? 'var(--gold)' : (result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'), fontWeight: 800 }}>{isPending ? 'PENDING' : result.level.toUpperCase()}</span>
             </div>
           </div>
 

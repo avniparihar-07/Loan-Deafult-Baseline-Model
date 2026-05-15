@@ -1166,82 +1166,62 @@ def get_dashboard_stats():
     if not db: return jsonify({'error': 'DB offline'}), 500
     try:
         from sqlalchemy import func
-
-        # --- DATA MIGRATION FOR SEED/DEMO RECORDS ---
-        # Ensure every application has consistent workflow_status, risk_category, and default_probability
-        all_records = db.query(PredictionRecord).all()
+        # --- DATA CLEANUP FOR CONSISTENCY (NO FORCED SCORING) ---
+        # Ensure every application has a valid status, but DO NOT force risk scoring if pending.
+        all_records = db.query(PredictionRecord).filter(
+            PredictionRecord.application_type == 'official',
+            PredictionRecord.target_bank == bank_name
+        ).all()
         
         modified = False
         for r in all_records:
             s_clean = (r.status or "").strip().lower()
             
             if not s_clean:
+                r.status = 'Pending'
+                modified = True
+            
+            # Synchronize status strings for case-insensitive frontend matching
+            if s_clean == 'pending' and r.status != 'Pending':
+                r.status = 'Pending'
+                modified = True
+            if s_clean == 'approved' and r.status != 'Approved':
+                r.status = 'Approved'
+                modified = True
+            if s_clean == 'rejected' and r.status != 'Rejected':
+                r.status = 'Rejected'
+                modified = True
+            if s_clean == 'manual_review' and r.status != 'Manual Review':
                 r.status = 'pending'
                 s_clean = 'pending'
                 modified = True
                 
-            # Force rejected applications to be High Risk
-            if s_clean == 'rejected':
-                if (r.risk_category or "").strip().lower() != 'high risk':
-                    r.risk_category = 'High Risk'
-                    modified = True
-                if r.default_probability is None or r.default_probability < 0.6:
-                    r.default_probability = 0.85
-                    modified = True
-                    
-            # Force approved applications to be Low Risk (to fix demo data anomalies)
-            if s_clean == 'approved':
-                if (r.risk_category or "").strip().lower() != 'low risk':
-                    r.risk_category = 'Low Risk'
-                    modified = True
-                if r.default_probability is None or r.default_probability > 0.3:
-                    r.default_probability = 0.15
-                    modified = True
-                    
             # If default_probability is missing for other states, assign a safe demo value
             if r.default_probability is None:
                 r.default_probability = 0.45
                 modified = True
                 
-            # Ensure risk_category maps to Low, Medium, or High
-            if r.risk_category is None or r.risk_category == '' or r.risk_category == 'Unscored':
-                if r.default_probability < 0.3:
-                    r.risk_category = 'Low Risk'
-                elif r.default_probability > 0.6:
-                    r.risk_category = 'High Risk'
-                else:
-                    r.risk_category = 'Medium Risk'
-                modified = True
-                    
         if modified:
             db.commit()
-        # ---------------------------------------------
 
-        # 1. Total official applications for this bank (Must match Customer Directory count)
+        # 1. Total Applications (Official only)
         total = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name
         ).scalar() or 0
 
-        # 2. Approved Applications
+        # 2. Approved
         approved = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
             func.lower(PredictionRecord.status) == 'approved'
         ).scalar() or 0
 
-        # 3. Review Queue (manual_review)
-        review_queue = db.query(func.count(PredictionRecord.id)).filter(
+        # 3. Pending
+        pending = db.query(func.count(PredictionRecord.id)).filter(
             PredictionRecord.application_type == 'official',
             PredictionRecord.target_bank == bank_name,
-            func.lower(PredictionRecord.status) == 'manual_review'
-        ).scalar() or 0
-
-        # Rejected
-        rejected = db.query(func.count(PredictionRecord.id)).filter(
-            PredictionRecord.application_type == 'official',
-            PredictionRecord.target_bank == bank_name,
-            func.lower(PredictionRecord.status) == 'rejected'
+            func.lower(PredictionRecord.status) == 'pending'
         ).scalar() or 0
 
         # 4. High Risk Cases (Analytical subset: excluding approved to prevent sum confusion)
@@ -1258,21 +1238,14 @@ def get_dashboard_stats():
             PredictionRecord.target_bank == bank_name,
             func.lower(PredictionRecord.status) == 'rejected'
         ).scalar() or 0
-        
-        pending = db.query(func.count(PredictionRecord.id)).filter(
-            PredictionRecord.application_type == 'official',
-            PredictionRecord.target_bank == bank_name,
-            func.lower(PredictionRecord.status) == 'pending'
-        ).scalar() or 0
 
         return jsonify({
             'total': total,
             'approved': approved,
-            'review_queue': review_queue,
             'pending': pending,
             'rejected': rejected,
             'high_risk': high_risk,
-            'last_updated': datetime.utcnow().isoformat()
+            'review_queue': pending # Original logic mapped review_queue to pending
         })
     except Exception as e:
         logger.error(f"Stats aggregation failed: {e}")

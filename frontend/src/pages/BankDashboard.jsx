@@ -471,6 +471,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
     const purposeMap = { home: "Home", auto: "Auto", education: "Education", business: "Business", personal: "Personal", medical: "Medical", travel: "Travel" };
 
     const effectivePurpose = formData.purpose;
+    const effectiveTerm = formData.term === 'custom' ? formData.customTerm : formData.term;
 
     const payload = {
 
@@ -1402,30 +1403,30 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
               </div>
 
               <div className="kpi-row">
-                <div className="kpi sky fade-up">
-                  <div className="kpi-lbl">Total Applications</div>
-                  <div className="kpi-val">{(stats.total || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>Active in Pipeline</div>
+                  <div className="kpi sky fade-up">
+                    <div className="kpi-lbl">Total Applications</div>
+                    <div className="kpi-val">{(stats.total || 0).toLocaleString()}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--slate)', fontWeight: 600 }}>Active in Pipeline</div>
+                  </div>
+  
+                  <div className="kpi teal fade-up fade-up-d1">
+                    <div className="kpi-lbl">Approved Applications</div>
+                    <div className="kpi-val">{(stats.approved || 0).toLocaleString()}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>● Sanctioned & Dispatched</div>
+                  </div>
+  
+                  <div className="kpi rose fade-up fade-up-d2">
+                    <div className="kpi-lbl">High Risk Cases</div>
+                    <div className="kpi-val">{(stats.high_risk || 0).toLocaleString()}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Included across workflow states</div>
+                  </div>
+  
+                  <div className="kpi gold fade-up fade-up-d3">
+                    <div className="kpi-lbl">Review Queue</div>
+                    <div className="kpi-val">{(stats.review_queue || stats.pending || 0).toLocaleString()}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Manual review pending</div>
+                  </div>
                 </div>
-
-                <div className="kpi teal fade-up fade-up-d1">
-                  <div className="kpi-lbl">Approved Applications</div>
-                  <div className="kpi-val">{(stats.approved || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--teal)', fontWeight: 600 }}>● Sanctioned & Dispatched</div>
-                </div>
-
-                <div className="kpi rose fade-up fade-up-d2">
-                  <div className="kpi-lbl">High Risk Cases</div>
-                  <div className="kpi-val">{(stats.high_risk || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--rose)', fontWeight: 600 }}>● Included across workflow states</div>
-                </div>
-
-                <div className="kpi gold fade-up fade-up-d3">
-                  <div className="kpi-lbl">Review Queue</div>
-                  <div className="kpi-val">{(stats.review_queue || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--amber)', fontWeight: 600 }}>● Manual review pending</div>
-                </div>
-              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px' }}>
 
@@ -2737,15 +2738,6 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
               </div>
 
-
-
-
-
-
-
-
-
-
               <div className="card fade-up fade-up-d2">
 
                 <div className="ch"><div className="ct"><div className="pip pip-teal" />Bill Payment Radar</div></div>
@@ -2844,50 +2836,57 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     (a.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (a.loan_id || '').toLowerCase().includes(searchQuery.toLowerCase())
                   ).map((a, i) => {
-                    const risk = (a.risk_category || 'Low').toLowerCase();
-                    const riskColor = risk.includes('low') ? { bg: 'rgba(13,148,136,.08)', color: '#0d9488', border: 'rgba(13,148,136,.2)' }
-                      : risk.includes('medium') ? { bg: 'rgba(217,119,6,.08)', color: '#b45309', border: 'rgba(217,119,6,.2)' }
-                        : { bg: 'rgba(225,29,72,.08)', color: '#be123c', border: 'rgba(225,29,72,.2)' };
-                    const initial = a.full_name?.trim().charAt(0).toUpperCase() || 'U';
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => setSelectedApp(a)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '16px',
-                          background: '#fff', border: '1px solid var(--border)',
-                          borderRadius: '16px', padding: '20px 24px',
-                          cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sky)'; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(14,165,233,0.1)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.02)'; }}
-                      >
-                        {/* Avatar */}
-                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--sky) 0%, var(--navy) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: '#fff', flexShrink: 0, boxShadow: '0 4px 12px rgba(14,165,233,0.2)' }}>
-                          {initial}
-                        </div>
+                      const status = (a.status || 'Pending').toLowerCase();
+                      const isPending = status === 'pending' || !a.assigned_rate || a.assigned_rate === '-';
+                      const isManual = status === 'manual review' || status === 'additional verification required';
+                      const isApproved = status === 'approved';
+                      const isRejected = status === 'rejected';
+                      
+                      const risk = (a.risk_category || '').toLowerCase();
+                      const riskColor = (isApproved || risk.includes('low')) ? { bg: 'rgba(13,148,136,.08)', color: '#0d9488', border: 'rgba(13,148,136,.2)' }
+                        : (isRejected || risk.includes('high')) ? { bg: 'rgba(225,29,72,.08)', color: '#be123c', border: 'rgba(225,29,72,.2)' }
+                          : { bg: 'rgba(217,119,6,.08)', color: '#b45309', border: 'rgba(217,119,6,.2)' };
+                      
+                      let badgeLabel = isPending ? 'PENDING REVIEW' : (isManual ? 'MANUAL REVIEW' : (isApproved ? 'LOW RISK' : (isRejected ? 'HIGH RISK' : (a.risk_category || 'LOW RISK'))));
 
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--navy)', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.3px' }}>
-                            {a.full_name || 'Unknown Customer'}
+                      const initial = a.full_name?.trim().charAt(0).toUpperCase() || 'U';
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedApp(a)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '16px',
+                            background: '#fff', border: '1px solid var(--border)',
+                            borderRadius: '16px', padding: '20px 24px',
+                            cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                          }}
+                        >
+                          {/* Avatar */}
+                          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--sky) 0%, var(--navy) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: '#fff', flexShrink: 0, boxShadow: '0 4px 12px rgba(14,165,233,0.2)' }}>
+                            {initial}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 10px', borderRadius: '8px', background: riskColor.bg, color: riskColor.color }}>
-                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
-                              {a.risk_category || 'Low'}
-                            </span>
-                            <span style={{ fontSize: '11px', color: 'var(--sky)', fontWeight: 800, letterSpacing: '0.5px', fontFamily: "'IBM Plex Mono',monospace" }}>{a.loan_id || `#${a.id}`}</span>
+  
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--navy)', marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.3px' }}>
+                              {a.full_name || 'Unknown Customer'}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 10px', borderRadius: '8px', background: riskColor.bg, color: riskColor.color }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+                                {badgeLabel}
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--sky)', fontWeight: 800, letterSpacing: '0.5px', fontFamily: "'IBM Plex Mono',monospace" }}>{a.loan_id || `#${a.id}`}</span>
+                            </div>
+                          </div>
+  
+                          {/* View Button */}
+                          <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--sky)', background: 'rgba(14,165,233,0.05)', padding: '8px 16px', borderRadius: '10px', whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.2s ease', border: '1px solid rgba(14,165,233,0.1)' }}>
+                            Review
                           </div>
                         </div>
-
-                        {/* View Button */}
-                        <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--sky)', background: 'rgba(14,165,233,0.05)', padding: '8px 16px', borderRadius: '10px', whiteSpace: 'nowrap', flexShrink: 0, transition: 'all 0.2s ease', border: '1px solid rgba(14,165,233,0.1)' }}>
-                          Review
-                        </div>
-                      </div>
-                    );
+                      );
                   })}
 
                   {apps.filter(a =>
