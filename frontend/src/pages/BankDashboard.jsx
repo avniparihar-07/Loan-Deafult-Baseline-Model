@@ -2472,7 +2472,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                   <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>NPA Exposure</div>
 
-                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--rose)', marginBottom: '8px' }}>₹{apps.length > 0 ? (apps.filter(a => a.risk_category === 'High').reduce((s, a) => s + a.loan_amount, 0) / 10000000).toFixed(2) : '0.00'}Cr</div>
+                  <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '28px', fontWeight: 700, color: 'var(--rose)', marginBottom: '8px' }}>₹{apps.length > 0 ? (apps.filter(a => (a.risk_category || '').toLowerCase().includes('high')).reduce((s, a) => s + (a.loan_amount || 0), 0) / 10000000).toFixed(2) : '0.00'}Cr</div>
 
                   <div style={{ fontSize: '12px', color: 'var(--rose)', fontWeight: 600, marginBottom: '16px' }}>High risk sum</div>
 
@@ -2517,59 +2517,33 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                   <div className="ch"><div className="ct"><div className="pip pip-rose"></div>Risk Category Breakdown</div></div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-
                     <div style={{ border: '1px solid rgba(56,201,176,0.2)', background: 'rgba(56,201,176,0.04)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-
-                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--teal)', marginBottom: '4px' }}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'Low').length / apps.length) * 100).toFixed(0) : '0'}%</div>
-
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--teal)', marginBottom: '4px' }}>{apps.length > 0 ? ((apps.filter(a => (a.risk_category || '').toLowerCase().includes('low')).length / apps.length) * 100).toFixed(0) : '0'}%</div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' }}>Low Risk</div>
-
                     </div>
-
                     <div style={{ border: '1px solid rgba(201,151,60,0.2)', background: 'rgba(201,151,60,0.04)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-
-                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px' }}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'Medium').length / apps.length) * 100).toFixed(0) : '0'}%</div>
-
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--gold)', marginBottom: '4px' }}>{apps.length > 0 ? ((apps.filter(a => (a.risk_category || '').toLowerCase().includes('medium')).length / apps.length) * 100).toFixed(0) : '0'}%</div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' }}>Medium Risk</div>
-
                     </div>
-
                     <div style={{ border: '1px solid rgba(232,84,117,0.2)', background: 'rgba(232,84,117,0.04)', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-
-                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--rose)', marginBottom: '4px' }}>{apps.length > 0 ? ((apps.filter(a => a.risk_category === 'High').length / apps.length) * 100).toFixed(0) : '0'}%</div>
-
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '22px', fontWeight: 700, color: 'var(--rose)', marginBottom: '4px' }}>{apps.length > 0 ? ((apps.filter(a => (a.risk_category || '').toLowerCase().includes('high')).length / apps.length) * 100).toFixed(0) : '0'}%</div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' }}>High Risk</div>
-
                     </div>
-
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-
                     <div style={{ border: '1px solid var(--border)', background: 'var(--bg2)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-
-                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--teal)', marginBottom: '2px' }}>{apps.filter(a => a.risk_category === 'Low').length.toLocaleString()}</div>
-
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--teal)', marginBottom: '2px' }}>{apps.filter(a => (a.status || '').toLowerCase() === 'approved').length.toLocaleString()}</div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' }}>Approved</div>
-
                     </div>
-
                     <div style={{ border: '1px solid var(--border)', background: 'var(--bg2)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-
-                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--gold)', marginBottom: '2px' }}>{apps.filter(a => a.risk_category === 'Medium').length.toLocaleString()}</div>
-
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--gold)', marginBottom: '2px' }}>{apps.filter(a => (a.status || '').toLowerCase() === 'pending' || (a.status || '').toLowerCase() === 'manual_review').length.toLocaleString()}</div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' }}>Under Review</div>
-
                     </div>
-
                     <div style={{ border: '1px solid var(--border)', background: 'var(--bg2)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-
-                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--rose)', marginBottom: '2px' }}>{apps.filter(a => a.risk_category === 'High').length.toLocaleString()}</div>
-
+                      <div style={{ fontFamily: "'Manrope',sans-serif", fontSize: '18px', fontWeight: 700, color: 'var(--rose)', marginBottom: '2px' }}>{apps.filter(a => (a.status || '').toLowerCase() === 'rejected').length.toLocaleString()}</div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' }}>Declined</div>
-
                     </div>
-
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '11px', color: 'var(--text3)', marginBottom: '10px' }}>
