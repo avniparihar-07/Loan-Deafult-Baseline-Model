@@ -2949,8 +2949,8 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
                     (a.loan_id || '').toLowerCase().includes(searchQuery.toLowerCase())
                   ).map((a, i) => {
                     const risk = (a.risk_category || 'Low').toLowerCase();
-                    const riskColor = risk === 'low' ? { bg: 'rgba(13,148,136,.08)', color: '#0d9488', border: 'rgba(13,148,136,.2)' }
-                      : risk === 'medium' ? { bg: 'rgba(217,119,6,.08)', color: '#b45309', border: 'rgba(217,119,6,.2)' }
+                    const riskColor = risk.includes('low') ? { bg: 'rgba(13,148,136,.08)', color: '#0d9488', border: 'rgba(13,148,136,.2)' }
+                      : risk.includes('medium') ? { bg: 'rgba(217,119,6,.08)', color: '#b45309', border: 'rgba(217,119,6,.2)' }
                         : { bg: 'rgba(225,29,72,.08)', color: '#be123c', border: 'rgba(225,29,72,.2)' };
                     const initial = a.full_name?.trim().charAt(0).toUpperCase() || 'U';
                     return (
