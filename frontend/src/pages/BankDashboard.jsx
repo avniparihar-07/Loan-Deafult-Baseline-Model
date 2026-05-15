@@ -2677,9 +2677,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
           {page === 'bd-behaviour' && (
 
             <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-
-              <div className="card fade-up">
-
+              <div className="card fade-up" style={{ gridColumn: 'span 2' }}>
                 <div className="ch"><div className="ct"><div className="pip pip-sky" />Job Stability Analysis</div></div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
@@ -2722,7 +2720,7 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
                 </div>
 
-                <div style={{ position: 'relative', paddingLeft: '20px', borderLeft: '1px solid var(--border)', marginLeft: '10px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ position: 'relative', paddingLeft: '20px', borderLeft: '1px solid var(--border)', marginLeft: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
 
                   {apps.slice(0, 6).map((a, i) => (
                     <div key={i} style={{ position: 'relative' }}>
@@ -2739,25 +2737,14 @@ export default function BankDashboard({ user, onLogout, theme, toggleTheme }) {
 
               </div>
 
-              <div className="card fade-up fade-up-d1">
 
-                <div className="ch"><div className="ct"><div className="pip pip-gold" />Behaviour Signals</div></div>
+
+
 
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
 
-                  {apps.filter(a => a.months_employed > 36).length > apps.length / 2 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● High Tenure Avg</span>}
 
-                  {apps.filter(a => a.job_changes <= 1).length > apps.length / 2 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● Stable Employment</span>}
 
-                  {apps.filter(a => a.has_cosigner === 'Yes').length > 0 && <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)' }}>● Co-Signer Presence</span>}
-
-                  {apps.length > 5 && <span style={{ fontSize: '11px', background: 'rgba(56,201,176,0.1)', color: 'var(--teal)', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(56,201,176,0.2)' }}>● Consistent Flow</span>}
-
-                  <span style={{ fontSize: '11px', background: 'rgba(75,168,224,0.1)', color: '#4BA8E0', padding: '6px 12px', borderRadius: '20px', fontWeight: 600, border: '1px solid rgba(75,168,224,0.2)' }}>● Verification Active</span>
-
-                </div>
-
-              </div>
 
               <div className="card fade-up fade-up-d2">
 
