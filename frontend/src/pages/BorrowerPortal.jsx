@@ -1763,14 +1763,14 @@ const ApplicationSummaryView = ({ data, flags, result, onBack, showAdvanced, set
           <div style={{ background: 'var(--bg)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--slate)', textTransform: 'uppercase', marginBottom: '16px' }}>Risk Assessment</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
-              <div style={{ fontSize: '28px', fontWeight: 800, color: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }}>{result.pct}%</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: isPending ? 'var(--gold)' : (result.level.toLowerCase().includes('low') || statusStr === 'approved') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)' }}>{result.pct}%</div>
               <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', paddingBottom: '4px' }}>Default Prob.</div>
             </div>
             <div style={{ height: '6px', background: 'var(--ice)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${result.pct}%`, background: result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)' }} />
+              <div style={{ height: '100%', width: `${result.pct}%`, background: isPending ? 'var(--gold)' : (result.level.toLowerCase().includes('low') || statusStr === 'approved') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)' }} />
             </div>
             <div style={{ marginTop: '12px', fontSize: '11px', fontWeight: 600, color: 'var(--slate)' }}>
-              Risk Level: <span style={{ color: isPending ? 'var(--gold)' : (result.level === 'low' ? 'var(--teal)' : result.level === 'med' ? 'var(--gold)' : 'var(--rose)'), fontWeight: 800 }}>{isPending ? 'PENDING' : result.level.toUpperCase()}</span>
+              Risk Level: <span style={{ color: isPending ? 'var(--gold)' : (result.level.toLowerCase().includes('low') || statusStr === 'approved') ? 'var(--teal)' : result.level.toLowerCase().includes('med') ? 'var(--gold)' : 'var(--rose)'), fontWeight: 800 }}>{isPending ? 'PENDING' : result.level.toUpperCase().includes('LOW') ? 'LOW RISK' : result.level.toUpperCase()}</span>
             </div>
           </div>
 
